@@ -1,0 +1,22 @@
+.DS_Store
+._*
+.pio/
+build/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.openai/
+recovery/
+backups/
+local/
+sdcard/LOFI/settings.json
+sdcard/LOFI/favorites.json
+sdcard/LOFI/recordings/
+assets/audio/raw/
+
+# Private binary state (native/device test fixtures)
+sdcard/LOFI/state.*

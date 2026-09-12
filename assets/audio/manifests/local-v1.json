@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "status": "accepted_for_local_v1_candidate_bank",
+  "bank_id": "local-v1-aa4598c3b905",
+  "purpose": "Deterministic built-in sample-assisted audition candidate; engine selection remains pending.",
+  "format": {
+    "encoding": "signed_little_endian_pcm",
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "bits_per_sample": 16
+  },
+  "sample_order": [
+    "keys_low",
+    "keys_mid",
+    "keys_high",
+    "kick_soft",
+    "snare_brush",
+    "hat_closed",
+    "rim_wood"
+  ],
+  "sample_count": 7,
+  "total_pcm_bytes": 58240,
+  "resident_pcm_max_bytes": 65536,
+  "combined_pcm_sha256": "aa4598c3b9054e0d0069d1b65a3e24ac5e2da1e295db299c4176421e538eb375",
+  "samples": [
+    {
+      "id": "keys_low",
+      "path": "assets/audio/selected/local-v1/keys_low.wav",
+      "sha256": "e55f1b07c43ec4ef156899b43a219f4c398d7986023b4ab0795f7cb86388895b",
+      "pcm_sha256": "36da626b17242feb89a5c1e4a1c4cb2efa169d583105befe55b44c48b2fdeb30",
+      "frames": 5600,
+      "pcm_bytes": 11200,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 48,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "warm_electric_piano_v1"
+      }
+    },
+    {
+      "id": "keys_mid",
+      "path": "assets/audio/selected/local-v1/keys_mid.wav",
+      "sha256": "686ede65dc7d7e7a02696aad215947a5613d93ba901ee1d35cbbb671c8823f3f",
+      "pcm_sha256": "cc8b5bf3492dec33f69641bbc65b4954144fce84cab1042604886198c8967734",
+      "frames": 5600,
+      "pcm_bytes": 11200,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 60,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "warm_electric_piano_v1"
+      }
+    },
+    {
+      "id": "keys_high",
+      "path": "assets/audio/selected/local-v1/keys_high.wav",
+      "sha256": "cdda633200f57f9094a96bea8e2d2b8b8ae64a00bb22c52e8fd885b3a4f3c5ce",
+      "pcm_sha256": "9c6322162a574d0db54e40cd73e6b1a8c6d437843a57454d1ea8b486945c4017",
+      "frames": 5600,
+      "pcm_bytes": 11200,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 72,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "warm_electric_piano_v1"
+      }
+    },
+    {
+      "id": "kick_soft",
+      "path": "assets/audio/selected/local-v1/kick_soft.wav",
+      "sha256": "7c9fb9863f009375b5ca43fa350bcab0b0ac1104927e09d7aac215d2dd1ca31d",
+      "pcm_sha256": "c836b33566cf8b24bfb354976f3dc7d8b7f289de58ff258901449ce971a78f56",
+      "frames": 4800,
+      "pcm_bytes": 9600,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 60,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "soft_lofi_kick_soft_v1"
+      }
+    },
+    {
+      "id": "snare_brush",
+      "path": "assets/audio/selected/local-v1/snare_brush.wav",
+      "sha256": "391f94a48d7ece75de4238d2cc470fbecb4a3b6ef896962afd1745a6021ccaed",
+      "pcm_sha256": "b770336e17bbcac5c75bbf19c65c8c0ae168aeb787ce1db5c4b1c760e6e5e09b",
+      "frames": 4000,
+      "pcm_bytes": 8000,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 60,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "soft_lofi_snare_brush_v1"
+      }
+    },
+    {
+      "id": "hat_closed",
+      "path": "assets/audio/selected/local-v1/hat_closed.wav",
+      "sha256": "5d7986fb6ea5d442b8e0cd69610001933f15cdcdcd5b42bb06f068555ee50b69",
+      "pcm_sha256": "1a5eee4206676141693757492c0de9e936588088580d9b652e9dd4bb86dbd811",
+      "frames": 1600,
+      "pcm_bytes": 3200,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 60,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "soft_lofi_hat_closed_v1"
+      }
+    },
+    {
+      "id": "rim_wood",
+      "path": "assets/audio/selected/local-v1/rim_wood.wav",
+      "sha256": "459c0123c1d331407aeb4d480fa1643ee8e9b6c3a6f08541a6648b9c3e1022b4",
+      "pcm_sha256": "5a4471fbc13384635120999e13b8cf273f6a587f10f892e8de2e1f51a38ae3c3",
+      "frames": 1920,
+      "pcm_bytes": 3840,
+      "sample_rate_hz": 16000,
+      "channels": 1,
+      "bits_per_sample": 16,
+      "root_midi": 60,
+      "loop": {
+        "enabled": false,
+        "start_frame": 0,
+        "end_frame": 0
+      },
+      "source": {
+        "kind": "deterministic_local_synthesis",
+        "generator": "tools/generate_samples.py",
+        "preset": "soft_lofi_rim_wood_v1"
+      }
+    }
+  ],
+  "provenance": {
+    "created_by": "deterministic local mathematical synthesis",
+    "external_assets": false,
+    "note": "Keys use complete synthesized decays with click-safe edge fades; looping is intentionally disabled."
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0-dev",
+  "source": "native_shared_engine",
+  "hardware_verified": false,
+  "engine": "Synth",
+  "mood": "Cozy",
+  "favorite_code": "lofi1-000000000ca7cafe-0-0-78-18",
+  "sample_bank": "local-v1-aa4598c3b905",
+  "sample_rate": 32000,
+  "frames": 2880000,
+  "rms": 1060.08,
+  "peak": 9522,
+  "clipped_samples": 0,
+  "max_voices": 8,
+  "score_hash": "78df7553ed0a92f",
+  "score_events": 471,
+  "host_worst_block_us": 67.083,
+  "host_render_seconds": 0.131626
+}

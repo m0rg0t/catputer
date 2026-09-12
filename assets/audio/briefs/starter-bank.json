@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "status": "planned_not_generated",
+  "purpose": "Audition a compact sample-assisted engine against pure synthesis; engine choice remains open.",
+  "packed_format": {
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "bits_per_sample": 16,
+    "encoding": "signed_little_endian_pcm",
+    "resident_pcm_max_bytes": 65536,
+    "target_pcm_bytes": 58240
+  },
+  "elevenlabs_audition": {
+    "endpoint": "/v1/sound-generation",
+    "model_id": "eleven_text_to_sound_v2",
+    "variants_per_percussion_sound": 2,
+    "max_requests": 8,
+    "output_format": "select_supported_format_before_generation",
+    "cache_key_fields": ["provider", "model_id", "payload", "output_format", "variant_id"]
+  },
+  "sounds": [
+    {
+      "id": "keys_low",
+      "source": "local_synth",
+      "brief": "One warm electric-piano note, dry, rounded attack, controlled bell partials; save the synth settings.",
+      "root_midi": 48,
+      "root_hz": 130.81278265,
+      "target_duration_ms": 350,
+      "target_pcm_bytes": 11200,
+      "sustain": "audition_loop_or_synthesized_tail"
+    },
+    {
+      "id": "keys_mid",
+      "source": "local_synth",
+      "brief": "Same electric-piano preset and velocity as keys_low, one octave higher.",
+      "root_midi": 60,
+      "root_hz": 261.62556530,
+      "target_duration_ms": 350,
+      "target_pcm_bytes": 11200,
+      "sustain": "audition_loop_or_synthesized_tail"
+    },
+    {
+      "id": "keys_high",
+      "source": "local_synth",
+      "brief": "Same electric-piano preset and velocity as keys_mid, one octave higher.",
+      "root_midi": 72,
+      "root_hz": 523.25113060,
+      "target_duration_ms": 350,
+      "target_pcm_bytes": 11200,
+      "sustain": "audition_loop_or_synthesized_tail"
+    },
+    {
+      "id": "kick_soft",
+      "source": "local_synth_and_elevenlabs_candidates",
+      "payload": {
+        "text": "A single soft low kick drum hit, rounded warm body, gentle felt-beater attack, short controlled decay. Dry close recording in silence. One hit only, no rhythm, no music, no speech, no reverb.",
+        "duration_seconds": 1.0,
+        "prompt_influence": 0.7,
+        "loop": false,
+        "model_id": "eleven_text_to_sound_v2"
+      },
+      "target_duration_ms": 300,
+      "target_pcm_bytes": 9600
+    },
+    {
+      "id": "snare_brush",
+      "source": "local_synth_and_elevenlabs_candidates",
+      "payload": {
+        "text": "A single mellow brushed snare drum hit, soft papery texture and a small warm body, restrained high frequencies, short decay. Dry isolated one-shot in silence. No rhythm, music, speech or reverb.",
+        "duration_seconds": 1.0,
+        "prompt_influence": 0.7,
+        "loop": false,
+        "model_id": "eleven_text_to_sound_v2"
+      },
+      "target_duration_ms": 250,
+      "target_pcm_bytes": 8000
+    },
+    {
+      "id": "hat_closed",
+      "source": "local_synth_and_elevenlabs_candidates",
+      "payload": {
+        "text": "One very short soft closed hi-hat tick, muted dusty texture, gentle transient, no harsh ringing. Dry isolated one-shot with silence after it. No beat, no other instruments, no speech, no reverb.",
+        "duration_seconds": 1.0,
+        "prompt_influence": 0.7,
+        "loop": false,
+        "model_id": "eleven_text_to_sound_v2"
+      },
+      "target_duration_ms": 100,
+      "target_pcm_bytes": 3200
+    },
+    {
+      "id": "rim_wood",
+      "source": "local_synth_and_elevenlabs_candidates",
+      "payload": {
+        "text": "One gentle wooden drum rim click, warm hollow knock, rounded transient, very short natural decay. Dry isolated single hit in silence. No rhythm, no accompaniment, no voices, no reverb.",
+        "duration_seconds": 1.0,
+        "prompt_influence": 0.7,
+        "loop": false,
+        "model_id": "eleven_text_to_sound_v2"
+      },
+      "target_duration_ms": 120,
+      "target_pcm_bytes": 3840
+    }
+  ],
+  "optional_later_sources": [
+    {
+      "id": "rain_window",
+      "source": "elevenlabs_sound_effects",
+      "brief": "Quiet fine rain against a small window, steady soft texture, no thunder, voices or music.",
+      "placement": "optional_pack_after_memory_review"
+    },
+    {
+      "id": "cat_purr",
+      "source": "elevenlabs_sound_effects",
+      "brief": "A contented cat purring softly, close and quiet, no human voices or music.",
+      "placement": "optional_scene_effect_off_by_default"
+    },
+    {
+      "id": "keys_timbre_exploration",
+      "source": "elevenlabs_music",
+      "brief": "Instrumental solo warm electric piano, widely separated single notes, dry and intimate, no percussion or backing instruments.",
+      "placement": "audition_only_until_pitch_isolation_and_editability_verified"
+    }
+  ]
+}

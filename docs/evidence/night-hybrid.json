@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0-dev",
+  "source": "native_shared_engine",
+  "hardware_verified": false,
+  "engine": "Hybrid",
+  "mood": "Night",
+  "favorite_code": "lofi1-000000000ca7cafe-2-1-78-18",
+  "sample_bank": "local-v1-aa4598c3b905",
+  "sample_rate": 32000,
+  "frames": 2880000,
+  "rms": 881.999,
+  "peak": 6984,
+  "clipped_samples": 0,
+  "max_voices": 8,
+  "score_hash": "4c6bc6a3e68c1b21",
+  "score_events": 418,
+  "host_worst_block_us": 91.875,
+  "host_render_seconds": 0.108836
+}
