@@ -4,12 +4,12 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.0-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. Desktop exports are available; physical audio quality, timing, SD behavior and M5Apps installation still need device testing. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.1-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. Desktop exports are available; physical audio quality, timing, SD behavior and M5Apps installation still need device testing. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
 - Seeded composition with three moods: Cozy, Rainy and Night.
-- Evolving arrangements, swing, humanized velocities, gentle transitions and automatic new sessions.
+- Layered openings with keys, bass and a soft groove from the first bar, an early melody motif, evolving arrangements, swing and automatic new sessions.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
 - An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
 - Pause, volume, mood selection, next session and up to eight favorites.
@@ -46,6 +46,8 @@ For persistent desktop favorites, add `--state build/local-state.bin`. Explicit 
 
 A favorite reproduces a session from its beginning with the same generation schema, parameters and bank. It does not restore the current playback position.
 
+Version 0.1.1-dev uses generation schema 2 (`lofi2-` favorite codes). Earlier saved favorites remain visible as `OLD` and removable, while settings remain usable. Replay those favorites with the earlier firmware; the richer arrangement changes the score generated from their seed.
+
 ## Compare the sound engines
 
 Use the same seed and mood for both candidates:
@@ -68,18 +70,19 @@ pio run -d firmware -e lofi-adv
 python3 tools/build_release.py
 ```
 
-Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardputer `1.1.1`. No PSRAM is assumed. Output is mono PCM16 at 32 kHz, with eight voices and fixed audio/scene storage. A post-build check enforces the conservative `0x140000` byte app profile.
+Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardputer `1.1.1`. No PSRAM is assumed. Output is mono PCM16 at 32 kHz, with twelve bounded voices and fixed audio/scene storage. A post-build check enforces the conservative `0x140000` byte app profile.
 
 Use **M5Apps → Installer → SD** with the application BIN. Follow the [installation guide](docs/INSTALL.md), including compatibility and SD details. The project does not include a whole-device flash or erase script. Build/package commands never flash the device.
 
 ## Samples, screenshots and site
 
-Python 3 is required for the tools; media export additionally needs Pillow (`python3 -m pip install -r tools/requirements-media.txt`).
+Python 3 is required for the tools; media export additionally needs Pillow (`python3 -m pip install -r tools/requirements-media.txt`). Audio demo export also requires FFmpeg with the libmp3lame encoder. `render_audio.py` renders both engines with matching parameters and records WAV/MP3 hashes for the site.
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ./build/cmake/lofi_native --shots build/screens --animation build/animation --frames 144
 python3 tools/export_media.py
+python3 tools/render_audio.py
 python3 tools/build_site.py
 python3 -m http.server 8080 --directory build/site
 ```

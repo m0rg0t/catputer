@@ -91,6 +91,10 @@ class ReleasePackaging(unittest.TestCase):
         (self.root / "firmware/platformio.ini").write_text("[env:lofi-adv]\n")
         (self.root / "tools/configure_firmware.py").write_text("# fixture\n")
         (self.root / "firmware/include/lofi/example.h").write_text("// fixture\n")
+        (self.root / "firmware/include/lofi/music.h").write_text(
+            "constexpr std::uint32_t kMusicSchemaVersion = 1;\n"
+            "constexpr std::uint8_t kMusicVoiceCapacity = 8;\n"
+        )
         (self.root / "firmware/src/platform/main.cpp").write_text("// fixture\n")
         bank_id = "local-v1-aabbccddeeff"
         (self.root / "assets/audio/manifests/local-v1.json").write_text(
@@ -111,6 +115,8 @@ class ReleasePackaging(unittest.TestCase):
 
     def test_archive_allowlist_and_hashes(self):
         archive, manifest = build_release(self.root)
+        self.assertEqual(manifest["generation_schema"],1)
+        self.assertEqual(manifest["voice_capacity"],8)
         expected = {
             "cardputer-lofi-0.1.0-dev.bin",
             "INSTALL.md",

@@ -6,8 +6,10 @@
 namespace lofi {
 
 constexpr std::uint32_t kMusicSampleRate = 32000;
-constexpr std::uint8_t kMusicVoiceCapacity = 8;
-constexpr std::uint32_t kMusicSchemaVersion = 1;
+constexpr std::uint8_t kMusicVoiceCapacity = 12;
+constexpr std::uint32_t kMusicSchemaVersion = 2;
+constexpr std::size_t kMusicInstrumentCount = 7;
+constexpr std::uint64_t kMusicNoNoteSample = UINT64_MAX;
 
 enum class Mood : std::uint8_t {
     Cozy = 0,
@@ -18,6 +20,17 @@ enum class Mood : std::uint8_t {
 enum class SoundEngine : std::uint8_t {
     Synth = 0,
     Hybrid = 1,
+};
+
+// Stable indices for Diagnostics note arrays.
+enum class MusicInstrument : std::uint8_t {
+    Keys = 0,
+    Bass = 1,
+    Lead = 2,
+    Kick = 3,
+    Snare = 4,
+    Hat = 5,
+    Rim = 6,
 };
 
 enum class ArrangementSection : std::uint8_t {
@@ -64,7 +77,16 @@ struct Diagnostics {
     std::uint64_t scoreEventHash = 0;
     std::uint32_t scoreEventCount = 0;
     std::uint32_t stolenVoices = 0;
+    std::uint32_t droppedNoteEvents = 0;
     std::uint32_t sessionTransitions = 0;
+    // Counts include notes that actually acquired a voice. firstNoteSamples
+    // uses the monotonic transport clock and kMusicNoNoteSample until heard.
+    std::uint32_t noteEventsByInstrument[kMusicInstrumentCount]{};
+    std::uint64_t firstNoteSamples[kMusicInstrumentCount] = {
+        kMusicNoNoteSample, kMusicNoNoteSample, kMusicNoNoteSample,
+        kMusicNoNoteSample, kMusicNoNoteSample, kMusicNoNoteSample,
+        kMusicNoNoteSample,
+    };
     std::uint16_t absolutePeak = 0;
     std::uint8_t maxActiveVoices = 0;
 };
@@ -106,7 +128,7 @@ public:
     Diagnostics diagnostics() const noexcept;
 
     // Stable, allocation-free favorite representation:
-    // lofi1-<16 hex seed>-<mood>-<engine>-<volume>-<texture>
+    // lofi2-<16 hex seed>-<mood>-<engine>-<volume>-<texture>
     static constexpr std::size_t kFavoriteCodeCapacity = 48;
     std::size_t writeFavoriteCode(char* output, std::size_t capacity) const noexcept;
     static bool parseFavoriteCode(const char* text, Config& output) noexcept;

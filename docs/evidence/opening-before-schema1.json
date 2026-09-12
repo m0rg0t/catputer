@@ -1,0 +1,486 @@
+{
+  "source_commit": "528115c",
+  "version": "0.1.0-dev",
+  "generation_schema": 1,
+  "seed": "0xCA7CAFE",
+  "sample_rate": 32000,
+  "voice_capacity": 8,
+  "hardware_verified": false,
+  "measurement": "Native shared engine; mean active voices sampled at512-frame boundaries",
+  "cases": [
+    {
+      "mood": "Cozy",
+      "engine": "Synth",
+      "bpm": 79,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 10,
+          "score_events": 18,
+          "voice_steals": 1,
+          "mean_active_voices": 4.65,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 10,
+          "end_seconds": 20,
+          "score_events": 24,
+          "voice_steals": 2,
+          "mean_active_voices": 4.8,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 20,
+          "end_seconds": 30,
+          "score_events": 42,
+          "voice_steals": 4,
+          "mean_active_voices": 5.1,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 30,
+          "end_seconds": 40,
+          "score_events": 63,
+          "voice_steals": 13,
+          "mean_active_voices": 6.4,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 40,
+          "end_seconds": 50,
+          "score_events": 57,
+          "voice_steals": 11,
+          "mean_active_voices": 6.05,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 50,
+          "end_seconds": 60,
+          "score_events": 58,
+          "voice_steals": 9,
+          "mean_active_voices": 6.08,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 60,
+          "end_seconds": 70,
+          "score_events": 65,
+          "voice_steals": 14,
+          "mean_active_voices": 6.39,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 70,
+          "end_seconds": 80,
+          "score_events": 72,
+          "voice_steals": 17,
+          "mean_active_voices": 6.57,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 80,
+          "end_seconds": 90,
+          "score_events": 72,
+          "voice_steals": 17,
+          "mean_active_voices": 6.35,
+          "peak_voices": 8
+        }
+      ]
+    },
+    {
+      "mood": "Cozy",
+      "engine": "Hybrid",
+      "bpm": 79,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 10,
+          "score_events": 18,
+          "voice_steals": 1,
+          "mean_active_voices": 4.65,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 10,
+          "end_seconds": 20,
+          "score_events": 24,
+          "voice_steals": 2,
+          "mean_active_voices": 4.8,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 20,
+          "end_seconds": 30,
+          "score_events": 42,
+          "voice_steals": 4,
+          "mean_active_voices": 5.1,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 30,
+          "end_seconds": 40,
+          "score_events": 63,
+          "voice_steals": 13,
+          "mean_active_voices": 6.4,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 40,
+          "end_seconds": 50,
+          "score_events": 57,
+          "voice_steals": 11,
+          "mean_active_voices": 6.05,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 50,
+          "end_seconds": 60,
+          "score_events": 58,
+          "voice_steals": 9,
+          "mean_active_voices": 6.08,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 60,
+          "end_seconds": 70,
+          "score_events": 65,
+          "voice_steals": 14,
+          "mean_active_voices": 6.39,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 70,
+          "end_seconds": 80,
+          "score_events": 72,
+          "voice_steals": 17,
+          "mean_active_voices": 6.57,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 80,
+          "end_seconds": 90,
+          "score_events": 72,
+          "voice_steals": 17,
+          "mean_active_voices": 6.35,
+          "peak_voices": 8
+        }
+      ]
+    },
+    {
+      "mood": "Rainy",
+      "engine": "Synth",
+      "bpm": 69,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 10,
+          "score_events": 14,
+          "voice_steals": 1,
+          "mean_active_voices": 4.5,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 10,
+          "end_seconds": 20,
+          "score_events": 20,
+          "voice_steals": 1,
+          "mean_active_voices": 4.62,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 20,
+          "end_seconds": 30,
+          "score_events": 32,
+          "voice_steals": 4,
+          "mean_active_voices": 5.07,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 30,
+          "end_seconds": 40,
+          "score_events": 54,
+          "voice_steals": 11,
+          "mean_active_voices": 6.12,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 40,
+          "end_seconds": 50,
+          "score_events": 53,
+          "voice_steals": 9,
+          "mean_active_voices": 5.93,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 50,
+          "end_seconds": 60,
+          "score_events": 52,
+          "voice_steals": 9,
+          "mean_active_voices": 6.06,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 60,
+          "end_seconds": 70,
+          "score_events": 54,
+          "voice_steals": 10,
+          "mean_active_voices": 5.78,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 70,
+          "end_seconds": 80,
+          "score_events": 51,
+          "voice_steals": 6,
+          "mean_active_voices": 5.68,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 80,
+          "end_seconds": 90,
+          "score_events": 61,
+          "voice_steals": 14,
+          "mean_active_voices": 6.24,
+          "peak_voices": 8
+        }
+      ]
+    },
+    {
+      "mood": "Rainy",
+      "engine": "Hybrid",
+      "bpm": 69,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 10,
+          "score_events": 14,
+          "voice_steals": 1,
+          "mean_active_voices": 4.5,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 10,
+          "end_seconds": 20,
+          "score_events": 20,
+          "voice_steals": 1,
+          "mean_active_voices": 4.62,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 20,
+          "end_seconds": 30,
+          "score_events": 32,
+          "voice_steals": 4,
+          "mean_active_voices": 5.07,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 30,
+          "end_seconds": 40,
+          "score_events": 54,
+          "voice_steals": 11,
+          "mean_active_voices": 6.12,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 40,
+          "end_seconds": 50,
+          "score_events": 53,
+          "voice_steals": 9,
+          "mean_active_voices": 5.93,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 50,
+          "end_seconds": 60,
+          "score_events": 52,
+          "voice_steals": 9,
+          "mean_active_voices": 6.06,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 60,
+          "end_seconds": 70,
+          "score_events": 54,
+          "voice_steals": 10,
+          "mean_active_voices": 5.78,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 70,
+          "end_seconds": 80,
+          "score_events": 51,
+          "voice_steals": 6,
+          "mean_active_voices": 5.68,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 80,
+          "end_seconds": 90,
+          "score_events": 61,
+          "voice_steals": 14,
+          "mean_active_voices": 6.24,
+          "peak_voices": 8
+        }
+      ]
+    },
+    {
+      "mood": "Night",
+      "engine": "Synth",
+      "bpm": 72,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 10,
+          "score_events": 15,
+          "voice_steals": 1,
+          "mean_active_voices": 4.51,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 10,
+          "end_seconds": 20,
+          "score_events": 21,
+          "voice_steals": 1,
+          "mean_active_voices": 4.65,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 20,
+          "end_seconds": 30,
+          "score_events": 36,
+          "voice_steals": 3,
+          "mean_active_voices": 5.29,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 30,
+          "end_seconds": 40,
+          "score_events": 53,
+          "voice_steals": 8,
+          "mean_active_voices": 5.78,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 40,
+          "end_seconds": 50,
+          "score_events": 55,
+          "voice_steals": 9,
+          "mean_active_voices": 5.75,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 50,
+          "end_seconds": 60,
+          "score_events": 55,
+          "voice_steals": 11,
+          "mean_active_voices": 5.73,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 60,
+          "end_seconds": 70,
+          "score_events": 55,
+          "voice_steals": 10,
+          "mean_active_voices": 5.79,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 70,
+          "end_seconds": 80,
+          "score_events": 55,
+          "voice_steals": 9,
+          "mean_active_voices": 5.79,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 80,
+          "end_seconds": 90,
+          "score_events": 73,
+          "voice_steals": 22,
+          "mean_active_voices": 6.95,
+          "peak_voices": 8
+        }
+      ]
+    },
+    {
+      "mood": "Night",
+      "engine": "Hybrid",
+      "bpm": 72,
+      "windows": [
+        {
+          "start_seconds": 0,
+          "end_seconds": 10,
+          "score_events": 15,
+          "voice_steals": 1,
+          "mean_active_voices": 4.51,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 10,
+          "end_seconds": 20,
+          "score_events": 21,
+          "voice_steals": 1,
+          "mean_active_voices": 4.65,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 20,
+          "end_seconds": 30,
+          "score_events": 36,
+          "voice_steals": 3,
+          "mean_active_voices": 5.29,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 30,
+          "end_seconds": 40,
+          "score_events": 53,
+          "voice_steals": 8,
+          "mean_active_voices": 5.78,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 40,
+          "end_seconds": 50,
+          "score_events": 55,
+          "voice_steals": 9,
+          "mean_active_voices": 5.75,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 50,
+          "end_seconds": 60,
+          "score_events": 55,
+          "voice_steals": 11,
+          "mean_active_voices": 5.73,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 60,
+          "end_seconds": 70,
+          "score_events": 55,
+          "voice_steals": 10,
+          "mean_active_voices": 5.79,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 70,
+          "end_seconds": 80,
+          "score_events": 55,
+          "voice_steals": 9,
+          "mean_active_voices": 5.79,
+          "peak_voices": 8
+        },
+        {
+          "start_seconds": 80,
+          "end_seconds": 90,
+          "score_events": 73,
+          "voice_steals": 22,
+          "mean_active_voices": 6.95,
+          "peak_voices": 8
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -21,5 +22,36 @@ class SiteBoundaries(unittest.TestCase):
             root=Path(directory);(root/'native.png').write_bytes(b'changed');(root/'large.png').write_bytes(b'large')
             entry={'id':'radio','native_png':'native.png','scaled_png':'large.png','native_sha256':hashlib.sha256(b'original').hexdigest(),'scaled_sha256':hashlib.sha256(b'large').hexdigest()}
             with self.assertRaises(ValueError):build_site.public_screens(root,root/'out',{'screens':[entry]})
+
+    def test_new_audio_uses_new_urls_and_matches_current_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);audio=root/'build/audio';audio.mkdir(parents=True)
+            (root/'VERSION').write_text('0.1.1-dev\n')
+            header=root/'firmware/include/lofi/music.h';header.parent.mkdir(parents=True)
+            header.write_text('constexpr std::uint32_t kMusicSchemaVersion = 2;\nconstexpr std::uint8_t kMusicVoiceCapacity = 12;\n')
+            output_patch=patch.object(build_site,'OUTPUT_ROOT',root/'build/site')
+            output_patch.start();self.addCleanup(output_patch.stop)
+            def metadata(engine):
+                return {'version':'0.1.1-dev','mood':'Night','engine':engine.title(),
+                        'favorite_code':f'lofi2-000000000ca7cafe-2-{0 if engine=="synth" else 1}-78-18',
+                        'generation_schema':2,'score_hash':'abc123','frames':2880000,'sample_rate':32000,
+                        'mp3_sha256':hashlib.sha256(b'original audio').hexdigest()}
+            for engine in ('synth','hybrid'):
+                (audio/f'night-{engine}.mp3').write_bytes(b'original audio')
+                (audio/f'night-{engine}.json').write_text(json.dumps(metadata(engine)))
+            old=build_site.copy_audio(root,root/'build/site')[-1]
+            self.assertEqual(old['matched_seed'],'000000000CA7CAFE')
+            (audio/'night-synth.mp3').write_bytes(b'new composition')
+            with self.assertRaises(ValueError):build_site.copy_audio(root,root/'build/site')
+            revised=metadata('synth');revised['mp3_sha256']=hashlib.sha256(b'new composition').hexdigest()
+            (audio/'night-synth.json').write_text(json.dumps(revised))
+            new=build_site.copy_audio(root,root/'build/site')[-1]
+            self.assertNotEqual(old['engines'][0]['path'],new['engines'][0]['path'])
+            for key,value in (('generation_schema',None),('generation_schema',1),('version','0.1.0-dev'),
+                              ('mood','Cozy'),('engine','Synth'),('frames',1000),('mp3_sha256','0'*64)):
+                with self.subTest(key=key,value=value):
+                    invalid=metadata('hybrid');invalid[key]=value
+                    (audio/'night-hybrid.json').write_text(json.dumps(invalid))
+                    with self.assertRaises(ValueError):build_site.copy_audio(root,root/'build/site')
 
 if __name__=='__main__':unittest.main()

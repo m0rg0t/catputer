@@ -1,4 +1,5 @@
 #pragma once
+#include "lofi/music.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -6,7 +7,8 @@
 namespace lofi {
 constexpr std::size_t kMaxFavorites = 8;
 constexpr std::size_t kStateBytes = 160;
-constexpr std::uint8_t kSessionSchema = 1;
+static_assert(kMusicSchemaVersion <= 255, "Favorite schema must fit the saved format");
+constexpr std::uint8_t kSessionSchema = static_cast<std::uint8_t>(kMusicSchemaVersion);
 struct Settings {
     std::uint8_t volume = 35;
     std::uint8_t brightness = 70;

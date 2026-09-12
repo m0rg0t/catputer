@@ -18,19 +18,14 @@ constexpr std::uint64_t kFnvOffset = UINT64_C(14695981039346656037);
 constexpr std::uint64_t kFnvPrime = UINT64_C(1099511628211);
 constexpr std::uint32_t kFadeFrames = 640;
 constexpr std::size_t kMaxBarEvents = 48;
-constexpr std::size_t kDelayFrames = 2816;
+constexpr std::size_t kDelayFrames = 2720; // 85 ms at 32 kHz.
 constexpr float kInvInt16 = 1.0f / 32768.0f;
 constexpr float kPhaseScale = 4294967296.0f / static_cast<float>(kMusicSampleRate);
 
-enum class Instrument : std::uint8_t {
-    Keys,
-    Bass,
-    Lead,
-    Kick,
-    Snare,
-    Hat,
-    Rim,
-};
+using Instrument = MusicInstrument;
+
+static_assert(static_cast<std::size_t>(Instrument::Rim) + 1u ==
+              kMusicInstrumentCount, "instrument diagnostics must cover every voice");
 
 enum class EnvelopeStage : std::uint8_t {
     Attack,
@@ -143,11 +138,11 @@ std::uint8_t instrumentPriority(Instrument instrument) noexcept {
     switch (instrument) {
     case Instrument::Bass:
         return 7;
-    case Instrument::Kick:
-        return 6;
     case Instrument::Keys:
-        return 5;
+        return 6;
     case Instrument::Lead:
+        return 5;
+    case Instrument::Kick:
         return 4;
     case Instrument::Snare:
         return 3;
@@ -157,6 +152,11 @@ std::uint8_t instrumentPriority(Instrument instrument) noexcept {
         return 1;
     }
     return 1;
+}
+
+bool isDrum(Instrument instrument) noexcept {
+    return instrument == Instrument::Kick || instrument == Instrument::Snare ||
+           instrument == Instrument::Hat || instrument == Instrument::Rim;
 }
 
 struct Event {
@@ -174,7 +174,7 @@ struct Voice {
     std::uint8_t note = 60;
     std::uint8_t priority = 0;
     std::uint64_t releaseAt = 0;
-    std::uint64_t serial = 0;
+    std::uint32_t serial = 0;
     std::uint32_t age = 0;
     std::uint32_t phase = 0;
     std::uint32_t phaseIncrement = 1;
@@ -259,16 +259,16 @@ std::uint64_t hashInteger(std::uint64_t hash, T value) noexcept {
 }
 
 ArrangementSection sectionForBar(std::uint32_t bar, std::uint32_t sessionBars) noexcept {
-    if (bar < 8) {
+    if (bar < 4) {
         return ArrangementSection::Intro;
     }
-    if (bar < 24) {
+    if (bar < 12) {
         return ArrangementSection::Groove;
     }
-    if (bar < 40) {
+    if (bar < 28) {
         return ArrangementSection::Melody;
     }
-    if (bar < 48) {
+    if (bar < 36) {
         return ArrangementSection::Breakdown;
     }
     if (bar + 4 >= sessionBars) {
@@ -320,7 +320,7 @@ struct Engine::Impl {
     std::uint8_t eventCount = 0;
     std::uint8_t nextEvent = 0;
     Voice voices[kMusicVoiceCapacity]{};
-    std::uint64_t voiceSerial = 0;
+    std::uint32_t voiceSerial = 0;
 
     std::int16_t delay[kDelayFrames]{};
     std::size_t delayIndex = 0;
@@ -353,7 +353,10 @@ struct Engine::Impl {
     std::uint64_t scoreHash = kFnvOffset;
     std::uint32_t scoreEvents = 0;
     std::uint32_t stolenVoices = 0;
+    std::uint32_t droppedNoteEvents = 0;
     std::uint32_t sessionTransitions = 0;
+    std::uint32_t noteEventsByInstrument[kMusicInstrumentCount]{};
+    std::uint64_t firstNoteSamples[kMusicInstrumentCount]{};
     std::uint16_t absolutePeak = 0;
     std::uint16_t recentPeak = 0;
     std::uint8_t maxActiveVoices = 0;
@@ -531,6 +534,7 @@ struct Engine::Impl {
         pendingApplyBar = 0;
         transitionGain = resetCounters ? 1.0f : 0.0f;
         transitionFadeIn = resetCounters ? 0 : kFadeFrames;
+        voiceSerial = 0;
         clearAudioState();
         generateBar();
 
@@ -540,7 +544,12 @@ struct Engine::Impl {
             scoreHash = kFnvOffset;
             scoreEvents = 0;
             stolenVoices = 0;
+            droppedNoteEvents = 0;
             sessionTransitions = 0;
+            std::fill(std::begin(noteEventsByInstrument),
+                      std::end(noteEventsByInstrument), 0u);
+            std::fill(std::begin(firstNoteSamples), std::end(firstNoteSamples),
+                      kMusicNoNoteSample);
             absolutePeak = 0;
             recentPeak = 0;
             maxActiveVoices = 0;
@@ -552,6 +561,7 @@ struct Engine::Impl {
 
     void insertEvent(Event event) noexcept {
         if (eventCount >= kMaxBarEvents) {
+            ++droppedNoteEvents;
             return;
         }
         std::size_t position = eventCount;
@@ -593,8 +603,9 @@ struct Engine::Impl {
         const int timingRadius = current.mood == Mood::Rainy ? 34 : 48;
 
         const int chordVelocity = section == ArrangementSection::Breakdown ? 58 :
-                                  section == ArrangementSection::Intro ? 64 : 72;
-        const std::uint8_t chordLength = section == ArrangementSection::Intro ? 14 : 15;
+                                  section == ArrangementSection::Intro ?
+                                      62 + static_cast<int>(barIndex) * 2 : 72;
+        const std::uint8_t chordLength = section == ArrangementSection::Intro ? 13 : 14;
         for (int voice = 0; voice < 4; ++voice) {
             const int strum = voice * static_cast<int>(20 + scoreRng.bounded(22));
             addEvent(0, strum, chordLength, Instrument::Keys,
@@ -603,17 +614,22 @@ struct Engine::Impl {
         }
 
         const int bassRoot = 36 + keyPitchClass + progressionDegrees[chord];
-        if (section != ArrangementSection::Intro || (barIndex & 1u) == 0u) {
-            addEvent(0, 52 + scoreRng.centered(timingRadius), 6, Instrument::Bass,
-                     bassRoot, 74 + scoreRng.centered(5));
-        }
-        if (section == ArrangementSection::Groove ||
+        addEvent(0, 52 + scoreRng.centered(timingRadius), 6, Instrument::Bass,
+                 bassRoot,
+                 (section == ArrangementSection::Intro ? 68 : 74) +
+                     scoreRng.centered(5));
+        const bool flowingBass = section == ArrangementSection::Intro ||
+            section == ArrangementSection::Groove ||
             section == ArrangementSection::Melody ||
-            section == ArrangementSection::Return) {
+            section == ArrangementSection::Return;
+        if (flowingBass) {
             const int second = scoreRng.chance(3, 4) ? bassRoot + 7 : bassRoot;
             addEvent(8, 34 + scoreRng.centered(timingRadius), 5, Instrument::Bass,
-                     second, 65 + scoreRng.centered(5));
-            if (scoreRng.chance(1, 3)) {
+                     second,
+                     (section == ArrangementSection::Intro ? 57 : 65) +
+                         scoreRng.centered(5));
+            if ((section != ArrangementSection::Intro || barIndex >= 2) &&
+                scoreRng.chance(1, 3)) {
                 const std::size_t nextChord = (chord + 1) & 3u;
                 const int target = 36 + keyPitchClass + progressionDegrees[nextChord];
                 addEvent(14, scoreRng.centered(28), 2, Instrument::Bass,
@@ -624,7 +640,30 @@ struct Engine::Impl {
         const bool fullDrums = section == ArrangementSection::Groove ||
                                section == ArrangementSection::Melody ||
                                section == ArrangementSection::Return;
-        if (fullDrums) {
+        if (section == ArrangementSection::Intro) {
+            // The opening is already a complete, quiet pocket. Later sections
+            // add weight and subdivisions instead of waiting to reveal the beat.
+            addEvent(0, scoreRng.centered(14), 3, Instrument::Kick, 36,
+                     69 + scoreRng.centered(4));
+            addEvent(8, scoreRng.centered(18), 2, Instrument::Kick, 36,
+                     55 + scoreRng.centered(5));
+            if (barIndex >= 2) {
+                addEvent((barIndex & 1u) == 0u ? 10 : 6, scoreRng.centered(18), 2,
+                         Instrument::Kick, 36, 43 + scoreRng.centered(4));
+            }
+            addEvent(4, scoreRng.centered(22), 2, Instrument::Snare, 38,
+                     49 + scoreRng.centered(5));
+            addEvent(12, scoreRng.centered(24), 2, Instrument::Snare, 38,
+                     53 + scoreRng.centered(5));
+            for (std::uint8_t step = 2; step < 16; step += 4) {
+                addEvent(step, scoreRng.centered(16), 1, Instrument::Hat, 42,
+                         ((step & 7u) == 2u ? 31 : 37) + scoreRng.centered(4));
+            }
+            if ((barIndex & 1u) != 0u) {
+                addEvent(15, scoreRng.centered(10), 1, Instrument::Rim, 37,
+                         35 + scoreRng.centered(4));
+            }
+        } else if (fullDrums) {
             addEvent(0, scoreRng.centered(18), 3, Instrument::Kick, 36,
                      91 + scoreRng.centered(5));
             addEvent(8, scoreRng.centered(22), 3, Instrument::Kick, 36,
@@ -658,11 +697,6 @@ struct Engine::Impl {
                 addEvent(step, scoreRng.centered(18), 1, Instrument::Hat, 42,
                          31 + scoreRng.centered(4));
             }
-        } else if (section == ArrangementSection::Intro && barIndex >= 4) {
-            for (std::uint8_t step = 2; step < 16; step += 4) {
-                addEvent(step, scoreRng.centered(18), 1, Instrument::Hat, 42,
-                         28 + scoreRng.centered(3));
-            }
         } else if (section == ArrangementSection::Outro) {
             addEvent(4, scoreRng.centered(20), 2, Instrument::Rim, 37,
                      38 + scoreRng.centered(4));
@@ -670,7 +704,46 @@ struct Engine::Impl {
                      34 + scoreRng.centered(4));
         }
 
+        const auto addMotifEvent = [this, chord](std::uint8_t step,
+                                                 std::uint8_t motifSlot,
+                                                 std::uint8_t fallbackVoice,
+                                                 std::uint8_t duration,
+                                                 int velocity) noexcept {
+            const std::int8_t selected = motif[motifSlot & 7u];
+            const std::size_t chordVoice = selected >= 0 ?
+                static_cast<std::size_t>(selected) :
+                static_cast<std::size_t>(fallbackVoice & 3u);
+            int note = chordVoicings[chord][chordVoice] + 12;
+            while (note > 82) {
+                note -= 12;
+            }
+            addEvent(step, scoreRng.centered(30), duration, Instrument::Lead,
+                     note, velocity + scoreRng.centered(5));
+        };
+
+        if (section == ArrangementSection::Intro) {
+            // A small call and response identifies the session before bar two.
+            if (barIndex == 0) {
+                addMotifEvent(6, 2, 1, 2, 40);
+                addMotifEvent(10, 5, 2, 2, 43);
+                addMotifEvent(14, 7, 0, 2, 38);
+            } else if (barIndex == 1) {
+                addMotifEvent(4, 1, 2, 2, 39);
+                addMotifEvent(8, 4, 0, 3, 44);
+                addMotifEvent(12, 6, 1, 2, 40);
+            } else if (barIndex == 2) {
+                addMotifEvent(10, 5, 2, 2, 39);
+                addMotifEvent(14, 7, 0, 2, 36);
+            } else {
+                addMotifEvent(2, 0, 0, 2, 38);
+                addMotifEvent(6, 2, 1, 2, 41);
+                addMotifEvent(10, 5, 2, 2, 43);
+                addMotifEvent(14, 6, 0, 2, 37);
+            }
+        }
+
         const bool melodyLayer = section == ArrangementSection::Melody ||
+            (section == ArrangementSection::Groove && (barIndex & 1u) != 0u) ||
             (section == ArrangementSection::Return && (barIndex & 1u) == 0u);
         if (melodyLayer) {
             for (std::uint8_t slot = 0; slot < 8; ++slot) {
@@ -751,17 +824,59 @@ struct Engine::Impl {
             }
         }
 
-        Voice* candidate = &voices[0];
-        for (Voice& voice : voices) {
-            if (voice.priority < candidate->priority ||
-                (voice.priority == candidate->priority &&
-                 (voice.envelope < candidate->envelope ||
-                  (voice.envelope == candidate->envelope && voice.serial < candidate->serial)))) {
-                candidate = &voice;
+        const auto released = [this](const Voice& voice) noexcept {
+            return voice.stage == EnvelopeStage::Release ||
+                   sessionSample >= voice.releaseAt;
+        };
+        const auto betterVictim = [&released](const Voice& candidate,
+                                              const Voice& incumbent) noexcept {
+            const bool candidateReleased = released(candidate);
+            const bool incumbentReleased = released(incumbent);
+            if (candidateReleased != incumbentReleased) {
+                return candidateReleased;
+            }
+            return candidate.priority < incumbent.priority ||
+                   (candidate.priority == incumbent.priority &&
+                    (candidate.envelope < incumbent.envelope ||
+                     (candidate.envelope == incumbent.envelope &&
+                      candidate.serial < incumbent.serial)));
+        };
+        Voice* candidate = nullptr;
+        if (isDrum(event.instrument)) {
+            // Percussion may recycle percussion tails, but it never takes a
+            // sounding harmonic voice.
+            for (Voice& voice : voices) {
+                if (isDrum(voice.instrument) &&
+                    (candidate == nullptr || betterVictim(voice, *candidate))) {
+                    candidate = &voice;
+                }
+            }
+        } else {
+            // Harmonic voices get first claim on a percussion slot. This keeps
+            // a hat or kick from clipping a chord, bass line, or lead answer.
+            for (Voice& voice : voices) {
+                if (isDrum(voice.instrument) &&
+                    (candidate == nullptr || betterVictim(voice, *candidate))) {
+                    candidate = &voice;
+                }
+            }
+            if (candidate == nullptr) {
+                for (Voice& voice : voices) {
+                    if (candidate == nullptr || betterVictim(voice, *candidate)) {
+                        candidate = &voice;
+                    }
+                }
             }
         }
+        if (candidate == nullptr) {
+            return nullptr;
+        }
         const std::uint8_t incomingPriority = instrumentPriority(event.instrument);
-        if (candidate->priority > incomingPriority && candidate->envelope > 0.08f) {
+        const bool harmonicTakingDrum = !isDrum(event.instrument) &&
+                                        isDrum(candidate->instrument);
+        if (!harmonicTakingDrum && !released(*candidate) &&
+            candidate->priority > incomingPriority &&
+            candidate->envelope > 0.08f) {
             return nullptr;
         }
         candidate->stealTail = candidate->lastOutput;
@@ -810,6 +925,7 @@ struct Engine::Impl {
     void startVoice(const Event& event) noexcept {
         Voice* voice = allocateVoice(event);
         if (voice == nullptr) {
+            ++droppedNoteEvents;
             return;
         }
         const float oldTail = voice->stealTail;
@@ -905,6 +1021,12 @@ struct Engine::Impl {
                         *voice->sample, 0, pitchVariation);
                 }
             }
+        }
+
+        const std::size_t instrument = static_cast<std::size_t>(event.instrument);
+        ++noteEventsByInstrument[instrument];
+        if (firstNoteSamples[instrument] == kMusicNoNoteSample) {
+            firstNoteSamples[instrument] = transportSample;
         }
     }
 
@@ -1100,7 +1222,12 @@ struct Engine::Impl {
         diag.scoreEventHash = scoreHash;
         diag.scoreEventCount = scoreEvents;
         diag.stolenVoices = stolenVoices;
+        diag.droppedNoteEvents = droppedNoteEvents;
         diag.sessionTransitions = sessionTransitions;
+        std::copy(std::begin(noteEventsByInstrument),
+                  std::end(noteEventsByInstrument), diag.noteEventsByInstrument);
+        std::copy(std::begin(firstNoteSamples), std::end(firstNoteSamples),
+                  diag.firstNoteSamples);
         diag.absolutePeak = absolutePeak;
         diag.maxActiveVoices = maxActiveVoices;
         publishedDiagnostics = diag;
@@ -1376,7 +1503,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
     const Config saved = config();
     char local[kFavoriteCodeCapacity]{};
     char* cursor = local;
-    const char prefix[] = "lofi1-";
+    const char prefix[] = "lofi2-";
     for (char character : prefix) {
         if (character != '\0') {
             *cursor++ = character;
@@ -1404,7 +1531,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
 }
 
 bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
-    if (text == nullptr || std::strncmp(text, "lofi1-", 6) != 0) {
+    if (text == nullptr || std::strncmp(text, "lofi2-", 6) != 0) {
         return false;
     }
     const char* cursor = text + 6;

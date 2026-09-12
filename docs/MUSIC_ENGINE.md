@@ -48,7 +48,7 @@ Proposed starting palette:
 - Eighth-note swing starts around a 54–60% first-note share of each pair. Preserve the pair's total duration. Humanize velocity and selected note timing by small bounded amounts.
 - Changes operate at multiple scales: articulation each hit, small motif variation after four/eight bars, layer changes after 16 bars, and a fresh session after roughly 64–112 bars.
 
-For example, a generated session may move through an eight-bar sparse intro, a 16-bar groove, a 16-bar melodic variation, an eight-bar breakdown, a 16-bar return and an eight-bar outro. This is a template family with constrained variations, not a prerecorded song.
+The current session retains intro, groove, melody, breakdown, return and outro sections. Its opening already includes keys, bass and a quiet beat, with a short melody motif in the first two bars. Later sections develop that material rather than withholding the melody until the listener has waited through a long introduction. The initial sparse opening was revised after listening feedback on Night.
 
 Prepare the next phrase in advance. Generate into fixed-size event storage with a known upper bound; do not allocate an entire endless score. A 64-bit musical sample position avoids long-running clock overflow. Fractional scheduling must carry remainder so tempo does not drift from repeated integer rounding.
 
@@ -56,7 +56,7 @@ Prepare the next phrase in advance. Generate into fixed-size event storage with 
 
 Start at 32,000 Hz, mono, signed 16-bit output. This is a proposed quality/performance point; test codec configuration and output on the pinned library. Compare 22,050 Hz only if measured constraints justify it, and record any backend resampling separately.
 
-Baseline polyphony: eight simultaneous voices with explicit priority and stealing rules. A four-note chord, bass and lead leave two voices for percussion/tails, so the arrangement must avoid uncontrolled overlap. Evaluate 12 voices as an upgrade after measurement. Voice stealing applies a short release; the bass or a loud sustained chord must not disappear abruptly.
+The development candidate uses twelve bounded simultaneous voices, increased from eight after the original mixer showed repeated voice stealing. A four-note chord, bass and lead leave six slots for drums and release tails. Allocation protects held musical notes and favors replacing released or quiet disposable voices. The engine still uses fixed inline storage; it performs no audio-path allocation. The short delay is 85 ms (previously 88 ms); compact per-session voice ordering keeps the twelve voices and new diagnostics within the existing 8,192-byte engine object. Host measurements and firmware size checks are in [verification](VERIFICATION.md); the twelve-voice render deadline and heap margin still need confirmation on the ADV.
 
 The application mixes instruments into one stream rather than treating M5Unified's virtual playback channels as the composition model.
 
@@ -72,7 +72,7 @@ Noise and crackle remain quiet, sparse and adjustable down to zero. Kick-trigger
 
 ## Samples, if selected
 
-Author samples on the development Mac under `assets/audio/`. The [sample production plan](SAMPLE_PRODUCTION.md) defines local key-note rendering, bounded ElevenLabs percussion auditions, optional atmospheric effects and packing. A [seven-sound starter brief](../assets/audio/briefs/starter-bank.json) targets 58,240 PCM bytes. No samples have been generated yet.
+Author samples on the development Mac under `assets/audio/`. The [sample production plan](SAMPLE_PRODUCTION.md) defines local key-note rendering, bounded ElevenLabs percussion auditions, optional atmospheric effects and packing. The built-in seven-sound bank contains 58,240 PCM bytes of locally generated one-shots. ElevenLabs auditions remain separate from firmware.
 
 Use original synthesized/recorded sources or a pack whose redistribution terms are recorded. Every asset has source, license, attribution, conversion parameters and a hash. No stream recordings or complete song loops are part of the bank.
 

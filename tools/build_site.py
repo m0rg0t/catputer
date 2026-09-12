@@ -21,6 +21,10 @@ import subprocess
 import sys
 from typing import Any, Iterable
 import zipfile
+try:
+    from .build_release import music_profile, read_version
+except ImportError:
+    from build_release import music_profile, read_version
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -175,7 +179,7 @@ def find_field(value: Any, keys: tuple[str, ...]) -> str | None:
 def parse_favorite_seed(value: Any) -> str | None:
     if isinstance(value, dict):
         favorite_code = value.get("favorite_code")
-        if isinstance(favorite_code, str) and favorite_code.startswith("lofi1-"):
+        if isinstance(favorite_code, str) and favorite_code.startswith(("lofi1-", "lofi2-")):
             parts = favorite_code.split("-")
             if len(parts) >= 2 and len(parts[1]) == 16:
                 try:
@@ -239,12 +243,31 @@ def copy_audio(root: Path, output_root: Path) -> list[dict[str, Any]]:
                 "seed": audio_seed(root, mood, engine),
             }
             metadata = read_audio_metadata(root, mood, engine)
+            if source.is_file():
+                metadata_path = root / "build/audio" / f"{mood}-{engine}.json"
+                if not metadata_path.is_file():
+                    raise ValueError(f"Missing per-engine audio metadata: {metadata_path}")
+                metadata = json.loads(metadata_path.read_text())
+                current_schema = music_profile(root)["generation_schema"]
+                if (metadata.get("version") != read_version(root)
+                    or metadata.get("generation_schema") != current_schema
+                    or metadata.get("mood", "").lower() != mood
+                    or metadata.get("engine", "").lower() != engine
+                    or not str(metadata.get("favorite_code", "")).startswith(f"lofi{current_schema}-")
+                    or metadata.get("sample_rate") != 32000
+                    or type(metadata.get("frames")) is not int or metadata["frames"] <= 0
+                    or metadata.get("mp3_sha256") != sha256_file(source)
+                    or not metadata.get("score_hash")):
+                    raise ValueError(f"Stale or unbound audio demo: {source}; run tools/render_audio.py")
             entry["favorite_code"] = find_field(metadata, ("favorite_code",)) if metadata is not None else None
             entry["score_hash"] = find_field(metadata, ("score_hash",)) if metadata is not None else None
+            entry["generation_schema"] = find_field(metadata, ("generation_schema",)) if metadata is not None else None
+            entry["frames"] = metadata.get("frames") if metadata is not None else None
+            entry["sample_rate"] = metadata.get("sample_rate") if metadata is not None else None
             if source.is_file():
-                output = output_root / "audio" / source.name
-                entry["path"] = copy_allowed(source, output, root)
                 entry["sha256"] = sha256_file(source)
+                output = output_root / "audio" / f"{source.stem}-{entry['sha256'][:12]}{source.suffix}"
+                entry["path"] = copy_allowed(source, output, root)
                 entry["bytes"] = source.stat().st_size
             pair["engines"].append(entry)
         pair["both_available"] = all(entry["available"] for entry in pair["engines"])
@@ -257,6 +280,9 @@ def copy_audio(root: Path, output_root: Path) -> list[dict[str, Any]]:
             and seeds[0] == seeds[1]
             and score_hashes[0] is not None
             and score_hashes[0] == score_hashes[1]
+            and pair["engines"][0]["generation_schema"] == pair["engines"][1]["generation_schema"]
+            and pair["engines"][0]["frames"] == pair["engines"][1]["frames"]
+            and pair["engines"][0]["sample_rate"] == pair["engines"][1]["sample_rate"]
             else None
         )
         pair["matched_score_hash"] = (
@@ -264,6 +290,8 @@ def copy_audio(root: Path, output_root: Path) -> list[dict[str, Any]]:
             if pair["matched_seed"] is not None
             else None
         )
+        if pair["both_available"] and pair["matched_seed"] is None:
+            raise ValueError(f"Audio pair does not share a seed, score and duration: {mood}")
         result.append(pair)
     return result
 

@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -81,12 +82,15 @@ void exportAudio(const Options& o) {
     const auto frames=static_cast<std::uint64_t>(std::llround(o.seconds*kMusicSampleRate));
     waveHeader(out,static_cast<std::uint32_t>(frames*2)); std::array<std::int16_t,512> pcm{};
     double worstUs=0; long double squares=0; std::uint64_t clips=0; auto start=std::chrono::steady_clock::now();
+    Diagnostics opening=engine.diagnostics();
+    const auto initialBpm=engine.snapshot().bpm;
     for(std::uint64_t done=0;done<frames;) {
         const auto n=static_cast<std::size_t>(std::min<std::uint64_t>(512,frames-done)); auto t=std::chrono::steady_clock::now();
         engine.render(pcm.data(),n);
         worstUs=std::max(worstUs,std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-t).count());
         for(std::size_t i=0;i<n;++i) { write16(out,static_cast<std::uint16_t>(pcm[i])); squares+=static_cast<long double>(pcm[i])*pcm[i]; if(pcm[i]==32767 || pcm[i]==-32768) ++clips; }
         done+=n;
+        if(done<=10*kMusicSampleRate) opening=engine.diagnostics();
     }
     out.close(); if(!out) throw std::runtime_error("WAV write failed");
     auto d=engine.diagnostics(); char favorite[Engine::kFavoriteCodeCapacity]{};
@@ -95,12 +99,26 @@ void exportAudio(const Options& o) {
     const double elapsed=std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count();
     if(!o.meta.empty()) {
         parent(o.meta); std::ofstream m(o.meta);
-        m<<"{\n  \"version\": \"0.1.0-dev\",\n  \"source\": \"native_shared_engine\",\n  \"hardware_verified\": false,\n"
+        m<<"{\n  \"version\": \""<<LOFI_VERSION<<"\",\n  \"source\": \"native_shared_engine\",\n  \"hardware_verified\": false,\n"
+         <<"  \"generation_schema\": "<<kMusicSchemaVersion<<",\n  \"bpm\": "<<initialBpm<<",\n"
          <<"  \"engine\": \""<<soundEngineName(o.config.soundEngine)<<"\",\n  \"mood\": \""<<moodName(o.config.mood)<<"\",\n"
          <<"  \"favorite_code\": \""<<favorite<<"\",\n  \"sample_bank\": \""<<builtinSampleBankId()<<"\",\n"
          <<"  \"sample_rate\": "<<kMusicSampleRate<<",\n  \"frames\": "<<frames<<",\n  \"rms\": "<<std::sqrt(static_cast<double>(squares/frames))<<",\n"
          <<"  \"peak\": "<<d.absolutePeak<<",\n  \"clipped_samples\": "<<clips<<",\n  \"max_voices\": "<<int(d.maxActiveVoices)<<",\n"
+         <<"  \"voice_capacity\": "<<int(kMusicVoiceCapacity)<<",\n  \"voice_steals\": "<<d.stolenVoices<<",\n  \"dropped_note_events\": "<<d.droppedNoteEvents<<",\n"
          <<"  \"score_hash\": \""<<std::hex<<d.scoreEventHash<<std::dec<<"\",\n  \"score_events\": "<<d.scoreEventCount<<",\n"
+         <<"  \"opening_seconds\": "<<double(std::min<std::uint64_t>(frames,10*kMusicSampleRate))/kMusicSampleRate<<",\n"
+         <<"  \"opening_score_events\": "<<opening.scoreEventCount<<",\n  \"opening_voice_steals\": "<<opening.stolenVoices<<",\n  \"opening_dropped_notes\": "<<opening.droppedNoteEvents<<",\n";
+        const char* instruments[]={"keys","bass","lead","kick","snare","hat","rim"};
+        m<<"  \"notes_started\": {";
+        for(unsigned i=0;i<7;++i) m<<(i?", ":"")<<"\""<<instruments[i]<<"\": "<<d.noteEventsByInstrument[i];
+        m<<"},\n  \"first_note_seconds\": {";
+        for(unsigned i=0;i<7;++i) {
+            m<<(i?", ":"")<<"\""<<instruments[i]<<"\": ";
+            if(d.firstNoteSamples[i]==std::numeric_limits<std::uint64_t>::max()) m<<"null";
+            else m<<double(d.firstNoteSamples[i])/kMusicSampleRate;
+        }
+        m<<"},\n"
          <<"  \"host_worst_block_us\": "<<worstUs<<",\n  \"host_render_seconds\": "<<elapsed<<"\n}\n";
         if(!m) throw std::runtime_error("Metadata write failed");
     }

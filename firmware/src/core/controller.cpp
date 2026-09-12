@@ -47,7 +47,7 @@ void Controller::populateView() {
         for(int i=0;i<3;++i) std::snprintf(view.items[i],32,"%s",moodName(static_cast<Mood>(i)));
     } else if(view.screen==Screen::Favorites) {
         view.itemCount=saved.count;
-        for(unsigned i=0;i<saved.count;++i) std::snprintf(view.items[i],32,"%016llX %c",static_cast<unsigned long long>(saved.favorites[i].seed),saved.favorites[i].engine?'H':'S');
+        for(unsigned i=0;i<saved.count;++i) std::snprintf(view.items[i],32,"%016llX %c%s",static_cast<unsigned long long>(saved.favorites[i].seed),saved.favorites[i].engine?'H':'S',saved.favorites[i].schema==kSessionSchema?"":" OLD");
     } else if(view.screen==Screen::Settings) {
         const auto& v=saved.settings; view.itemCount=7;
         std::snprintf(view.items[0],32,"VOLUME          %3u",v.volume);
@@ -65,7 +65,7 @@ void Controller::populateView() {
         std::snprintf(view.items[3],32,"VOICES %u/%u",s.activeVoices,s.voiceCapacity);
         std::snprintf(view.items[4],32,"SCORE EVENTS %u",s.scoreEventCount);
         std::snprintf(view.items[5],32,"SD %s",view.sdReady?"AVAILABLE":"MEMORY ONLY");
-        std::snprintf(view.items[6],32,"V0.1.0-DEV  MONO 32KHZ");
+        std::snprintf(view.items[6],32,"V%s  MONO 32KHZ",LOFI_VERSION);
     }
     view.selection=std::max(0,std::min(view.selection,std::max(0,view.itemCount-1)));
 }
@@ -123,6 +123,7 @@ Action Controller::key(int ch) {
     }
     if(ch=='\n' && view.screen==Screen::Favorites && saved.count) {
         const auto& f=saved.favorites[view.selection];
+        if(f.schema!=kSessionSchema) { notice("OLD FAVORITE - USE EARLIER VERSION",4000); return {}; }
         if(f.engine && f.bankFingerprint!=fingerprint(builtinSampleBankId())) { notice("FAVORITE BANK DOES NOT MATCH",4000); return {}; }
         Config c; c.seed=f.seed; c.mood=static_cast<Mood>(f.mood); c.soundEngine=static_cast<SoundEngine>(f.engine); c.texture=f.texture; c.volume=78;
         saved.settings.mood=f.mood; saved.settings.engine=f.engine; saved.settings.texture=f.texture;

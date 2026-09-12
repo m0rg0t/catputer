@@ -70,14 +70,15 @@ void testFavoriteRoundTrip() {
     char code[Engine::kFavoriteCodeCapacity]{};
     const std::size_t length = engine.writeFavoriteCode(code, sizeof(code));
     CHECK(length > 0);
-    CHECK(std::strcmp(code, "lofi1-fedcba9876543210-2-1-100-0") == 0);
+    CHECK(std::strcmp(code, "lofi2-fedcba9876543210-2-1-100-0") == 0);
 
     Config parsed{};
     CHECK(Engine::parseFavoriteCode(code, parsed));
     CHECK(sameConfig(source, parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi1-fedcba987654321-2-1-100-0", parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi1-fedcba9876543210-3-1-100-0", parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi1-fedcba9876543210-2-1-101-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi1-fedcba9876543210-2-1-100-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba987654321-2-1-100-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba9876543210-3-1-100-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba9876543210-2-1-101-0", parsed));
 
     char tooSmall[8] = {'x'};
     CHECK(engine.writeFavoriteCode(tooSmall, sizeof(tooSmall)) == 0);
@@ -102,6 +103,14 @@ void testReplayAndBlockDeterminism() {
     const lofi::Diagnostics right = unevenBlocks.diagnostics();
     CHECK(left.scoreEventHash == right.scoreEventHash);
     CHECK(left.scoreEventCount == right.scoreEventCount);
+    CHECK(left.stolenVoices == right.stolenVoices);
+    CHECK(left.droppedNoteEvents == right.droppedNoteEvents);
+    CHECK(std::equal(std::begin(left.noteEventsByInstrument),
+                     std::end(left.noteEventsByInstrument),
+                     std::begin(right.noteEventsByInstrument)));
+    CHECK(std::equal(std::begin(left.firstNoteSamples),
+                     std::end(left.firstNoteSamples),
+                     std::begin(right.firstNoteSamples)));
     CHECK(left.transportSample == frames);
     CHECK(left.renderedFrames == frames);
     CHECK(left.scoreEventCount > 20);
@@ -127,11 +136,94 @@ void testBackendIndependentScore() {
 
     CHECK(synthDiagnostics.scoreEventCount == hybridDiagnostics.scoreEventCount);
     CHECK(synthDiagnostics.scoreEventHash == hybridDiagnostics.scoreEventHash);
+    CHECK(std::equal(std::begin(synthDiagnostics.noteEventsByInstrument),
+                     std::end(synthDiagnostics.noteEventsByInstrument),
+                     std::begin(hybridDiagnostics.noteEventsByInstrument)));
+    CHECK(synthDiagnostics.droppedNoteEvents == hybridDiagnostics.droppedNoteEvents);
     CHECK(synth.snapshot().bar == hybrid.snapshot().bar);
     CHECK(synth.snapshot().bpm == hybrid.snapshot().bpm);
     CHECK(synthAudio != hybridAudio);
     CHECK(energy(synthAudio) > UINT64_C(10000000));
     CHECK(energy(hybridAudio) > UINT64_C(10000000));
+}
+
+void testOpeningHasEveryLayerAndHeadroom() {
+    constexpr std::uint64_t seeds[] = {
+        UINT64_C(0x000000000ca7cafe),
+        UINT64_C(0x0123456789abcdef),
+        UINT64_C(0xbadc0ffee0ddf00d),
+    };
+    for (std::size_t moodIndex = 0; moodIndex < 3; ++moodIndex) {
+        lofi::Diagnostics byEngine[2]{};
+        for (std::size_t engineIndex = 0; engineIndex < 2; ++engineIndex) {
+            Config config{};
+            config.seed = seeds[moodIndex];
+            config.mood = static_cast<Mood>(moodIndex);
+            config.soundEngine = static_cast<SoundEngine>(engineIndex);
+            config.texture = 0;
+            Engine engine(config);
+
+            const lofi::Diagnostics initial = engine.diagnostics();
+            CHECK(std::all_of(std::begin(initial.firstNoteSamples),
+                              std::end(initial.firstNoteSamples), [](std::uint64_t sample) {
+                return sample == lofi::kMusicNoNoteSample;
+            }));
+
+            const std::uint64_t stepQ32 =
+                (static_cast<std::uint64_t>(lofi::kMusicSampleRate) * 60u << 32) /
+                (static_cast<std::uint64_t>(engine.snapshot().bpm) * 4u);
+            const std::uint64_t firstBarEnd = (stepQ32 * 16u) >> 32;
+            const std::uint64_t secondBarEnd = (stepQ32 * 32u) >> 32;
+            renderFrames(engine, static_cast<std::size_t>(secondBarEnd),
+                         293u + engineIndex * 54u);
+
+            const lofi::Diagnostics diagnostics = engine.diagnostics();
+            const auto count = [&diagnostics](lofi::MusicInstrument instrument) {
+                return diagnostics.noteEventsByInstrument[
+                    static_cast<std::size_t>(instrument)];
+            };
+            const auto first = [&diagnostics](lofi::MusicInstrument instrument) {
+                return diagnostics.firstNoteSamples[static_cast<std::size_t>(instrument)];
+            };
+
+            CHECK(count(lofi::MusicInstrument::Keys) >= 8);
+            CHECK(count(lofi::MusicInstrument::Bass) >= 4);
+            CHECK(count(lofi::MusicInstrument::Lead) >= 6);
+            CHECK(count(lofi::MusicInstrument::Kick) >= 4);
+            CHECK(count(lofi::MusicInstrument::Snare) >= 4);
+            CHECK(count(lofi::MusicInstrument::Hat) >= 8);
+            CHECK(count(lofi::MusicInstrument::Rim) >= 1);
+            CHECK(first(lofi::MusicInstrument::Keys) < firstBarEnd);
+            CHECK(first(lofi::MusicInstrument::Bass) < firstBarEnd);
+            CHECK(first(lofi::MusicInstrument::Lead) < firstBarEnd);
+            CHECK(first(lofi::MusicInstrument::Kick) < firstBarEnd);
+            CHECK(first(lofi::MusicInstrument::Snare) < firstBarEnd);
+            CHECK(first(lofi::MusicInstrument::Hat) < firstBarEnd);
+            CHECK(first(lofi::MusicInstrument::Rim) < secondBarEnd);
+
+            const std::uint32_t started = std::accumulate(
+                std::begin(diagnostics.noteEventsByInstrument),
+                std::end(diagnostics.noteEventsByInstrument), std::uint32_t{0});
+            CHECK(started + diagnostics.droppedNoteEvents == diagnostics.scoreEventCount);
+            CHECK(diagnostics.droppedNoteEvents == 0);
+            CHECK(diagnostics.stolenVoices == 0);
+            CHECK(diagnostics.maxActiveVoices >= 7);
+            CHECK(diagnostics.maxActiveVoices <= lofi::kMusicVoiceCapacity);
+            byEngine[engineIndex] = diagnostics;
+        }
+
+        CHECK(byEngine[0].scoreEventCount == byEngine[1].scoreEventCount);
+        CHECK(byEngine[0].scoreEventHash == byEngine[1].scoreEventHash);
+        CHECK(std::equal(std::begin(byEngine[0].noteEventsByInstrument),
+                         std::end(byEngine[0].noteEventsByInstrument),
+                         std::begin(byEngine[1].noteEventsByInstrument)));
+        CHECK(std::equal(std::begin(byEngine[0].firstNoteSamples),
+                         std::end(byEngine[0].firstNoteSamples),
+                         std::begin(byEngine[1].firstNoteSamples)));
+    }
+
+    CHECK(lofi::kMusicVoiceCapacity == 12);
+    CHECK(lofi::kMusicSchemaVersion == 2);
 }
 
 void testBoundsAndRenderContract() {
@@ -423,6 +515,7 @@ int main() {
     testFavoriteRoundTrip();
     testReplayAndBlockDeterminism();
     testBackendIndependentScore();
+    testOpeningHasEveryLayerAndHeadroom();
     testBoundsAndRenderContract();
     testBarBoundaryTransition();
     testConfigAndNextRequestsMerge();

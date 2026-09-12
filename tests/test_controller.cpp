@@ -2,6 +2,7 @@
 #include "lofi/sample_bank.h"
 #include <cassert>
 #include <iostream>
+#include <cstring>
 int main() {
     using namespace lofi;
     Controller c(UINT64_C(0x123456789abcdef0));
@@ -14,6 +15,11 @@ int main() {
     auto pause=c.key(' ');auto resume=c.key(' ');assert(pause.paused && !resume.paused);
     c.saved.favorites[0].engine=1; c.saved.favorites[0].bankFingerprint=0;
     c.key('l'); assert(c.key('\n').kind==ActionKind::None);
+    c.saved.favorites[0].engine=0; c.saved.favorites[0].schema=1;
+    c.key('l'); assert(std::strstr(c.view.items[0],"OLD")!=nullptr);
+    assert(c.key('\n').kind==ActionKind::None);
+    assert(std::strstr(c.view.notice,"EARLIER VERSION")!=nullptr);
+    c.key(127); assert(c.saved.count==0); // Obsolete favorites remain removable.
     c.key('s'); for(int i=0;i<20;++i) c.key('.'); assert(c.view.selection==6);
     c.saved.settings.volume=100; auto reset=c.key('\n'); assert(reset.kind==ActionKind::Config && c.saved.settings.volume==35);
     c.tick(200); assert(c.view.itemCount==7);

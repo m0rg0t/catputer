@@ -20,6 +20,7 @@ Planning session: 2026-09-12.
 | Implementation approval | User accepted the plan and requested implementation; capable subagents may help, with review of their results |
 | Public preparation | Initialize Git locally and create a README for the future public project |
 | Artwork production | Use imagegen for the room, cat and animation frames, then adapt them to the small screen |
+| Opening arrangement | Richer polyphony and earlier instrument entry, following feedback on the Night demo |
 
 ## Under discussion
 

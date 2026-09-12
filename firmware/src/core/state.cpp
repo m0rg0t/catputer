@@ -9,7 +9,9 @@ void put32(std::uint8_t* out, std::uint32_t n) {
 std::uint32_t get32(const std::uint8_t* in) {
     std::uint32_t n=0; for (unsigned i=0;i<4;++i) n|=std::uint32_t(in[i])<<(8*i); return n;
 }
-bool validFavorite(const Favorite& f) { return f.mood<3 && f.engine<2 && f.texture<=100 && f.schema==kSessionSchema; }
+// Preserve known older favorite records when loading settings. The controller
+// marks them unavailable rather than silently replaying a different score.
+bool validFavorite(const Favorite& f) { return f.mood<3 && f.engine<2 && f.texture<=100 && f.schema>=1 && f.schema<=kSessionSchema; }
 bool sameFavorite(const Favorite& a,const Favorite& b) {
     return a.seed==b.seed && a.bankFingerprint==b.bankFingerprint && a.mood==b.mood &&
            a.engine==b.engine && a.texture==b.texture && a.schema==b.schema;

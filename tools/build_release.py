@@ -26,6 +26,20 @@ def build_identity(version):
     return IDENTITY_PREFIX + version
 
 
+def music_profile(root):
+    header = (root / "firmware/include/lofi/music.h").read_text()
+    result = {}
+    for name, field, maximum in (
+        ("kMusicSchemaVersion", "generation_schema", 255),
+        ("kMusicVoiceCapacity", "voice_capacity", 32),
+    ):
+        found = re.findall(r"constexpr\s+std::uint(?:8|32)_t\s+" + name + r"\s*=\s*([0-9]+)\s*;", header)
+        if len(found) != 1 or not 1 <= int(found[0]) <= maximum:
+            raise ValueError(f"Invalid music profile constant: {name}")
+        result[field] = int(found[0])
+    return result
+
+
 def _descriptor_text(data, offset, size, label):
     raw = data[offset:offset + size]
     value = raw.split(b"\0", 1)[0]
@@ -180,6 +194,7 @@ def build_release(root=ROOT, bin_path=None):
         "source_sha256": source_hash(root),
         "sample_bank": bank_id,
         "engines": ["synth", "hybrid"],
+        **music_profile(root),
         "files": {filename: {"bytes": len(content), "sha256": sha(content)} for filename, content in files.items()},
         "note": "Capacity target is not proof of compatibility with a particular installed launcher layout.",
     }

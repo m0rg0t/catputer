@@ -34,6 +34,15 @@ int main() {
     assert(!decodeState(data.data(),data.size()-1,decoded));
     assert(!decodeState(nullptr,data.size(),decoded));
 
+    SavedState legacy;
+    legacy.settings.volume=65;
+    assert(addFavorite(legacy,{42,0,2,0,15,1}));
+    assert(encodeState(legacy,data));
+    assert(decodeState(data.data(),data.size(),decoded));
+    assert(decoded.settings.volume==65 && decoded.count==1 && decoded.favorites[0].schema==1);
+    assert(encodeState(decoded,data)); // Saving current settings preserves the old record.
+    assert(!addFavorite(legacy,{99,0,2,0,15,static_cast<std::uint8_t>(kSessionSchema+1)}));
+
     SavedState duplicate;
     duplicate.count=2;
     duplicate.favorites[0]={99,42,1,0,15,kSessionSchema};

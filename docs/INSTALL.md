@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.0-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.1-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -29,3 +29,5 @@ Space play/pause; `-` / `=` volume; `M` moods; `N` next session; `F` add/remove 
 In menus use `;` / `.` up/down, `,` / `/` left/right, Enter select, backtick/Escape back. Backspace removes a selected favorite. Keyboard letters are case-insensitive. The native preview also accepts arrow keys and `Q` to quit.
 
 Mood/engine/session changes take effect at the next bar with a fade. A favorite restarts a seed at its beginning, not at the point where it was saved. Replay is tied to generation schema, parameters and the matching hybrid sample bank.
+
+Version 0.1.1-dev changes the composer to schema 2 and emits `lofi2-` codes. Existing schema-1 favorites stay in the save file and display `OLD`; they require the earlier firmware for faithful replay. Settings are retained, and old favorites can be removed normally. Do not reinterpret a `lofi1-` code as the same composition under schema 2.
