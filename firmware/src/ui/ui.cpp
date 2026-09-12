@@ -4,6 +4,9 @@
 #include <cstdint>
 
 namespace lofi {
+
+#include "generated_scene_data.inc"
+
 namespace {
 
 // A small warm night palette.  The order is part of the renderer contract:
@@ -27,34 +30,7 @@ enum Colour : std::uint8_t {
     Glow,
 };
 
-constexpr std::uint16_t rgb565(unsigned r, unsigned g, unsigned b) {
-    return static_cast<std::uint16_t>(((r >> 3U) << 11U) |
-                                      ((g >> 2U) << 5U) | (b >> 3U));
-}
-
-const std::uint16_t kPalette[kPaletteSize] = {
-    rgb565(8, 15, 28),     // Ink
-    rgb565(14, 28, 49),    // Night
-    rgb565(24, 43, 64),    // Wall
-    rgb565(42, 60, 82),    // Slate
-    rgb565(89, 113, 135),  // Haze
-    rgb565(183, 206, 196), // Moon
-    rgb565(246, 223, 178), // Cream
-    rgb565(102, 183, 187), // Rain
-    rgb565(152, 73, 65),   // Brick
-    rgb565(102, 60, 49),   // Wood
-    rgb565(208, 126, 65),  // Amber
-    rgb565(242, 184, 87),  // Gold
-    rgb565(174, 105, 76),  // Cat
-    rgb565(230, 158, 116), // CatLight
-    rgb565(112, 161, 116), // Leaf
-    rgb565(255, 221, 157), // Glow
-};
-
-const std::uint8_t kDimPalette[kPaletteSize] = {
-    Ink, Night, Night, Wall, Slate, Slate, Haze, Haze,
-    Brick, Wood, Amber, Amber, Brick, Brick, Leaf, Gold,
-};
+const std::uint16_t* const kPalette = kGeneratedScenePalette;
 
 inline int clampInt(int value, int low, int high) {
     return value < low ? low : (value > high ? high : value);
@@ -75,23 +51,6 @@ std::uint32_t hash32(std::uint32_t x) {
 
 std::uint32_t hashSeed(std::uint32_t seed, std::uint32_t salt) {
     return hash32(seed ^ (salt * 0x9e3779b9U));
-}
-
-int triangleWave(std::uint32_t tick, int period, int amplitude) {
-    if (period <= 1 || amplitude <= 0) {
-        return 0;
-    }
-    const int phase = static_cast<int>(tick % static_cast<std::uint32_t>(period));
-    const int half = period / 2;
-    if (phase < half) {
-        return (phase * amplitude) / (half > 0 ? half : 1);
-    }
-    return amplitude - ((phase - half) * amplitude) /
-                             ((period - half) > 0 ? period - half : 1);
-}
-
-int centeredWave(std::uint32_t tick, int period, int amplitude) {
-    return triangleWave(tick, period, amplitude * 2) - amplitude;
 }
 
 char upperAscii(char c) {
@@ -312,61 +271,6 @@ void drawHex(Frame& frame, int x, int y, std::uint32_t value, std::uint8_t colou
     drawTinyText(frame, x, y, text, colour);
 }
 
-void drawTriangle(Frame& frame, int x0, int y0, int x1, int y1, int x2, int y2,
-                  std::uint8_t colour) {
-    if (y0 > y1) { const int tx = x0; const int ty = y0; x0 = x1; y0 = y1; x1 = tx; y1 = ty; }
-    if (y1 > y2) { const int tx = x1; const int ty = y1; x1 = x2; y1 = y2; x2 = tx; y2 = ty; }
-    if (y0 > y1) { const int tx = x0; const int ty = y0; x0 = x1; y0 = y1; x1 = tx; y1 = ty; }
-    if (y0 == y2) {
-        frame.hLine(x0 < x1 ? x0 : x1, x0 > x1 ? x0 : x1, y0, colour);
-        return;
-    }
-    for (int y = y0; y <= y2; ++y) {
-        const bool second = y > y1 || y1 == y0;
-        const int segmentStart = second ? y1 : y0;
-        const int segmentEnd = second ? y2 : y1;
-        const int segmentX = second ? x2 : x1;
-        const int edgeA = x0 + ((x2 - x0) * (y - y0)) / (y2 - y0);
-        const int edgeB = segmentEnd == segmentStart
-                              ? segmentX
-                              : x0 + ((segmentX - x0) * (y - y0)) / (segmentEnd - y0);
-        frame.hLine(edgeA < edgeB ? edgeA : edgeB, edgeA > edgeB ? edgeA : edgeB, y, colour);
-    }
-}
-
-void drawDisc(Frame& frame, int cx, int cy, int radius, std::uint8_t colour) {
-    for (int y = -radius; y <= radius; ++y) {
-        const int span = radius * radius - y * y;
-        int dx = 0;
-        while ((dx + 1) * (dx + 1) <= span) {
-            ++dx;
-        }
-        frame.hLine(cx - dx, cx + dx, cy + y, colour);
-    }
-}
-
-struct ScenePainter {
-    Frame& frame;
-    bool muted;
-
-    std::uint8_t colour(std::uint8_t value) const {
-        return muted ? kDimPalette[safeColour(value)] : safeColour(value);
-    }
-    void fill(int x, int y, int w, int h, std::uint8_t c) { frame.fillRect(x, y, w, h, colour(c)); }
-    void rect(int x, int y, int w, int h, std::uint8_t c) { frame.rect(x, y, w, h, colour(c)); }
-    void hLine(int x0, int x1, int y, std::uint8_t c) { frame.hLine(x0, x1, y, colour(c)); }
-    void vLine(int x, int y0, int y1, std::uint8_t c) { frame.vLine(x, y0, y1, colour(c)); }
-    void line(int x0, int y0, int x1, int y1, std::uint8_t c) {
-        frame.line(x0, y0, x1, y1, colour(c));
-    }
-    void triangle(int x0, int y0, int x1, int y1, int x2, int y2, std::uint8_t c) {
-        drawTriangle(frame, x0, y0, x1, y1, x2, y2, colour(c));
-    }
-    void disc(int cx, int cy, int radius, std::uint8_t c) {
-        drawDisc(frame, cx, cy, radius, colour(c));
-    }
-};
-
 const char* moodName(int mood) {
     switch (mood % 4 < 0 ? mood % 4 + 4 : mood % 4) {
     case 1: return "RAIN";
@@ -375,207 +279,92 @@ const char* moodName(int mood) {
     }
 }
 
-void drawPlant(ScenePainter& p, int x, int y, std::uint32_t seed) {
-    p.fill(x - 5, y + 10, 12, 7, Wood);
-    p.fill(x - 3, y + 16, 8, 2, Ink);
-    p.line(x, y + 10, x - 4, y - 2, Leaf);
-    p.line(x + 1, y + 10, x + 7, y - 5, Leaf);
-    p.line(x, y + 8, x + 11, y + 2, Leaf);
-    p.fill(x - 7, y - 5, 6, 4, Leaf);
-    p.fill(x + 6, y - 8, 6, 4, Leaf);
-    p.fill(x + 9, y, 6, 4, Leaf);
-    if ((hashSeed(seed, 0x42U) & 1U) != 0U) {
-        p.fill(x - 9, y + 1, 5, 3, Leaf);
+int generatedCatFrame(const View& view) {
+    if (view.motion == 0) {
+        return 0;
+    }
+    const std::uint32_t time = static_cast<std::uint32_t>(view.timeMs);
+    const std::uint32_t blinkPeriod = 4000U + (hashSeed(view.seed, 0x4b10U) % 3001U);
+    const std::uint32_t blinkPhase =
+        (time + (hashSeed(view.seed, 0x4b11U) % blinkPeriod)) % blinkPeriod;
+    if (view.motion >= 2U && blinkPhase < 320U) {
+        // Four short frames leave the eyes relaxed for several seconds, then
+        // close and reopen at roughly 80ms per authored frame.
+        return static_cast<int>(blinkPhase / 80U);
+    }
+
+    const std::uint32_t tailPeriod = 5800U + (hashSeed(view.seed, 0x4b12U) % 3201U);
+    const std::uint32_t tailPhase =
+        (time + (hashSeed(view.seed, 0x4b13U) % tailPeriod)) % tailPeriod;
+    if (tailPhase < 1000U) {
+        // Tail frames are a rarer two-step gesture.  Hold each authored pose
+        // long enough to read as a wave rather than a one-frame flicker.
+        return tailPhase < 600U ? 4 : 5;
+    }
+    return 0;
+}
+
+void drawGeneratedRain(Frame& frame, const View& view) {
+    if (view.motion == 0) {
+        return;
+    }
+    const std::uint32_t time = static_cast<std::uint32_t>(view.timeMs);
+    const int count = view.motion >= 2U ? 8 : 4;
+    for (int i = 0; i < count; ++i) {
+        const std::uint32_t drop = hashSeed(view.seed, 0x530U + static_cast<std::uint32_t>(i));
+        const int x = 7 + static_cast<int>(drop % 72U);
+        const int baseY = 18 + static_cast<int>((drop >> 8U) % 49U);
+        const int speed = 260 + static_cast<int>((drop >> 17U) % 90U);
+        const int y = 19 + (baseY + static_cast<int>(time / static_cast<std::uint32_t>(speed))) % 55;
+        const int length = 2 + static_cast<int>((drop >> 24U) & 1U);
+        frame.line(x, y, x - 1, y + length, ((time / 260U + static_cast<std::uint32_t>(i)) & 3U) == 0U ? Moon : Rain);
     }
 }
 
-void drawScene(Frame& frame, const View& view, bool muted) {
-    ScenePainter p{frame, muted};
-    const std::uint32_t seed = view.seed;
-    const bool animate = view.motion != 0;
-    // Keeping the clock at a fixed origin makes still mode deterministic and
-    // also gates every audio-linked visual below (beat, level and play state
-    // remain available to the information bars).
-    const std::uint32_t time = animate ? static_cast<std::uint32_t>(view.timeMs) : 0U;
-
-    // Wall, moulding and a wood floor give the room a strong horizontal read
-    // behind the deliberately quieter rain and furniture details.
-    p.fill(0, 0, 240, 88, Wall);
-    p.fill(0, 0, 240, 17, Night);
-    p.fill(0, 84, 240, 4, Slate);
-    p.fill(0, 88, 240, 47, Wood);
-    for (int y = 95; y < 135; y += 13) {
-        p.hLine(0, 239, y, Ink);
+void drawGeneratedSteam(Frame& frame, const View& view) {
+    if (view.motion == 0) {
+        return;
     }
-    for (int x = 17; x < 240; x += 39) {
-        p.vLine(x, 89, 134, Slate);
-    }
-    p.hLine(0, 239, 117, Ink);
-    p.hLine(0, 239, 119, Slate);
-
-    // Low-contrast wall panels and little picture frames establish depth even
-    // when the status bars are hidden by clean view.
-    p.hLine(0, 239, 20, Slate);
-    p.hLine(0, 239, 21, Night);
-    p.vLine(81, 18, 82, Slate);
-    p.vLine(82, 18, 82, Night);
-    p.fill(92, 25, 18, 12, Night);
-    p.rect(92, 25, 18, 12, Haze);
-    p.fill(95, 28, 12, 6, Brick);
-
-    // Rainy window: a moonlit pane, distant skyline and deterministic drops.
-    p.fill(8, 21, 74, 62, Ink);
-    p.fill(11, 24, 68, 53, Slate);
-    p.fill(14, 27, 62, 47, Night);
-    p.fill(14, 49, 62, 25, Slate);
-    p.fill(14, 64, 62, 10, Night);
-    p.disc(56, 39, 9, Moon);
-    p.disc(60, 36, 8, Night);
-    p.fill(56, 31, 6, 2, Moon);
-    p.fill(21, 33, 1, 1, Glow);
-    p.fill(30, 42, 1, 1, Glow);
-    p.fill(68, 29, 1, 1, Moon);
-    p.fill(42, 27, 1, 1, Haze);
-    for (int i = 0; i < 11; ++i) {
-        const std::uint32_t drop = hashSeed(seed, static_cast<std::uint32_t>(0x100) +
-                                                    static_cast<std::uint32_t>(i));
-        const int x = 16 + static_cast<int>(drop % 58U);
-        const int baseY = 27 + static_cast<int>((drop >> 8U) % 43U);
-        const int drift = static_cast<int>(time / (170U + (drop & 3U) * 14U));
-        const int y = 26 + (baseY + drift) % 47;
-        const int length = 2 + static_cast<int>((drop >> 16U) & 3U);
-        p.line(x, y, x - 1, y + length,
-               ((time / 300U + static_cast<std::uint32_t>(i)) & 3U) == 0U ? Moon : Rain);
-    }
-    for (int i = 0; i < 8; ++i) {
-        const std::uint32_t city = hashSeed(seed, static_cast<std::uint32_t>(0x180) +
-                                                    static_cast<std::uint32_t>(i));
-        const int x = 15 + i * 8;
-        const int height = 5 + static_cast<int>((city >> 5U) % 11U);
-        p.fill(x, 73 - height, 5 + static_cast<int>(city & 2U), height, Ink);
-        if ((city & 1U) != 0U) {
-            p.fill(x + 2, 72 - height, 1, 1,
-                   ((time / 650U + static_cast<std::uint32_t>(i)) & 1U) != 0U ? Gold : Amber);
+    const std::uint32_t time = static_cast<std::uint32_t>(view.timeMs);
+    const int drift = static_cast<int>((time / 420U) % 6U);
+    frame.set(130 + ((drift + 1) & 1), 66 - drift, Haze);
+    if (view.motion >= 2U) {
+        frame.set(134 + (drift & 1), 63 - ((drift + 2) % 5), Haze);
+        if (((time / 640U) & 1U) != 0U) {
+            frame.set(132, 59 - ((drift + 1) % 4), Slate);
         }
     }
-    p.fill(7, 77, 76, 5, Wood);
-    p.fill(5, 81, 80, 3, Ink);
-    p.fill(10, 78, 69, 2, Amber);
+}
 
-    // A shelf and a plant keep the left third of the room textured but low in
-    // contrast, so the cat remains the visual anchor.
-    p.fill(83, 48, 38, 4, Wood);
-    p.fill(85, 51, 3, 31, Ink);
-    p.fill(115, 51, 3, 31, Ink);
-    p.fill(87, 78, 29, 4, Wood);
-    p.fill(88, 57, 7, 16, Brick);
-    p.fill(97, 54, 6, 19, Amber);
-    p.fill(105, 60, 8, 13, Slate);
-    p.fill(106, 58, 7, 2, Gold);
-    drawPlant(p, 102, 42, seed);
-    p.fill(22, 91, 24, 3, Ink);
-    p.fill(23, 87, 7, 4, Amber);
-    p.fill(31, 84, 6, 7, Brick);
-    p.fill(38, 86, 7, 5, Gold);
-
-    // Lamp and cup.  The small light response follows the audio level while
-    // remaining bounded to a couple of pixels, avoiding a full-screen pulse.
-    const int flicker = static_cast<int>((hashSeed(seed, time / 180U) >> 4U) & 3U);
-    p.fill(121, 58, 4, 23, Wood);
-    p.fill(116, 78, 15, 4, Wood);
-    p.triangle(115, 45, 137, 45, 144, 59, flicker == 0 ? Amber : Gold);
-    p.fill(120, 58, 19, 3, Glow);
-    p.fill(127, 42, 4, 4, Glow);
-    p.fill(128, 37, 2, 6, Amber);
-    p.fill(126, 34, 6, 3, Gold);
-    p.fill(128, 35, 2, 2, Glow);
-    const int glowPulse = animate ? clampInt(static_cast<int>(view.level * 3.0f), 0, 3) : 0;
-    if (animate && view.playing && glowPulse > 0) {
-        p.fill(110 - glowPulse, 60, 2, 2, Amber);
-        p.fill(144 + glowPulse, 59, 2, 2, Amber);
-    }
-    p.fill(143, 72, 12, 3, Wood);
-    p.fill(145, 68, 8, 5, Cream);
-    p.fill(146, 67, 6, 2, Haze);
-    p.line(149, 67, 149, 63, Haze);
-    p.line(153, 67, 153, 62, Haze);
-    if (((time / 480U) & 1U) != 0U) {
-        p.fill(149, 60, 1, 2, Haze);
-        p.fill(153, 58, 1, 2, Haze);
+void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
+    for (int y = 0; y < kScreenHeight; ++y) {
+        const std::size_t row = static_cast<std::size_t>(y * kScreenWidth);
+        for (int x = 0; x < kScreenWidth; ++x) {
+            frame.set(x, y, kGeneratedSceneBackground[row + static_cast<std::size_t>(x)]);
+        }
     }
 
-    // Rug and cat cushion.  The cat is about sixty pixels from ear tips to
-    // paws and has a clean silhouette at the native display size.
-    p.fill(70, 103, 121, 27, Brick);
-    p.fill(76, 106, 109, 21, Amber);
-    p.fill(84, 109, 93, 2, Gold);
-    p.fill(84, 121, 93, 2, Brick);
-    p.fill(156, 94, 70, 17, Ink);
-    p.fill(158, 92, 65, 16, Wood);
-    p.fill(164, 90, 53, 16, Brick);
-    p.fill(169, 91, 43, 13, CatLight);
+    drawGeneratedRain(frame, view);
+    drawGeneratedSteam(frame, view);
 
-    const int beatNudge = animate && view.playing
-                              ? static_cast<int>(view.beatPhase * 2.0f + 0.5f)
-                              : 0;
-    const int breath = animate && triangleWave(time / 40U, 22, 2) == 1 ? 1 : 0;
-    const int nod = animate && view.playing ? ((beatNudge & 1) != 0 ? 1 : 0) : 0;
-    const int catX = 168 + nod;
-    const int catY = 45 + breath;
-
-    // Tail behind the body, with a slower independent period than breathing.
-    const int tailWave = centeredWave(time / 20U + (hashSeed(seed, 0x220U) & 31U),
-                                      115, 4);
-    p.line(198, 91, 210, 86 + tailWave / 3, Cat);
-    p.line(199, 92, 211, 87 + tailWave / 3, Cat);
-    p.line(210, 86 + tailWave / 3, 218, 76 + tailWave / 4, Cat);
-    p.line(211, 87 + tailWave / 3, 219, 77 + tailWave / 4, Cat);
-    p.fill(217, 74 + tailWave / 4, 5, 5, CatLight);
-
-    // Ears, head, neck and body.
-    p.triangle(catX - 7, catY + 16, catX - 3, catY - 2, catX + 7, catY + 7, Cat);
-    p.triangle(catX + 22, catY + 7, catX + 32, catY - 2, catX + 34, catY + 17, Cat);
-    p.triangle(catX - 2, catY + 5, catX, catY + 1, catX + 4, catY + 8, Brick);
-    p.triangle(catX + 25, catY + 8, catX + 31, catY + 1, catX + 31, catY + 10, Brick);
-    p.fill(catX - 5, catY + 8, 38, 25, Cat);
-    p.fill(catX - 1, catY + 15, 30, 16, CatLight);
-    p.fill(catX + 4, catY + 31, 28, 30, Cat);
-    p.fill(catX + 9, catY + 36, 19, 22, CatLight);
-    p.fill(catX + 3, catY + 56, 12, 5, Cat);
-    p.fill(catX + 22, catY + 55, 12, 6, Cat);
-    p.fill(catX + 1, catY + 58, 14, 4, Cream);
-    p.fill(catX + 21, catY + 58, 14, 4, Cream);
-    p.fill(catX + 4, catY + 29, 29, 4, Brick);
-    p.fill(catX + 15, catY + 29, 6, 3, Gold);
-
-    const std::uint32_t blinkClock = (time + hashSeed(seed, 0x2a0U) % 1400U) % 4300U;
-    const bool blink = blinkClock > 3650U && blinkClock < 3790U;
-    if (blink) {
-        p.hLine(catX + 3, catX + 9, catY + 18, Ink);
-        p.hLine(catX + 20, catX + 26, catY + 18, Ink);
-    } else {
-        p.fill(catX + 5, catY + 16, 5, 6, Ink);
-        p.fill(catX + 21, catY + 16, 5, 6, Ink);
-        p.fill(catX + 6, catY + 17, 2, 3, Gold);
-        p.fill(catX + 22, catY + 17, 2, 3, Gold);
+    const int catFrame = generatedCatFrame(view);
+    const int originX = kGeneratedSceneOriginX;
+    const int originY = kGeneratedSceneOriginY;
+    for (int y = 0; y < kSceneFrameHeight; ++y) {
+        for (int x = 0; x < kSceneFrameWidth; ++x) {
+            const std::uint8_t colour = kGeneratedSceneCat[catFrame][
+                static_cast<std::size_t>(y * kSceneFrameWidth + x)];
+            if (colour != kSceneTransparentIndex) {
+                frame.set(originX + x, originY + y, colour);
+            }
+        }
     }
-    p.fill(catX + 13, catY + 23, 6, 4, Brick);
-    p.fill(catX + 15, catY + 23, 2, 2, Ink);
-    p.line(catX + 15, catY + 27, catX + 11, catY + 29, Ink);
-    p.line(catX + 17, catY + 27, catX + 21, catY + 29, Ink);
-    p.line(catX + 1, catY + 25, catX - 7, catY + 23, Haze);
-    p.line(catX + 1, catY + 28, catX - 8, catY + 29, Haze);
-    p.line(catX + 30, catY + 25, catX + 38, catY + 23, Haze);
-    p.line(catX + 30, catY + 28, catX + 39, catY + 30, Haze);
 
-    // A little book in the paws gives the character a calm listening/study
-    // action without needing another sprite asset.
-    p.fill(catX + 9, catY + 43, 22, 12, Slate);
-    p.fill(catX + 10, catY + 44, 10, 10, Moon);
-    p.fill(catX + 21, catY + 44, 9, 10, Cream);
-    p.vLine(catX + 20, catY + 44, catY + 54, Brick);
-    p.hLine(catX + 12, catX + 18, catY + 47, Haze);
-    p.hLine(catX + 23, catX + 28, catY + 47, Amber);
+    // Keep the room alive on a beat without washing the authored palette out.
+    if (view.motion != 0U && view.playing && view.level > 0.65f) {
+        frame.set(106, 56, Gold);
+        frame.set(109, 57, Amber);
+    }
 }
 
 void drawBattery(Frame& frame, int x, int y, int percent) {
@@ -732,7 +521,7 @@ Frame::Frame() {
 }
 
 void Frame::clear(std::uint8_t colour) {
-    const std::uint8_t c = static_cast<std::uint8_t>(safeColour(colour) * 0x11U);
+    const std::uint8_t c = safeColour(colour);
     for (std::size_t i = 0; i < packedBytes; ++i) {
         pixels_[i] = c;
     }
@@ -742,23 +531,14 @@ std::uint8_t Frame::get(int x, int y) const {
     if (x < 0 || x >= width || y < 0 || y >= height) {
         return Ink;
     }
-    const std::uint8_t packed = pixels_[static_cast<std::size_t>(y * width + x) >> 1U];
-    return (x & 1) == 0 ? static_cast<std::uint8_t>(packed >> 4U)
-                        : static_cast<std::uint8_t>(packed & 0x0fU);
+    return pixels_[static_cast<std::size_t>(y * width + x)];
 }
 
 void Frame::set(int x, int y, std::uint8_t colour) {
     if (x < 0 || x >= width || y < 0 || y >= height) {
         return;
     }
-    const std::size_t index = static_cast<std::size_t>(y * width + x) >> 1U;
-    const std::uint8_t c = safeColour(colour);
-    if ((x & 1) == 0) {
-        pixels_[index] = static_cast<std::uint8_t>((pixels_[index] & 0x0fU) |
-                                                   static_cast<std::uint8_t>(c << 4U));
-    } else {
-        pixels_[index] = static_cast<std::uint8_t>((pixels_[index] & 0xf0U) | c);
-    }
+    pixels_[static_cast<std::size_t>(y * width + x)] = safeColour(colour);
 }
 
 void Frame::hLine(int x0, int x1, int y, std::uint8_t colour) {
@@ -860,7 +640,7 @@ const std::uint16_t* Frame::paletteRgb565() {
 
 void render(Frame& frame, const View& view) {
     const bool showOverlay = view.screen != Screen::Radio;
-    drawScene(frame, view, showOverlay);
+    drawGeneratedScene(frame, view, showOverlay);
     if (view.screen == Screen::Radio) {
         if (!view.clean) {
             drawStatus(frame, view, "RADIO");

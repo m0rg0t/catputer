@@ -65,7 +65,16 @@ def git_revision() -> str:
     except (OSError, subprocess.CalledProcessError):
         return "uncommitted"
     value = result.stdout.strip()
-    return value or "uncommitted"
+    if not value:
+        return "uncommitted"
+    changed = subprocess.run(
+        ["git", "status", "--porcelain", "--", "firmware", "native"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return value + ("-dirty" if changed.stdout.strip() else "")
 
 
 def scenario_id(path: Path) -> str:
@@ -146,13 +155,16 @@ def write_animation(animation_paths: list[Path], destination: Path) -> dict[str,
     # dithering so the renderer's deliberate pixels remain crisp.
     palette = frames[0].quantize(colors=256, method=Image.Quantize.MEDIANCUT)
     indexed = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
+    # GIF stores delays in 10ms units. A constant 83ms silently becomes 80ms;
+    # distribute 80/90ms delays to preserve the renderer's 12 FPS timeline.
+    durations = [((index + 1) * 100 // 12 - index * 100 // 12) * 10 for index in range(len(indexed))]
     destination.parent.mkdir(parents=True, exist_ok=True)
     indexed[0].save(
         destination,
         format="GIF",
         save_all=True,
         append_images=indexed[1:],
-        duration=83,
+        duration=durations,
         loop=0,
         disposal=2,
         optimize=False,
@@ -164,6 +176,7 @@ def write_animation(animation_paths: list[Path], destination: Path) -> dict[str,
         "frame_count": len(animation_paths),
         "gif_frame_count": gif_frame_count,
         "fps": 12,
+        "duration_ms": sum(durations),
         "width": DISPLAY_SIZE[0],
         "height": DISPLAY_SIZE[1],
         "gif": "scene.gif",

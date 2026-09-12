@@ -80,7 +80,7 @@ Provisional allocations, in KiB, to refine from the map and device measurements:
 
 | Application-owned area | Initial allowance |
 | --- | ---: |
-| 4-bit indexed 240 × 135 canvas and palette | 16 |
+| 8-bit indexed 240 × 135 canvas and palette | 32 |
 | RGB565 transfer/tile scratch | 4 |
 | Active animation sprites/state | 16 |
 | Hybrid resident bank; mostly unused for pure synthesis | 64 |
@@ -90,7 +90,7 @@ Provisional allocations, in KiB, to refine from the map and device measurements:
 | Settings/content indexes | 8 |
 | Application task stacks | 12 |
 | Unassigned application margin | 16 |
-| **Application planning envelope** | **176** |
+| **Application planning envelope** | **192** |
 
 This envelope excludes framework static/IRAM use, M5GFX internals, filesystem buffers, the M5Unified task/DMA allocation and system stacks. Measure those separately; the table is not proof of fit. Provisional operating gates after all initialization: at least 48 KiB free internal heap and at least 24 KiB as the largest free block, with no continuing decline during a two-hour soak. Revisit the budget openly if the baseline fails.
 
@@ -101,6 +101,8 @@ A full RGB565 frame is 64,800 bytes; two use 129,600 bytes. An indexed framebuff
 Use a static room background with small animated layers: rain, lamp/steam, a few cat poses and slow background movement. The cat is the main character. Target 12 FPS, with 6 FPS as a load fallback. Update controls promptly even if the scenery is slow. Use an independent fixed-step animation timeline for reproducible screenshots.
 
 Compile original pixel art into a bounded indexed format at build time. Optional SD assets are validated and loaded before use; no file reads occur for each frame. Avoid JPEG/GIF/video decoding in the main listening loop. Scene switching either fits within allocated buffers or uses a short visual transition while audio keeps playing.
+
+The imagegen scene uses a 32,400-byte framebuffer and a 480-byte RGB565 transfer row. Its background, six 64 × 72 cat frames and palette are compiled as constant data in flash. The renderer copies indexed pixels and uses transparency index 255 for sprites; no image decoder or asset-loading allocation runs on the device. This replaces the initial 16-color packed-canvas proposal.
 
 ## Content and persistence
 

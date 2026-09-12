@@ -11,7 +11,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 - Seeded composition with three moods: Cozy, Rainy and Night.
 - Evolving arrangements, swing, humanized velocities, gentle transitions and automatic new sessions.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
-- A cat with blinking, breathing and tail movement; rain, lamp light and a quiet room. Reduced/still motion and a clean scene view.
+- An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
 - Pause, volume, mood selection, next session and up to eight favorites.
 - Built-in music and artwork need **no SD, network, account or API key**. Optional SD stores settings and favorites; without it they remain in RAM until restart.
 - A native SDL preview, deterministic WAV exports, real-code screenshot exports, sample tools and a local site generator.
@@ -78,13 +78,15 @@ Python 3 is required for the tools; media export additionally needs Pillow (`pyt
 
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py' -v
-./build/cmake/lofi_native --shots build/screens --animation build/animation
+./build/cmake/lofi_native --shots build/screens --animation build/animation --frames 144
 python3 tools/export_media.py
 python3 tools/build_site.py
 python3 -m http.server 8080 --directory build/site
 ```
 
 The built-in bank is reproducible from [generate_samples.py](tools/generate_samples.py); [prepare_samples.py](tools/prepare_samples.py) validates and emits the flash bank. Optional ElevenLabs generation happens on the development computer using an environment key, with bounded requests and private raw outputs. It is never part of firmware playback. See the tools' `--help` and [audio asset notes](assets/audio/README.md).
+
+The room and cat masters were created with the built-in imagegen tool, then adapted to the LCD as indexed pixel assets. [Artwork sources and prompts](assets/source/imagegen-v1/README.md) are included. To rebuild the bundled scene after editing its sources, run `python3 tools/prepare_scene.py`, then rebuild the native preview and firmware. The device uses a 240 × 135 background, six 64 × 72 sprite containers and a shared 64-color palette; generation and image conversion happen only during development.
 
 ## Project map
 

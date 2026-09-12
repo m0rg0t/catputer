@@ -7,7 +7,12 @@ namespace lofi {
 
 constexpr int kScreenWidth = 240;
 constexpr int kScreenHeight = 135;
-constexpr int kPaletteSize = 16;
+constexpr int kUiPaletteSize = 16;
+constexpr int kPaletteSize = 64;
+constexpr int kSceneFrameWidth = 64;
+constexpr int kSceneFrameHeight = 72;
+constexpr int kSceneFrameCount = 6;
+constexpr std::uint8_t kSceneTransparentIndex = 255;
 
 // The shared renderer consumes this small, platform-neutral snapshot.  The
 // controls/platform task owns the strings and keeps them NUL-terminated.
@@ -43,8 +48,9 @@ struct View {
     char items[8][32] = {};
 };
 
-// A fixed 4-bit indexed canvas.  Two pixels are packed into each byte,
-// with the even x coordinate in the high nibble.  The backing store is
+// A fixed 8-bit indexed canvas.  Each byte is one palette index; the full
+// 64-colour scene palette keeps the authored room faithful while the first
+// sixteen entries remain the stable UI palette.  The backing store is
 // deliberately exposed only through accessors so callers cannot accidentally
 // introduce an RGB565-sized framebuffer on the ADV.
 class Frame {
@@ -52,7 +58,7 @@ public:
     static constexpr int width = kScreenWidth;
     static constexpr int height = kScreenHeight;
     static constexpr std::size_t packedBytes =
-        static_cast<std::size_t>(width * height / 2);
+        static_cast<std::size_t>(width * height);
 
     Frame();
 

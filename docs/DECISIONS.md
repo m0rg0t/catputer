@@ -19,6 +19,7 @@ Planning session: 2026-09-12.
 | Sample-production tools | ElevenLabs API may be used for effects or musical components when useful; the production engine choice remains open |
 | Implementation approval | User accepted the plan and requested implementation; capable subagents may help, with review of their results |
 | Public preparation | Initialize Git locally and create a README for the future public project |
+| Artwork production | Use imagegen for the room, cat and animation frames, then adapt them to the small screen |
 
 ## Under discussion
 
@@ -26,7 +27,7 @@ Planning session: 2026-09-12.
 | --- | --- | --- |
 | Overall plan | This document set | Accepted; implementation underway |
 | Production engine | A or B based on matched listening and measurements | Deliberately deferred until feasibility comparison |
-| Detailed art design | Original orange cat reading in a rainy room | Implemented in the shared pixel renderer; desktop preview reviewed |
+| Detailed art design | Original orange cat with headphones and a book in a rainy room | Imagegen masters, six sprite frames and indexed assets used by the shared pixel renderer |
 
 ## Engineering proposals to validate
 

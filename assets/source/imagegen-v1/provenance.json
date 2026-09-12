@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "asset_version": "imagegen-v1",
+  "created": "2026-09-13",
+  "generator": "OpenAI imagegen built-in tool",
+  "mode": "built-in; no CLI fallback",
+  "purpose": "Original room background and six cat animation frames for Cardputer ADV Lofi",
+  "references": "Only the newly generated room and cat were used as visual references; no Lofi Cat or Lofi Girl artwork was supplied.",
+  "operations": [
+    {
+      "type": "generate",
+      "output": "background.png",
+      "prompt": "background-prompt.txt"
+    },
+    {
+      "type": "generate_with_reference",
+      "reference": "background.png",
+      "output": "cat-sheet-original.png",
+      "prompt": "cat-sheet-prompt.txt"
+    },
+    {
+      "type": "edit_background",
+      "reference": "cat-sheet-original.png",
+      "output": "cat-sheet.png",
+      "prompt": "cat-key-prompt.txt"
+    }
+  ],
+  "files": [
+    {
+      "path": "background.png",
+      "sha256": "8c72c2c35aed0f6c9f873f03a6b5c4f6e87c2f00768ee30cede9daf1c8f0426f",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "cat-sheet-original.png",
+      "sha256": "b938bfc4e5f76b2aa73114fc7cdb00e11a4d183409c37c61866fe9fba1581aa6",
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "cat-sheet.png",
+      "sha256": "908709e079899a659ef97df7d09a8335f06efb238de82ed9ca8820771000890a",
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "mode": "RGB"
+    }
+  ],
+  "conversion_tool": "../../../tools/prepare_scene.py",
+  "runtime_manifest": "../../runtime/imagegen-v1/scene-manifest.json"
+}

@@ -1,6 +1,6 @@
 # Sources and attribution
 
-The music composer, synthesis code, local instrument-bank generator and pixel-art scene in this project were authored for this implementation. No Lofi Girl recordings or artwork, and no Lofi Cat music or image assets, are bundled.
+The music composer, synthesis code and local instrument-bank generator were authored for this implementation. The original room and cat artwork was created for this project with the built-in OpenAI imagegen tool, then resized and palette-converted for the shared renderer. Source images, exact prompts and conversion provenance are retained in `assets/source/imagegen-v1` and `assets/runtime/imagegen-v1`. No Lofi Girl recordings or artwork, and no Lofi Cat music or image assets, are bundled.
 
 Reference projects informed the design and delivery workflow:
 

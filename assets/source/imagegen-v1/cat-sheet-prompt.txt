@@ -1,0 +1,13 @@
+Use case: stylized-concept.
+Asset type: a production transparent sprite sheet for a tiny pixel-art game / lofi radio.
+Input image 1 is ONLY a palette, lighting and pixel-art STYLE REFERENCE. Do not reproduce its room. Generate a SEPARATE isolated cat sprite sheet, not a scene or compositing mockup.
+Primary request: exactly SIX consistent animation frames of ONE original cute orange tabby cat, sitting upright with a cream muzzle, cream chest and little cream paws, wearing big muted teal headphones, holding an open small cream-and-teal book on its lap. It is an animal cat protagonist, no human. Warm amber light from the left, gentle cool navy edge from the right, expressive slightly sleepy eyes. Face seen in a nearly frontal three-quarter view looking slightly left. A thick curling striped tail rests alongside the body. Short round body, large readable head, clear ears above the headphone band. Charming and cozy, professional game art, not a stiff robot.
+SHEET LAYOUT IS CRITICAL: exactly 3 columns by 2 rows of identically sized square cells; ideally 1536x1024 canvas with each cell512x512. Actual transparent PNG background (alpha zero), no colored or white background, no checkerboard painted into the artwork, no grid, no labels, no text. At least 40 transparent pixels around the fully visible cat in EVERY cell. No object touches another cell. Same seated cat, same size, same face markings, same headphones, same book, identical bottom baseline and center position in all six cells. Preserve body and book outlines almost exactly; animate small details only. No chair, cushion, lamp, table or environment.
+Reading order frames:
+1 top-left: relaxed eyes open, neutral pose, tail at rest.
+2 top-middle: same pose and book, eyes half closed, head down just a tiny amount.
+3 top-right: same pose, closed-eye soft blink; body does not move.
+4 bottom-left: eyes half open again, ears make a tiny relaxed twitch.
+5 bottom-middle: eyes open, tail tip curved slightly upward, tiny content nod.
+6 bottom-right: eyes open in the original neutral pose, tail returning to rest.
+Style must remain authentic deliberate LOW RESOLUTION pixel art with large coherent square pixel clusters, sharp stepped outlines, flat discrete color bands. Each cat must remain beautiful and clearly legible when each cell is reduced to roughly 64x64 pixels. Do not use tiny fur strokes, smooth painted texture, soft antialiasing or gradients. Limited navy/terracotta/orange/cream/teal palette matching the provided room. The open book must read as one simple object at tiny scale. Do not include any famous or branded character.

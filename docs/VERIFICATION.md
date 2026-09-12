@@ -7,18 +7,20 @@ This is the first local feasibility implementation of the accepted plan, version
 - Shared C++17 composer and renderer with deterministic 64-bit seeds, three moods, six arrangement sections and automatic session changes.
 - Eight bounded voices; pure synth and hybrid instruments; seven locally generated hybrid one-shots totaling 58,240 PCM bytes.
 - Offline 32 kHz mono PCM16 output. The ADV adapter rotates three 512-frame buffers through the pinned M5Unified speaker API; commands are copied to the audio task and SD work runs separately.
-- Original 240 × 135 pixel-art cat/room renderer. Packed scene storage is 16,200 bytes plus a 480-byte output row. Engine inline storage is 8,192 bytes.
+- Original imagegen room/cat artwork adapted for the shared 240 × 135 renderer. The 64-color indexed framebuffer uses 32,400 bytes plus a 480-byte output row. Background, six 64 × 72 cat frames and the RGB565 palette use 60,176 bytes of constant scene data in flash. Engine inline storage is 8,192 bytes.
 - Menus, help, settings, favorites, clean scene and motion levels. Fixed 160-byte versioned/CRC-checked optional SD state with valid backup/temp recovery. No-SD state lives in RAM.
 - Native SDL preview and WAV/PPM exports, deterministic sample tooling, a media exporter, allowlisted static site builder and app-only package builder.
 - Arduino generic NVS initialization is wrapped out; ELF symbol inspection confirmed the wrapper is linked. This app has no NVS clients.
 
 ## Host checks
 
-Normal CMake/CTest and an UndefinedBehaviorSanitizer build pass the music, state, controller and native storage suites. Tests cover deterministic PCM across block sizes, identical A/B score hashes, bounded voices, favorite parsing, pause/resume, arrangement/session progression, malformed saves, CRC corruption, menu boundaries and recovery from a corrupt primary save. Audio command sequencing and transition regressions are included after review.
+Normal CMake/CTest and an UndefinedBehaviorSanitizer build pass the music, state, controller, native storage and UI suites. Tests cover deterministic PCM across block sizes, identical A/B score hashes, bounded voices, favorite parsing, pause/resume, arrangement/session progression, malformed saves, CRC corruption, menu boundaries and recovery from a corrupt primary save. Audio command sequencing and transition regressions are included after review. The UI suite verifies all 64 indices through RGB565 row conversion, row-buffer guards, off-screen writes, still-motion behavior and valid indices in every screen.
 
 The SDL preview completed a bounded run with dummy audio/video drivers and optional local state. All exported UI scenarios also ran under UBSAN. The actual renderer was visually inspected at an integer scale: cat/room, main HUD, menus and full 64-bit diagnostic seed are legible.
 
 Python tests cover the selected bank, format/order/hash/loop/size rejection and application-image checksum/hash/target/bounds validation. AddressSanitizer's runtime stalls during initialization on this host; no ASAN pass is claimed.
+
+The imagegen asset update adds deterministic scene conversion tests for palette order, transparency, dimensions and sprite-sheet scanline order. The final native preview exports 15 UI states and 144 animation frames (12 seconds at 12 FPS). The room/cat composition and UI contact sheet were visually reviewed; sprites use real indexed transparency with no magenta colors remaining in the packed palette. The six poses share a fixed bench anchor. Source masters, prompts and hashes are retained with the assets. The new framebuffer adds 16,200 bytes of static RAM, so physical heap and timing checks remain necessary.
 
 Audio comparison measurements are recorded below. The completed firmware build is below the compact profile; final image identity and checksums are in the distribution manifest. Desktop timings are not a device real-time guarantee; clipping/energy checks do not establish pleasant sound.
 
@@ -53,8 +55,8 @@ The pinned M5GFX tag `0.2.22` was verified locally and used through an ignored l
 
 ## Final firmware artifact
 
-Application BIN: 616384 bytes; 694336 bytes below the `0x140000` compact limit. Linker static RAM: 50,936 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
+Application BIN: 673,680 bytes; 637,040 bytes below the `0x140000` compact limit. Linker static RAM: 67,136 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
 
-BIN SHA-256: `13644d9ddead1d61160a7b4b667fbb9b370d26b6f84b8ec31b00c9fdbcf86553`.
+BIN SHA-256: `7ca7afb33eddaeae9495e09e8b3e0564fe4079fd20e9f42dc75022f3448673a6`.
 
-Final test inventory: four native CTest suites (normal and UBSAN), 22 Python tests, real bootloader rejection, validated release archive, SDL smoke run and native-renderer screenshot exports.
+Final test inventory: five native CTest suites (normal and UBSAN), 28 Python tests, real bootloader rejection, validated release archive, SDL smoke run and native-renderer screenshot exports. The imagegen update preserves the existing audio code and comparison renders.
