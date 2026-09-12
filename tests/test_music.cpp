@@ -1,6 +1,7 @@
 #include "lofi/music.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -50,6 +51,67 @@ std::uint64_t energy(const std::vector<std::int16_t>& audio) {
     return total;
 }
 
+bool sameScoreBar(const lofi::ScoreBar& left, const lofi::ScoreBar& right) {
+    if (left.seed != right.seed || left.bar != right.bar || left.bpm != right.bpm ||
+        left.keyPitchClass != right.keyPitchClass || left.minor != right.minor ||
+        left.chordRoot != right.chordRoot || left.noteCount != right.noteCount ||
+        !std::equal(std::begin(left.chordNotes), std::end(left.chordNotes),
+                    std::begin(right.chordNotes))) {
+        return false;
+    }
+    for (std::size_t index = 0; index < left.noteCount; ++index) {
+        const lofi::ScoreNote& a = left.notes[index];
+        const lofi::ScoreNote& b = right.notes[index];
+        if (a.startSample != b.startSample || a.durationSamples != b.durationSamples ||
+            a.instrument != b.instrument || a.note != b.note ||
+            a.velocity != b.velocity) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool scaleContains(const lofi::ScoreBar& bar, std::uint8_t note) {
+    static constexpr std::uint8_t major[] = {0, 2, 4, 5, 7, 9, 11};
+    static constexpr std::uint8_t minor[] = {0, 2, 3, 5, 7, 8, 10};
+    const std::uint8_t relative = static_cast<std::uint8_t>(
+        (note + 12u - bar.keyPitchClass) % 12u);
+    const std::uint8_t* scale = bar.minor ? minor : major;
+    return std::find(scale, scale + 7, relative) != scale + 7;
+}
+
+bool chordContains(const lofi::ScoreBar& bar, std::uint8_t note) {
+    return std::any_of(std::begin(bar.chordNotes), std::end(bar.chordNotes),
+                       [note](std::uint8_t chordNote) {
+        return chordNote % 12u == note % 12u;
+    });
+}
+
+std::uint64_t signatureValue(std::uint64_t hash, std::uint64_t value) {
+    return (hash ^ value) * UINT64_C(1099511628211);
+}
+
+std::size_t distinctCount(const std::uint64_t* values, std::size_t count) {
+    std::size_t distinct = 0;
+    for (std::size_t index = 0; index < count; ++index) {
+        bool seen = false;
+        for (std::size_t earlier = 0; earlier < index; ++earlier) {
+            seen = seen || values[earlier] == values[index];
+        }
+        distinct += seen ? 0u : 1u;
+    }
+    return distinct;
+}
+
+void renderToNextBar(Engine& engine, std::uint32_t currentBar) {
+    std::int16_t scratch[509]{};
+    for (int attempt = 0; attempt < 1000 && engine.snapshot().bar == currentBar;
+         ++attempt) {
+        engine.render(scratch, std::size(scratch));
+    }
+    CHECK(engine.snapshot().bar == currentBar + 1u);
+}
+
 void renderUntilSeed(Engine& engine, std::uint64_t seed) {
     std::vector<std::int16_t> block(509);
     for (int attempt = 0; attempt < 1000 && engine.config().seed != seed; ++attempt) {
@@ -70,15 +132,15 @@ void testFavoriteRoundTrip() {
     char code[Engine::kFavoriteCodeCapacity]{};
     const std::size_t length = engine.writeFavoriteCode(code, sizeof(code));
     CHECK(length > 0);
-    CHECK(std::strcmp(code, "lofi2-fedcba9876543210-2-1-100-0") == 0);
+    CHECK(std::strcmp(code, "lofi3-fedcba9876543210-2-1-100-0") == 0);
 
     Config parsed{};
     CHECK(Engine::parseFavoriteCode(code, parsed));
     CHECK(sameConfig(source, parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi1-fedcba9876543210-2-1-100-0", parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba987654321-2-1-100-0", parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba9876543210-3-1-100-0", parsed));
-    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba9876543210-2-1-101-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi2-fedcba9876543210-2-1-100-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi3-fedcba987654321-2-1-100-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi3-fedcba9876543210-3-1-100-0", parsed));
+    CHECK(!Engine::parseFavoriteCode("lofi3-fedcba9876543210-2-1-101-0", parsed));
 
     char tooSmall[8] = {'x'};
     CHECK(engine.writeFavoriteCode(tooSmall, sizeof(tooSmall)) == 0);
@@ -128,6 +190,7 @@ void testBackendIndependentScore() {
 
     Engine synth(synthConfig);
     Engine hybrid(hybridConfig);
+    CHECK(sameScoreBar(synth.scoreBar(), hybrid.scoreBar()));
     constexpr std::size_t frames = lofi::kMusicSampleRate * 18u;
     const std::vector<std::int16_t> synthAudio = renderFrames(synth, frames, 511);
     const std::vector<std::int16_t> hybridAudio = renderFrames(hybrid, frames, 1024);
@@ -142,6 +205,7 @@ void testBackendIndependentScore() {
     CHECK(synthDiagnostics.droppedNoteEvents == hybridDiagnostics.droppedNoteEvents);
     CHECK(synth.snapshot().bar == hybrid.snapshot().bar);
     CHECK(synth.snapshot().bpm == hybrid.snapshot().bpm);
+    CHECK(sameScoreBar(synth.scoreBar(), hybrid.scoreBar()));
     CHECK(synthAudio != hybridAudio);
     CHECK(energy(synthAudio) > UINT64_C(10000000));
     CHECK(energy(hybridAudio) > UINT64_C(10000000));
@@ -223,7 +287,198 @@ void testOpeningHasEveryLayerAndHeadroom() {
     }
 
     CHECK(lofi::kMusicVoiceCapacity == 12);
-    CHECK(lofi::kMusicSchemaVersion == 2);
+    CHECK(lofi::kMusicSchemaVersion == 3);
+}
+
+void testScheduledHarmonyMovementAndPhraseVariety() {
+    constexpr std::uint64_t seeds[] = {
+        UINT64_C(0x000000000ca7cafe),
+        UINT64_C(0xbadc0ffee0ddf00d),
+    };
+    constexpr std::size_t kBars = 36;
+    constexpr std::size_t kPhrases = kBars / 4;
+
+    for (std::size_t moodIndex = 0; moodIndex < 3; ++moodIndex) {
+        for (const std::uint64_t seed : seeds) {
+            Config config{};
+            config.seed = seed;
+            config.mood = static_cast<Mood>(moodIndex);
+            config.soundEngine = SoundEngine::Synth;
+            config.texture = 0;
+            Engine engine(config);
+
+            const lofi::Snapshot snapshotBefore = engine.snapshot();
+            const lofi::Diagnostics diagnosticsBefore = engine.diagnostics();
+            const lofi::ScoreBar firstCopy = engine.scoreBar();
+            const lofi::ScoreBar secondCopy = engine.scoreBar();
+            CHECK(sameScoreBar(firstCopy, secondCopy));
+            CHECK(engine.snapshot().transportSample == snapshotBefore.transportSample);
+            CHECK(engine.diagnostics().scoreEventHash == diagnosticsBefore.scoreEventHash);
+
+            std::uint64_t harmonySignatures[kPhrases]{};
+            std::uint64_t leadSignatures[kPhrases]{};
+            std::uint64_t keysPatterns[kPhrases]{};
+            std::uint64_t bassPatterns[kPhrases]{};
+            std::uint64_t drumPatterns[kPhrases]{};
+            for (std::size_t phrase = 0; phrase < kPhrases; ++phrase) {
+                harmonySignatures[phrase] = UINT64_C(14695981039346656037);
+                leadSignatures[phrase] = UINT64_C(14695981039346656037);
+                keysPatterns[phrase] = UINT64_C(14695981039346656037);
+                bassPatterns[phrase] = UINT64_C(14695981039346656037);
+                drumPatterns[phrase] = UINT64_C(14695981039346656037);
+            }
+
+            int previousBass = -1;
+            int previousLead = -1;
+            std::uint8_t previousChord[4]{};
+            std::uint64_t hookRhythm[2] = {
+                UINT64_C(14695981039346656037),
+                UINT64_C(14695981039346656037),
+            };
+            std::uint8_t hookNotes[2]{};
+            std::uint32_t passingNotes = 0;
+            std::uint32_t strongLeadNotes = 0;
+
+            for (std::size_t expectedBar = 0; expectedBar < kBars; ++expectedBar) {
+                const lofi::ScoreBar bar = engine.scoreBar();
+                CHECK(bar.seed == seed);
+                CHECK(bar.bar == expectedBar);
+                CHECK(bar.noteCount <= lofi::kMusicMaxBarNotes);
+                CHECK(bar.noteCount >= 5);
+                CHECK(bar.chordRoot >= 32 && bar.chordRoot <= 48);
+                CHECK(scaleContains(bar, bar.chordRoot));
+
+                const std::uint64_t stepQ32 =
+                    (static_cast<std::uint64_t>(lofi::kMusicSampleRate) * 60u << 32) /
+                    (static_cast<std::uint64_t>(bar.bpm) * 4u);
+                const std::uint64_t barStart =
+                    (stepQ32 * static_cast<std::uint64_t>(expectedBar * 16u)) >> 32;
+                const std::uint64_t barEnd =
+                    (stepQ32 * static_cast<std::uint64_t>((expectedBar + 1u) * 16u)) >> 32;
+                const double stepSamples = static_cast<double>(lofi::kMusicSampleRate) *
+                    60.0 / (static_cast<double>(bar.bpm) * 4.0);
+                const std::size_t phrase = expectedBar / 4u;
+                harmonySignatures[phrase] = signatureValue(
+                    harmonySignatures[phrase], expectedBar & 3u);
+                harmonySignatures[phrase] = signatureValue(
+                    harmonySignatures[phrase],
+                    (bar.chordRoot + 12u - bar.keyPitchClass) % 12u);
+
+                for (std::size_t voice = 0; voice < 4; ++voice) {
+                    CHECK(scaleContains(bar, bar.chordNotes[voice]));
+                    if (expectedBar != 0) {
+                        CHECK(std::abs(static_cast<int>(bar.chordNotes[voice]) -
+                                       static_cast<int>(previousChord[voice])) <= 12);
+                    }
+                    previousChord[voice] = bar.chordNotes[voice];
+                }
+
+                std::uint64_t previousStart = barStart;
+                for (std::size_t index = 0; index < bar.noteCount; ++index) {
+                    const lofi::ScoreNote& note = bar.notes[index];
+                    CHECK(note.startSample >= barStart);
+                    CHECK(note.startSample < barEnd);
+                    CHECK(note.startSample >= previousStart);
+                    CHECK(note.durationSamples > 0);
+                    CHECK(note.velocity > 0 && note.velocity <= 127);
+                    previousStart = note.startSample;
+
+                    const int step = static_cast<int>(std::llround(
+                        static_cast<double>(note.startSample - barStart) / stepSamples));
+                    const int durationSteps = std::max(1, static_cast<int>(std::llround(
+                        static_cast<double>(note.durationSamples) / stepSamples)));
+                    const std::uint64_t rhythm = static_cast<std::uint64_t>(
+                        (expectedBar & 3u) * 128u + static_cast<std::size_t>(step) * 8u +
+                        static_cast<std::size_t>(durationSteps));
+                    const bool pitched = note.instrument == lofi::MusicInstrument::Keys ||
+                        note.instrument == lofi::MusicInstrument::Bass ||
+                        note.instrument == lofi::MusicInstrument::Lead;
+                    if (pitched) {
+                        CHECK(scaleContains(bar, note.note));
+                    }
+
+                    if (note.instrument == lofi::MusicInstrument::Keys) {
+                        CHECK(chordContains(bar, note.note));
+                        keysPatterns[phrase] = signatureValue(keysPatterns[phrase], rhythm);
+                    } else if (note.instrument == lofi::MusicInstrument::Bass) {
+                        CHECK(note.note >= 32 && note.note <= 48);
+                        if (previousBass >= 0) {
+                            CHECK(std::abs(static_cast<int>(note.note) - previousBass) <= 7);
+                        }
+                        previousBass = note.note;
+                        bassPatterns[phrase] = signatureValue(bassPatterns[phrase], rhythm);
+                    } else if (note.instrument == lofi::MusicInstrument::Lead) {
+                        CHECK(note.note >= 64 && note.note <= 83);
+                        if (previousLead >= 0) {
+                            CHECK(std::abs(static_cast<int>(note.note) - previousLead) <= 8);
+                        }
+                        previousLead = note.note;
+                        const bool chordTone = chordContains(bar, note.note);
+                        const bool strong = step % 4 == 0 || durationSteps >= 3;
+                        if (strong) {
+                            ++strongLeadNotes;
+                            CHECK(chordTone);
+                        }
+                        if (!chordTone) {
+                            ++passingNotes;
+                            const lofi::ScoreNote* resolution = nullptr;
+                            for (std::size_t next = index + 1; next < bar.noteCount; ++next) {
+                                if (bar.notes[next].instrument ==
+                                    lofi::MusicInstrument::Lead) {
+                                    resolution = &bar.notes[next];
+                                    break;
+                                }
+                            }
+                            CHECK(resolution != nullptr);
+                            CHECK(chordContains(bar, resolution->note));
+                            const int resolutionDistance = std::abs(
+                                static_cast<int>(resolution->note) - note.note);
+                            CHECK(resolutionDistance == 1 || resolutionDistance == 2);
+                            CHECK(resolution->startSample - note.startSample <=
+                                  static_cast<std::uint64_t>(stepSamples * 3.1));
+                        }
+                        leadSignatures[phrase] = signatureValue(
+                            leadSignatures[phrase], rhythm);
+                        leadSignatures[phrase] = signatureValue(
+                            leadSignatures[phrase],
+                            (note.note + 12u - bar.keyPitchClass) % 12u);
+                        if (expectedBar == 0u || expectedBar == 8u) {
+                            const std::size_t hook = expectedBar == 0u ? 0u : 1u;
+                            hookRhythm[hook] = signatureValue(hookRhythm[hook],
+                                static_cast<std::uint64_t>(step * 8 + durationSteps));
+                            ++hookNotes[hook];
+                        }
+                    } else {
+                        drumPatterns[phrase] = signatureValue(
+                            drumPatterns[phrase],
+                            rhythm * 8u + static_cast<std::uint8_t>(note.instrument));
+                    }
+                }
+
+                if (expectedBar + 1u < kBars) {
+                    renderToNextBar(engine, static_cast<std::uint32_t>(expectedBar));
+                }
+            }
+
+            CHECK(harmonySignatures[0] == harmonySignatures[1]);
+            CHECK(harmonySignatures[2] == harmonySignatures[3]);
+            CHECK(harmonySignatures[4] == harmonySignatures[5]);
+            CHECK(harmonySignatures[6] == harmonySignatures[7]);
+            CHECK(harmonySignatures[0] == harmonySignatures[8]);
+            CHECK(distinctCount(harmonySignatures, kPhrases) >= 4);
+            CHECK(distinctCount(leadSignatures, kPhrases) >= 5);
+            CHECK(distinctCount(keysPatterns, kPhrases) >= 3);
+            CHECK(distinctCount(bassPatterns, kPhrases) >= 3);
+            CHECK(distinctCount(drumPatterns, kPhrases) >= 4);
+            CHECK(hookNotes[0] >= 4 && hookNotes[0] == hookNotes[1]);
+            CHECK(hookRhythm[0] == hookRhythm[1]);
+            CHECK(passingNotes >= 6);
+            CHECK(strongLeadNotes >= 12);
+            const lofi::Diagnostics diagnostics = engine.diagnostics();
+            CHECK(diagnostics.droppedNoteEvents == 0);
+            CHECK(diagnostics.maxActiveVoices <= lofi::kMusicVoiceCapacity);
+        }
+    }
 }
 
 void testBoundsAndRenderContract() {
@@ -516,6 +771,7 @@ int main() {
     testReplayAndBlockDeterminism();
     testBackendIndependentScore();
     testOpeningHasEveryLayerAndHeadroom();
+    testScheduledHarmonyMovementAndPhraseVariety();
     testBoundsAndRenderContract();
     testBarBoundaryTransition();
     testConfigAndNextRequestsMerge();

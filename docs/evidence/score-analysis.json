@@ -1,0 +1,619 @@
+{
+  "source": "native_shared_composer_csv",
+  "hardware_verified": false,
+  "scope": "Natural-scale membership, chord anchors, passing-note resolution, register and structural variety; no subjective quality rating.",
+  "scores": [
+    {
+      "file": "cozy-synth-000000000ca7cafe.csv",
+      "sha256": "f1b59f32a9748521ac8d68ec9ddcbe9399a18d7628d037443c6435eba554e2f0",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 165,
+      "scheduled_notes": 3074,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          45
+        ],
+        "keys": [
+          56,
+          69
+        ],
+        "lead": [
+          64,
+          81
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 9,
+        "lead": 8
+      },
+      "resolved_passing_notes": 35,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 6,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": []
+    },
+    {
+      "file": "cozy-hybrid-000000000ca7cafe.csv",
+      "sha256": "f1b59f32a9748521ac8d68ec9ddcbe9399a18d7628d037443c6435eba554e2f0",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 165,
+      "scheduled_notes": 3074,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          45
+        ],
+        "keys": [
+          56,
+          69
+        ],
+        "lead": [
+          64,
+          81
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 9,
+        "lead": 8
+      },
+      "resolved_passing_notes": 35,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 6,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": []
+    },
+    {
+      "file": "cozy-synth-0123456789abcdef.csv",
+      "sha256": "d11c7fac33df522bfd5b2c339e5800377ca893106518d9723a1d9e79b41b4e52",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 157,
+      "scheduled_notes": 2987,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          70
+        ],
+        "lead": [
+          64,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 9,
+        "lead": 8
+      },
+      "resolved_passing_notes": 34,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 8,
+      "distinct_four_bar_lead_phrases": 21,
+      "rule_violations": []
+    },
+    {
+      "file": "cozy-hybrid-0123456789abcdef.csv",
+      "sha256": "d11c7fac33df522bfd5b2c339e5800377ca893106518d9723a1d9e79b41b4e52",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 157,
+      "scheduled_notes": 2987,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          70
+        ],
+        "lead": [
+          64,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 9,
+        "lead": 8
+      },
+      "resolved_passing_notes": 34,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 8,
+      "distinct_four_bar_lead_phrases": 21,
+      "rule_violations": []
+    },
+    {
+      "file": "cozy-synth-badc0ffee0ddf00d.csv",
+      "sha256": "ed039dc21fd5347402b3f6482cd8f68a67b70f3dc4519a1afbc163d2026e207b",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 166,
+      "scheduled_notes": 3111,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          69
+        ],
+        "lead": [
+          64,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 8,
+        "lead": 8
+      },
+      "resolved_passing_notes": 35,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 9,
+      "distinct_four_bar_lead_phrases": 24,
+      "rule_violations": []
+    },
+    {
+      "file": "cozy-hybrid-badc0ffee0ddf00d.csv",
+      "sha256": "ed039dc21fd5347402b3f6482cd8f68a67b70f3dc4519a1afbc163d2026e207b",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 166,
+      "scheduled_notes": 3111,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          69
+        ],
+        "lead": [
+          64,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 8,
+        "lead": 8
+      },
+      "resolved_passing_notes": 35,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 9,
+      "distinct_four_bar_lead_phrases": 24,
+      "rule_violations": []
+    },
+    {
+      "file": "rainy-synth-000000000ca7cafe.csv",
+      "sha256": "fbca952ca1707d4b8e20c0aeb549dd09c3ed7eb5e53eb1fc41d37f988c25d6b4",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 147,
+      "scheduled_notes": 2783,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          68
+        ],
+        "lead": [
+          64,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 8
+      },
+      "resolved_passing_notes": 29,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 20,
+      "rule_violations": []
+    },
+    {
+      "file": "rainy-hybrid-000000000ca7cafe.csv",
+      "sha256": "fbca952ca1707d4b8e20c0aeb549dd09c3ed7eb5e53eb1fc41d37f988c25d6b4",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 147,
+      "scheduled_notes": 2783,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          68
+        ],
+        "lead": [
+          64,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 8
+      },
+      "resolved_passing_notes": 29,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 20,
+      "rule_violations": []
+    },
+    {
+      "file": "rainy-synth-0123456789abcdef.csv",
+      "sha256": "549bb0e15bdcacd1493a291e318052652a35debdfc8a2ec72937ecf27be5a8f9",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 150,
+      "scheduled_notes": 2841,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          55,
+          67
+        ],
+        "lead": [
+          64,
+          81
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 8,
+        "lead": 8
+      },
+      "resolved_passing_notes": 30,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 20,
+      "rule_violations": []
+    },
+    {
+      "file": "rainy-hybrid-0123456789abcdef.csv",
+      "sha256": "549bb0e15bdcacd1493a291e318052652a35debdfc8a2ec72937ecf27be5a8f9",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 150,
+      "scheduled_notes": 2841,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          55,
+          67
+        ],
+        "lead": [
+          64,
+          81
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 8,
+        "lead": 8
+      },
+      "resolved_passing_notes": 30,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 20,
+      "rule_violations": []
+    },
+    {
+      "file": "rainy-synth-badc0ffee0ddf00d.csv",
+      "sha256": "e050a655cf7c9562ce6dc7d3d2632380101c0d5e306c230324cf99c526ceaf4b",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 149,
+      "scheduled_notes": 2808,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          34,
+          48
+        ],
+        "keys": [
+          53,
+          70
+        ],
+        "lead": [
+          65,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 9,
+        "lead": 8
+      },
+      "resolved_passing_notes": 32,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": []
+    },
+    {
+      "file": "rainy-hybrid-badc0ffee0ddf00d.csv",
+      "sha256": "e050a655cf7c9562ce6dc7d3d2632380101c0d5e306c230324cf99c526ceaf4b",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 149,
+      "scheduled_notes": 2808,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          34,
+          48
+        ],
+        "keys": [
+          53,
+          70
+        ],
+        "lead": [
+          65,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 9,
+        "lead": 8
+      },
+      "resolved_passing_notes": 32,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": []
+    },
+    {
+      "file": "night-synth-000000000ca7cafe.csv",
+      "sha256": "c0a150ebbcf0482f58ccd5cac064b7805b4e9849e732a819b93be2a360d0ebdf",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 153,
+      "scheduled_notes": 2827,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          70
+        ],
+        "lead": [
+          65,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 9
+      },
+      "resolved_passing_notes": 32,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 25,
+      "rule_violations": []
+    },
+    {
+      "file": "night-hybrid-000000000ca7cafe.csv",
+      "sha256": "c0a150ebbcf0482f58ccd5cac064b7805b4e9849e732a819b93be2a360d0ebdf",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 153,
+      "scheduled_notes": 2827,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          70
+        ],
+        "lead": [
+          65,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 9
+      },
+      "resolved_passing_notes": 32,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 25,
+      "rule_violations": []
+    },
+    {
+      "file": "night-synth-0123456789abcdef.csv",
+      "sha256": "9bd65ad5bf8047d6b9dbf12bd633edb4ab0870cbabe3ac55d8f65a6e7f9a3901",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 149,
+      "scheduled_notes": 2823,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          54,
+          71
+        ],
+        "lead": [
+          65,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 10,
+        "lead": 8
+      },
+      "resolved_passing_notes": 30,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": []
+    },
+    {
+      "file": "night-hybrid-0123456789abcdef.csv",
+      "sha256": "9bd65ad5bf8047d6b9dbf12bd633edb4ab0870cbabe3ac55d8f65a6e7f9a3901",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 2,
+      "bars": 149,
+      "scheduled_notes": 2823,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          54,
+          71
+        ],
+        "lead": [
+          65,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 10,
+        "lead": 8
+      },
+      "resolved_passing_notes": 30,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": []
+    },
+    {
+      "file": "night-synth-badc0ffee0ddf00d.csv",
+      "sha256": "ccfbbd775bf25c5e075b990ac2a8f0a91dae0dfe32004816b33db2d13331c48e",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 150,
+      "scheduled_notes": 2786,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          71
+        ],
+        "lead": [
+          64,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 8,
+        "lead": 8
+      },
+      "resolved_passing_notes": 30,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 25,
+      "rule_violations": []
+    },
+    {
+      "file": "night-hybrid-badc0ffee0ddf00d.csv",
+      "sha256": "ccfbbd775bf25c5e075b990ac2a8f0a91dae0dfe32004816b33db2d13331c48e",
+      "generation_schemas": [
+        3
+      ],
+      "sessions": 3,
+      "bars": 150,
+      "scheduled_notes": 2786,
+      "max_notes_in_bar": 25,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          71
+        ],
+        "lead": [
+          64,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 8,
+        "lead": 8
+      },
+      "resolved_passing_notes": 30,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 25,
+      "rule_violations": []
+    }
+  ]
+}

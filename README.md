@@ -4,12 +4,12 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.1-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. Desktop exports are available; physical audio quality, timing, SD behavior and M5Apps installation still need device testing. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.2-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. Desktop exports are available; physical audio quality, timing, SD behavior and M5Apps installation still need device testing. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
 - Seeded composition with three moods: Cozy, Rainy and Night.
-- Layered openings with keys, bass and a soft groove from the first bar, an early melody motif, evolving arrangements, swing and automatic new sessions.
+- Layered openings with keys, bass and a soft groove from the first bar; related chord progressions, returning melody motifs, phrase variations, swing and automatic new sessions.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
 - An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
 - Pause, volume, mood selection, next session and up to eight favorites.
@@ -46,7 +46,7 @@ For persistent desktop favorites, add `--state build/local-state.bin`. Explicit 
 
 A favorite reproduces a session from its beginning with the same generation schema, parameters and bank. It does not restore the current playback position.
 
-Version 0.1.1-dev uses generation schema 2 (`lofi2-` favorite codes). Earlier saved favorites remain visible as `OLD` and removable, while settings remain usable. Replay those favorites with the earlier firmware; the richer arrangement changes the score generated from their seed.
+Version 0.1.2-dev uses generation schema 3 (`lofi3-` favorite codes). Earlier saved favorites remain visible as `OLD` and removable, while settings remain usable. Replay those favorites with the earlier firmware; the richer arrangement changes the score generated from their seed.
 
 ## Compare the sound engines
 
@@ -54,12 +54,21 @@ Use the same seed and mood for both candidates:
 
 ```sh
 ./build/cmake/lofi_native --engine synth --mood cozy --seed 0xCA7CAFE \
-  --wav build/audio/cozy-synth.wav --seconds 90 --meta build/audio/cozy-synth.json
+  --wav build/audio/cozy-synth.wav --seconds 180 --meta build/audio/cozy-synth.json
 ./build/cmake/lofi_native --engine hybrid --mood cozy --seed 0xCA7CAFE \
-  --wav build/audio/cozy-hybrid.wav --seconds 90 --meta build/audio/cozy-hybrid.json
+  --wav build/audio/cozy-hybrid.wav --seconds 180 --meta build/audio/cozy-hybrid.json
 ```
 
 The event hash and count in the metadata establish whether both renders played the same score. Host render times are not ESP32 timing measurements. See [current verification](docs/VERIFICATION.md), [the engine comparison](docs/MUSIC_ENGINE.md) and [sample production](docs/SAMPLE_PRODUCTION.md).
+
+For note-level inspection of harmony and phrase development, export the same shared composer as CSV. This renders offline and never opens an audio device:
+
+```sh
+./build/cmake/lofi_native --score build/score/cozy.csv --seconds 480 --mood cozy --seed 0xCA7CAFE
+python3 tools/analyze_score.py build/score/cozy.csv --output build/score/cozy-analysis.json
+```
+
+The report checks scale/chord membership and passing-note resolution, and measures register movement and structural variety. It is evidence about composition rules, not a rating of how pleasant the music sounds.
 
 ## Build for Cardputer ADV
 

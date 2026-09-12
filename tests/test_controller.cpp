@@ -15,10 +15,13 @@ int main() {
     auto pause=c.key(' ');auto resume=c.key(' ');assert(pause.paused && !resume.paused);
     c.saved.favorites[0].engine=1; c.saved.favorites[0].bankFingerprint=0;
     c.key('l'); assert(c.key('\n').kind==ActionKind::None);
-    c.saved.favorites[0].engine=0; c.saved.favorites[0].schema=1;
-    c.key('l'); assert(std::strstr(c.view.items[0],"OLD")!=nullptr);
-    assert(c.key('\n').kind==ActionKind::None);
-    assert(std::strstr(c.view.notice,"EARLIER VERSION")!=nullptr);
+    c.saved.favorites[0].engine=0;
+    for(std::uint8_t schema=1;schema<kSessionSchema;++schema) {
+        c.saved.favorites[0].schema=schema;
+        c.key('l'); assert(std::strstr(c.view.items[0],"OLD")!=nullptr);
+        assert(c.key('\n').kind==ActionKind::None);
+        assert(std::strstr(c.view.notice,"EARLIER VERSION")!=nullptr);
+    }
     c.key(127); assert(c.saved.count==0); // Obsolete favorites remain removable.
     c.key('s'); for(int i=0;i<20;++i) c.key('.'); assert(c.view.selection==6);
     c.saved.settings.volume=100; auto reset=c.key('\n'); assert(reset.kind==ActionKind::Config && c.saved.settings.volume==35);

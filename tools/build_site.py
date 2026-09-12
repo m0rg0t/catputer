@@ -16,6 +16,7 @@ import hashlib
 import html
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -179,7 +180,7 @@ def find_field(value: Any, keys: tuple[str, ...]) -> str | None:
 def parse_favorite_seed(value: Any) -> str | None:
     if isinstance(value, dict):
         favorite_code = value.get("favorite_code")
-        if isinstance(favorite_code, str) and favorite_code.startswith(("lofi1-", "lofi2-")):
+        if isinstance(favorite_code, str) and re.fullmatch(r"lofi[1-9][0-9]*-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}", favorite_code):
             parts = favorite_code.split("-")
             if len(parts) >= 2 and len(parts[1]) == 16:
                 try:
@@ -435,7 +436,9 @@ def render_audio(audio_pairs: list[dict[str, Any]]) -> str:
             label = html.escape(engine["label"])
             if engine["available"]:
                 path = html.escape(engine["path"])
-                control = f'<audio class="audio-hidden" preload="none" src="{path}"></audio><button class="button play-audio" type="button" aria-label="Play {html.escape(pair["label"])} {label}">Play</button> <span class="audio-time" aria-live="off">0:00 / 1:30</span><p><a href="{path}" download>Download MP3</a> · host render</p>'
+                duration = engine["frames"] / engine["sample_rate"]
+                duration_label = f'{int(duration) // 60}:{int(duration) % 60:02d}'
+                control = f'<audio class="audio-hidden" preload="none" src="{path}" data-duration="{duration}"></audio><button class="button play-audio" type="button" aria-label="Play {html.escape(pair["label"])} {label}">Play</button> <span class="audio-time" aria-live="off">0:00 / {duration_label}</span><p><a href="{path}" download>Download MP3</a> · host render</p>'
             else:
                 control = '<span class="missing">Optional MP3 not present in this checkout</span>'
             cards.append(
@@ -611,7 +614,7 @@ def render_index(
       }});
       player.addEventListener('play', () => {{ document.querySelectorAll('audio').forEach(other => {{ if (other !== player) other.pause(); }}); button.textContent = 'Pause'; button.setAttribute('aria-label', playLabel.replace('Play ', 'Pause ')); }});
       player.addEventListener('pause', () => {{ button.textContent = 'Play'; button.setAttribute('aria-label', playLabel); }});
-      player.addEventListener('timeupdate', () => card.querySelector('.audio-time').textContent = `${{formatTime(player.currentTime)}} / ${{formatTime(Number.isFinite(player.duration) ? player.duration : 90)}}`);
+      player.addEventListener('timeupdate', () => card.querySelector('.audio-time').textContent = `${{formatTime(player.currentTime)}} / ${{formatTime(Number.isFinite(player.duration) ? player.duration : Number(player.dataset.duration))}}`);
     }});
     box.querySelector('button').addEventListener('click', () => box.close());
     box.addEventListener('click', event => {{ if (event.target === box) box.close(); }});

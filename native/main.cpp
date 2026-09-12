@@ -27,7 +27,7 @@ using namespace lofi;
 struct Options {
     Config config{};
     double seconds=90;
-    fs::path wav,meta,shots,animation,state;
+    fs::path wav,meta,score,shots,animation,state;
     unsigned frames=48, smokeMs=0;
     bool noAudio=false, moodExplicit=false, engineExplicit=false;
 };
@@ -43,6 +43,7 @@ Options options(int argc,char** argv) {
         auto value=[&](){if(i+1>=argc) throw std::runtime_error("Missing value for "+a); return std::string(argv[++i]);};
         if(a=="--wav") o.wav=value();
         else if(a=="--meta") o.meta=value();
+        else if(a=="--score") o.score=value();
         else if(a=="--shots") o.shots=value();
         else if(a=="--animation") o.animation=value();
         else if(a=="--state") o.state=value();
@@ -56,6 +57,7 @@ Options options(int argc,char** argv) {
         else if(a=="--help") {
             std::cout<<"Pocket Lofi native preview\n"
                 <<"  --wav FILE [--seconds 90] [--meta FILE]\n"
+                <<"  --score FILE   Export scheduled notes/harmony as CSV for --seconds\n"
                 <<"  --engine synth|hybrid --mood cozy|rainy|night --seed INTEGER\n"
                 <<"  --shots DIRECTORY   Export actual renderer scenarios as PPM\n"
                 <<"  --animation DIRECTORY [--frames 48]   Export at 12 FPS\n"
@@ -123,6 +125,40 @@ void exportAudio(const Options& o) {
         if(!m) throw std::runtime_error("Metadata write failed");
     }
     std::cout<<o.wav<<": "<<frames<<" frames, peak "<<d.absolutePeak<<", clips "<<clips<<", host "<<elapsed<<"s\n";
+}
+void exportScore(const Options& o) {
+    Engine engine(o.config); parent(o.score); std::ofstream out(o.score);
+    if(!out) throw std::runtime_error("Cannot open score output");
+    out<<"schema,session,seed,bar,bpm,key_pc,minor,chord_root,chord_0,chord_1,chord_2,chord_3,instrument,midi,velocity,start_sample,transport_start_sample,duration_samples,export_frames\n";
+    const auto frames=static_cast<std::uint64_t>(std::llround(o.seconds*kMusicSampleRate));
+    std::array<std::int16_t,512> pcm{};
+    std::uint32_t lastBar=UINT32_MAX, lastSession=UINT32_MAX;
+    std::uint64_t notes=0;
+    const char* instruments[]={"keys","bass","lead","kick","snare","hat","rim"};
+    for(std::uint64_t done=0;;) {
+        const auto snap=engine.snapshot();
+        const auto session=engine.diagnostics().sessionTransitions;
+        if(snap.bar!=lastBar || session!=lastSession) {
+            const auto score=engine.scoreBar();
+            const auto offset=snap.transportSample-snap.sessionSample;
+            for(unsigned i=0;i<score.noteCount;++i) {
+                const auto& note=score.notes[i];
+                if(offset+note.startSample>=frames) continue;
+                out<<kMusicSchemaVersion<<','<<session<<','<<score.seed<<','<<score.bar<<','
+                   <<score.bpm<<','<<unsigned(score.keyPitchClass)<<','<<score.minor<<','<<unsigned(score.chordRoot);
+                for(auto pitch:score.chordNotes) out<<','<<unsigned(pitch);
+                out<<','<<instruments[static_cast<unsigned>(note.instrument)]<<','<<unsigned(note.note)<<','
+                   <<unsigned(note.velocity)<<','<<note.startSample<<','<<offset+note.startSample<<','<<note.durationSamples<<','<<frames<<'\n';
+                ++notes;
+            }
+            lastBar=snap.bar; lastSession=session;
+        }
+        if(done>=frames) break;
+        const auto n=static_cast<std::size_t>(std::min<std::uint64_t>(pcm.size(),frames-done));
+        engine.render(pcm.data(),n); done+=n;
+    }
+    if(!out) throw std::runtime_error("Score write failed");
+    std::cout<<o.score<<": "<<notes<<" scheduled notes; offline inspection of shared composer\n";
 }
 void ppm(const fs::path& path,const Frame& frame) {
     parent(path); std::ofstream f(path,std::ios::binary); if(!f) throw std::runtime_error("Cannot write screenshot");
@@ -230,8 +266,8 @@ int interactive(const Options& o) {
 }
 }
 int main(int argc,char** argv) {
-    try {auto o=options(argc,argv);if(!o.wav.empty()) exportAudio(o);if(!o.shots.empty() || !o.animation.empty()) exportScreens(o);
-        if(o.wav.empty() && o.shots.empty() && o.animation.empty()) return interactive(o);
+    try {auto o=options(argc,argv);if(!o.wav.empty()) exportAudio(o);if(!o.score.empty()) exportScore(o);if(!o.shots.empty() || !o.animation.empty()) exportScreens(o);
+        if(o.wav.empty() && o.score.empty() && o.shots.empty() && o.animation.empty()) return interactive(o);
         return 0;
     } catch(const std::exception& e) {std::cerr<<"Error: "<<e.what()<<'\n';return 1;}
 }

@@ -1,6 +1,6 @@
 # Implementation and verification
 
-This is the local development candidate for the accepted plan, version **0.1.1-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the local development candidate for the accepted plan, version **0.1.2-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
 
 ## Implemented
 
@@ -39,27 +39,33 @@ Controls received within the last 20 ms of a bar may wait one extra bar, allowin
 
 ## Recorded comparison · 2026-09-13
 
-All short examples use generation schema 2, seed `0xCA7CAFE`, 90 seconds, volume 78 in the core, texture 18 and the same score within each mood. Values are PCM16 units before the preview/device master volume. Every render has zero clipped samples, zero dropped note events and at most twelve active voices.
+All current examples use generation schema 3, seed `0xCA7CAFE`, **180 seconds**, volume 78 in the core, texture 18 and the same score within each mood. Values are PCM16 units before the preview/device master volume. Every render has zero clipped samples, zero dropped note events and at most twelve active voices.
 
 | Mood | BPM | Synth RMS / peak | Hybrid RMS / peak | Events | Shared score hash |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Cozy | 76 | 1127 / 10807 | 1008 / 6746 | 613 | `a89ea1a234267397` |
-| Rainy | 71 | 1115 / 9471 | 1000 / 7839 | 576 | `c3b63baf89db1539` |
-| Night | 73 | 1078 / 9109 | 982 / 7041 | 594 | `c8d57979e095690e` |
+| Cozy | 82 | 1148 / 9538 | 1035 / 6802 | 1173 | `2999fdd6804daf28` |
+| Rainy | 76 | 1111 / 9384 | 1004 / 7733 | 1080 | `7114bfa2295533a6` |
+| Night | 78 | 1067 / 9000 | 961 / 7386 | 1113 | `f1c0237d0c5771e6` |
 
-The earlier eight-voice composer left the lead out until bar 24 and withheld full drums until bar 8. Schema 2 gives the first bar keys, bass, a quiet kick/snare/hat groove and a three-note lead answer. The intro lasts four bars, recurring melodic answers continue through Groove, and the main melodic section begins at bar 12. The wider voice pool and revised allocation favor completed note tails and prevent percussion from taking harmonic voices.
+The earlier eight-voice composer left the lead out until bar 24 and withheld full drums until bar 8. The current first bar includes keys, bass, a quiet kick/snare/hat groove and the seed's melody hook. The intro remains four bars. The wider voice pool and revised allocation favor completed note tails and prevent percussion from taking harmonic voices.
 
-| Mood | First 10s events, before → after | Voice steals per 90s, before → after | New lead entry |
+| Mood | First 10s events, schema 1 → schema 3 | Current lead entry | Voice steals over current 180s |
 | --- | ---: | ---: | ---: |
-| Cozy | 18 → 61 | 88 → 2 | 1.24 s |
-| Rainy | 14 → 52 | 65 → 2 | 1.33 s |
-| Night | 15 → 58 | 74 → 5 | 1.31 s |
+| Cozy | 18 → 64 | First beat | 7 |
+| Rainy | 14 → 61 | First beat | 7 |
+| Night | 15 → 62 | 0.42 s | 2 |
 
-These are combined arrangement/polyphony changes at the same seed; schema 2 also changes the generated score and tempo. [Baseline evidence](evidence/opening-before-schema1.json) records the previous source revision. A voice steal replaces an existing voice with a smoothed tail; it is distinct from a dropped incoming note. Actual-start counters prove every intended opening instrument enters within the first two bars in all mood/backend tests.
+Every opening has zero steals or dropped notes during its first ten seconds. These are combined arrangement/polyphony changes at the same seed; changing schema changes the score and tempo. [Baseline evidence](evidence/opening-before-schema1.json) records the original source revision. A voice steal replaces an existing voice with a smoothed tail; it is distinct from a dropped incoming note.
 
-The two-hour host renders use Rainy seed `0x6a09e667f3bcc909`: 230,400,000 frames each, 42,280 identical events, score hash `e881d18200461819`, zero clips, zero dropped note events and twelve voices maximum. Both have 300 voice steals over two hours. Synth RMS/peak: 1096/10603; hybrid: 993/8641. They rendered in approximately 9.68 and 10.13 seconds on this Mac. These are offline throughput checks, not two hours of device operation. [Synth evidence](evidence/soak-synth.json), [hybrid evidence](evidence/soak-hybrid.json).
+Schema 3 adds related progressions every eight bars, the original progression's return every 32 bars, carried chord voicings, scale-aware bass approaches, a returning melody hook and varied responses/endings. Bass uses MIDI 32–48 and lead MIDI 64–83. Keys, bass and drums rotate their rhythm/articulation patterns with phrases. The notes remain composed on the device; neither backend plays a recorded song or backing loop.
 
-The native and firmware builds now read the same VERSION. Audio demo exports bind each MP3 to its WAV and metadata with SHA-256. The site requires the current version/schema, correct mood/engine, matching duration/score and matching MP3 hash; new file content gets a new browser URL. Earlier `lofi1-` favorites remain stored and labeled `OLD`, with replay blocked under schema 2 instead of silently producing different music.
+The independent [score audit](evidence/score-analysis.json) covers three starting seeds (`0xCA7CAFE`, `0x0123456789ABCDEF`, `0xBADC0FFEE0DDF00D`) in all three moods and both engines: **18 × 480 seconds**, 52,080 scheduled notes including automatic session changes. All nine A/B CSV pairs match byte-for-byte. There are zero scale/chord-anchor/passing-resolution/register violations, with at most 25 scheduled notes in a bar against the 48-note capacity. Each eight-minute example contains 20–25 distinct complete four-bar lead phrases and 5–9 distinct four-bar harmonic sequences across its sessions; velocity and microtiming alone do not count as new phrases. Maximum observed consecutive movement is ten semitones in the bass and nine in the lead. These are rule and variety measurements, not subjective listening scores.
+
+The C++ behavior suite additionally checks sustained/strong lead chord tones, stepwise passing-note resolution, voice movement, recurring hook rhythm, harmony return and rhythmic variants. CSV validation checks current schema, timestamps, complete-phrase horizons, note bounds, duplicate/missing events and consistent automatic-session offsets. Timed exports ending before a passing note's target mark that continuation as unobserved.
+
+The two-hour host renders use Rainy seed `0x6a09e667f3bcc909`: 230,400,000 frames each, 41,103 identical events, score hash `e82aeca769ce3b82`, zero clips, zero dropped note events and twelve voices maximum. Both have 277 voice steals over two hours. Synth RMS/peak: 1107/10328; hybrid: 1001/8235. These are offline throughput checks, not two hours of device operation. [Synth evidence](evidence/soak-synth.json), [hybrid evidence](evidence/soak-hybrid.json).
+
+The native and firmware builds read the same VERSION. Audio demo exports bind each MP3 to its WAV and metadata with SHA-256. The site requires the current version/schema, correct mood/engine, matching duration/score and matching MP3 hash; new file content gets a new browser URL. Earlier `lofi1-` and `lofi2-` favorites remain stored and labeled `OLD`, with replay blocked under schema 3 instead of silently producing different music. Existing settings are retained.
 
 The local website layout and sample playback progress were verified in the browser. Native browser audio controls caused an embedded-browser crash during review; the site now uses small accessible play/pause controls and MP3 downloads, and playback was rechecked successfully. Only one sample plays at a time.
 
@@ -67,8 +73,8 @@ The pinned M5GFX tag `0.2.22` was verified locally and used through an ignored l
 
 ## Final firmware artifact
 
-Application BIN: 675,424 bytes; 635,296 bytes below the `0x140000` compact limit. Linker static RAM: 67,136 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
+Application BIN: 677,104 bytes; 633,616 bytes below the `0x140000` compact limit. Linker static RAM: 67,136 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
 
-BIN SHA-256: `d8baf4fd9ff39314f3063910a46edbb3c181af7e283188ffa5c519c85c842887`.
+BIN SHA-256: `4495a3b588315bf12fe6402ca4bca1da052d624e895c036989d507a6c3d05f47`.
 
-Final test inventory: five native CTest suites (normal and UBSAN), 29 Python tests, real bootloader rejection, validated release archive, SDL smoke run and native-renderer screenshot exports. The opening/polyphony update includes new audio exports, schema-1 save retention and stale-audio rejection tests.
+Final test inventory: five native CTest suites (normal and UBSAN), 35 Python tests, validated release archive, SDL smoke run and native-renderer screenshot exports. The harmony update includes 18 score exports, six three-minute A/B demos, two two-hour offline renders, schema-1/2 save retention and current-schema/MP3 provenance checks.

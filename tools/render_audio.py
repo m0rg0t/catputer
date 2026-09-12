@@ -21,7 +21,7 @@ def digest(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seconds", type=int, default=90, choices=range(1, 601), metavar="1..600")
+    parser.add_argument("--seconds", type=int, default=180, choices=range(1, 601), metavar="1..600")
     parser.add_argument("--seed", type=lambda text: int(text, 0), default=0xCA7CAFE)
     parser.add_argument("--mood", choices=("cozy", "rainy", "night"))
     parser.add_argument("--engine", choices=("synth", "hybrid"))

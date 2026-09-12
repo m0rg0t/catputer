@@ -7,8 +7,9 @@ namespace lofi {
 
 constexpr std::uint32_t kMusicSampleRate = 32000;
 constexpr std::uint8_t kMusicVoiceCapacity = 12;
-constexpr std::uint32_t kMusicSchemaVersion = 2;
+constexpr std::uint32_t kMusicSchemaVersion = 3;
 constexpr std::size_t kMusicInstrumentCount = 7;
+constexpr std::size_t kMusicMaxBarNotes = 48;
 constexpr std::uint64_t kMusicNoNoteSample = UINT64_MAX;
 
 enum class Mood : std::uint8_t {
@@ -91,6 +92,26 @@ struct Diagnostics {
     std::uint8_t maxActiveVoices = 0;
 };
 
+struct ScoreNote {
+    std::uint64_t startSample = 0; // Session-relative, on the 32 kHz clock.
+    std::uint32_t durationSamples = 0;
+    MusicInstrument instrument = MusicInstrument::Keys;
+    std::uint8_t note = 0;
+    std::uint8_t velocity = 0;
+};
+
+struct ScoreBar {
+    std::uint64_t seed = 0;
+    std::uint32_t bar = 0;
+    std::uint16_t bpm = 0;
+    std::uint8_t keyPitchClass = 0;
+    bool minor = false;
+    std::uint8_t chordRoot = 0; // MIDI root in the compact bass register.
+    std::uint8_t chordNotes[4]{}; // MIDI pitches of the sounding keys voicing.
+    std::uint8_t noteCount = 0;
+    ScoreNote notes[kMusicMaxBarNotes]{};
+};
+
 const char* moodName(Mood mood) noexcept;
 const char* soundEngineName(SoundEngine engine) noexcept;
 bool validConfig(const Config& config) noexcept;
@@ -127,8 +148,12 @@ public:
     Snapshot snapshot() const noexcept;
     Diagnostics diagnostics() const noexcept;
 
+    // Allocation-free scheduled-score inspection for native exports and tests.
+    // Call from the same sole owner as render(); this intentionally takes no lock.
+    ScoreBar scoreBar() const noexcept;
+
     // Stable, allocation-free favorite representation:
-    // lofi2-<16 hex seed>-<mood>-<engine>-<volume>-<texture>
+    // lofi3-<16 hex seed>-<mood>-<engine>-<volume>-<texture>
     static constexpr std::size_t kFavoriteCodeCapacity = 48;
     std::size_t writeFavoriteCode(char* output, std::size_t capacity) const noexcept;
     static bool parseFavoriteCode(const char* text, Config& output) noexcept;
