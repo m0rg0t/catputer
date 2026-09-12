@@ -8,6 +8,14 @@ The stock ADV uses the ESP32-S3FN8, dual-core LX7 up to 240 MHz, 8 MB flash, a 2
 
 The first implementation should report free/minimum heap and largest allocatable block after display/audio initialization. Plan for stock hardware with no expansion modules. Verify balanced audible output at both sides of a normal headset, but promise mono music until the complete codec/jack path has been tested.
 
+### Bluetooth audio feasibility
+
+Checked against manufacturer documentation on 2026-09-13 following the request for a Bluetooth-output screen. ESP32-S3 supports Bluetooth LE, but neither Bluetooth Classic/A2DP nor LE Audio. Adding a BLE scan/pairing screen or an A2DP library cannot provide standard headphone/speaker audio on the stock radio. [Espressif Bluetooth audio chip comparison](https://docs.espressif.com/projects/esp-adf/en/latest/solution-center/bluetooth-audio.html), [ESP32-S3 Bluetooth capabilities](https://docs.espressif.com/projects/esp-idf/en/stable/esp32s3/api-guides/bt-architecture/overview.html).
+
+The least invasive candidate is `ADV 3.5 mm output → standalone Bluetooth transmitter → headphones/speaker`. The ADV has a headphone output and disables its speaker amplifier when a jack is inserted. A transmitter must accept analog headphone audio and support transmission (TX/A2DP source); a receive-only adapter does not serve this purpose. The transmitter owns discovery/pairing/reconnection. An analog cable provides no connection-status or device-selection control channel to the Cardputer. This is an architectural option, not a tested hardware combination. [M5Stack ADV hardware](https://docs.m5stack.com/en/core/Cardputer-Adv), [manufacturer example of a headphone-jack transmitter](https://support.twelvesouth.com/en-US/articles/airfly-84725).
+
+A functional Cardputer device-selection screen needs a specifically selected external audio module with a documented control interface and real connection events. Its audio input, pin/power requirements, framing, sample rate and buffering must be validated before integration. A Wi-Fi stream to a phone/computer that then outputs to its paired Bluetooth device is another possible architecture, requiring a receiver and new networking work. Neither route is selected or implemented. Keep the current speaker/jack output and shared composer working while a transport is chosen; no Bluetooth search/connected states are simulated in firmware.
+
 ## Modules
 
 ```mermaid

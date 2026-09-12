@@ -18,6 +18,8 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 External SD sample/scene packs and a final production engine choice remain later milestones. The hybrid bank is generated locally during development; it contains sound sources, not prerecorded songs. ElevenLabs effects are optional development auditions and are not bundled.
 
+**Bluetooth audio:** the stock ADV's ESP32-S3 supports Bluetooth LE data, but neither Classic Bluetooth/A2DP nor LE Audio. Direct pairing with Bluetooth headphones/speakers is therefore unavailable. A standalone Bluetooth **transmitter** with a 3.5 mm analog input can use the ADV's headphone output; pairing belongs to that transmitter. An on-device wireless-output selector would require a supported external audio module or a separate network bridge. See [audio-output constraints](docs/ARCHITECTURE.md#bluetooth-audio-feasibility).
+
 ## Try it on desktop
 
 Requirements: a C++17 compiler, CMake, and optionally SDL2 for the interactive window/audio. Export and test modes work without SDL2. On macOS, `brew install cmake sdl2` provides the native dependencies.

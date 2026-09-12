@@ -30,6 +30,7 @@ Planning session: 2026-09-12.
 | Overall plan | This document set | Accepted; implementation underway |
 | Production engine | A or B based on matched listening and measurements | Deliberately deferred until feasibility comparison |
 | Detailed art design | Original orange cat with headphones and a book in a rainy room | Imagegen masters, six sprite frames and indexed assets used by the shared pixel renderer |
+| Bluetooth audio output | Requested if feasible; stock ESP32-S3 has neither A2DP nor LE Audio | Direct output is unavailable; external transmitter/module or a network bridge remains unselected. See [hardware feasibility](ARCHITECTURE.md#bluetooth-audio-feasibility) |
 
 ## Engineering proposals to validate
 
