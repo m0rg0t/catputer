@@ -77,14 +77,14 @@ Options options(int argc,char** argv) {
         else if(a=="--seconds") { auto s=value(); std::size_t pos=0; o.seconds=std::stod(s,&pos); if(pos!=s.size() || !std::isfinite(o.seconds) || o.seconds<=0 || o.seconds>7200) throw std::runtime_error("Seconds must be in (0,7200]"); }
         else if(a=="--frames") { auto n=number(value()); if(n<1 || n>720) throw std::runtime_error("Frames must be 1..720"); o.frames=static_cast<unsigned>(n); }
         else if(a=="--engine") { o.engineExplicit=true; auto v=value(); if(v=="synth") o.config.soundEngine=SoundEngine::Synth; else if(v=="hybrid") o.config.soundEngine=SoundEngine::Hybrid; else throw std::runtime_error("Engine: synth or hybrid"); }
-        else if(a=="--mood") { o.moodExplicit=true; auto v=value(); if(v=="cozy") o.config.mood=Mood::Cozy; else if(v=="rainy") o.config.mood=Mood::Rainy; else if(v=="night") o.config.mood=Mood::Night; else throw std::runtime_error("Mood: cozy, rainy or night"); }
+        else if(a=="--mood") { o.moodExplicit=true; auto v=value(); if(v=="cozy") o.config.mood=Mood::Cozy; else if(v=="rainy") o.config.mood=Mood::Rainy; else if(v=="night") o.config.mood=Mood::Night; else if(v=="sunny") o.config.mood=Mood::Sunny; else throw std::runtime_error("Mood: cozy, rainy, night or sunny"); }
         else if(a=="--no-audio") o.noAudio=true;
         else if(a=="--smoke-ms") {auto n=number(value());if(n<100 || n>60000) throw std::runtime_error("Smoke duration must be 100..60000 ms");o.smokeMs=static_cast<unsigned>(n);}
         else if(a=="--help") {
             std::cout<<"Pocket Lofi native preview\n"
                 <<"  --wav FILE [--seconds 90] [--meta FILE]\n"
                 <<"  --score FILE   Export scheduled notes/harmony as CSV for --seconds\n"
-                <<"  --engine synth|hybrid --mood cozy|rainy|night --seed INTEGER\n"
+                <<"  --engine synth|hybrid --mood cozy|rainy|night|sunny --seed INTEGER\n"
                 <<"  --bpm auto|40..180 --volume 0..300  Playback/WAV output settings\n"
                 <<"  --meter auto|4/4|3/4|6/8  6/8 BPM counts dotted-quarter pulses\n"
                 <<"  --keys/--lead epiano|felt|nylon|vibes|pad|flute\n"
@@ -274,6 +274,15 @@ void exportScreens(const Options& o) {
         controller.key(27);controller.saved.settings.autoDimSeconds=60;
         controller.tick(1860000);shot("31-auto-dim-simulation");
         controller.key(' ');shot("32-wake-without-pause");
+        for(const auto mood:{Mood::Sunny,Mood::Rainy,Mood::Night}) {
+            controller=Controller(o.config.seed);auto config=o.config;config.mood=mood;
+            engine.reset(config);
+            for(int i=0;i<60;++i) engine.render(buffer.data(),buffer.size());
+            controller.setSnapshot(engine.snapshot());controller.tick(1500);
+            controller.view.batteryPercent=76;
+            shot(mood==Mood::Sunny?"33-sunny-day":mood==Mood::Rainy?"35-rainy-day":"36-night-room");
+            if(mood==Mood::Sunny) {controller.view.clean=true;shot("34-sunny-clean");}
+        }
     }
     if(!o.animation.empty()) {
         fs::create_directories(o.animation);

@@ -8,6 +8,7 @@
 namespace lofi {
 
 #include "generated_scene_data.inc"
+#include "generated_day_scene_data.inc"
 
 namespace {
 
@@ -32,12 +33,11 @@ enum Colour : std::uint8_t {
     Glow,
 };
 
-const std::uint16_t* const kPalette = kGeneratedScenePalette;
-
 // Blend a 55%-opaque ink panel into the authored scene, then quantize back
 // to its fixed palette. The compiler builds this 64-byte lookup; drawing the
 // overlay needs neither per-pixel colour searches nor another framebuffer.
-constexpr std::array<std::uint8_t, kPaletteSize> makeMusicPanelShade() {
+constexpr std::array<std::uint8_t, kPaletteSize> makeMusicPanelShade(
+    const std::uint16_t (&palette)[kPaletteSize]) {
     std::array<std::uint8_t, kPaletteSize> result{};
     constexpr int shifts[] = {11, 5, 0};
     constexpr int masks[] = {31, 63, 31};
@@ -47,10 +47,10 @@ constexpr std::array<std::uint8_t, kPaletteSize> makeMusicPanelShade() {
         for (int candidate = 0; candidate < kPaletteSize; ++candidate) {
             int distance = 0;
             for (int channel = 0; channel < 3; ++channel) {
-                const int original = ((kGeneratedScenePalette[source] >> shifts[channel]) & masks[channel]) * scales[channel];
-                const int ink = ((kGeneratedScenePalette[Ink] >> shifts[channel]) & masks[channel]) * scales[channel];
+                const int original = ((palette[source] >> shifts[channel]) & masks[channel]) * scales[channel];
+                const int ink = ((palette[Ink] >> shifts[channel]) & masks[channel]) * scales[channel];
                 const int target = (original * 45 + ink * 55 + 50) / 100;
-                const int value = ((kGeneratedScenePalette[candidate] >> shifts[channel]) & masks[channel]) * scales[channel];
+                const int value = ((palette[candidate] >> shifts[channel]) & masks[channel]) * scales[channel];
                 const int delta = value - target;
                 distance += delta * delta;
             }
@@ -63,7 +63,8 @@ constexpr std::array<std::uint8_t, kPaletteSize> makeMusicPanelShade() {
     return result;
 }
 
-constexpr auto kMusicPanelShade = makeMusicPanelShade();
+constexpr auto kNightMusicPanelShade = makeMusicPanelShade(kGeneratedScenePalette);
+constexpr auto kDayMusicPanelShade = makeMusicPanelShade(kGeneratedDayScenePalette);
 
 inline int clampInt(int value, int low, int high) {
     return value < low ? low : (value > high ? high : value);
@@ -309,8 +310,14 @@ const char* moodName(int mood) {
     switch (mood % 4 < 0 ? mood % 4 + 4 : mood % 4) {
     case 1: return "RAIN";
     case 2: return "NIGHT";
+    case 3: return "SUNNY";
     default: return "COZY";
     }
+}
+
+ScenePalette scenePaletteFor(const View& view) {
+    return view.mood == 0 || view.mood == 2
+        ? ScenePalette::Night : ScenePalette::Day;
 }
 
 int generatedCatFrame(const View& view) {
@@ -339,7 +346,7 @@ int generatedCatFrame(const View& view) {
 }
 
 void drawGeneratedRain(Frame& frame, const View& view) {
-    if (view.motion == 0) {
+    if (view.motion == 0 || view.mood == 3) {
         return;
     }
     const std::uint32_t time = static_cast<std::uint32_t>(view.timeMs);
@@ -371,10 +378,17 @@ void drawGeneratedSteam(Frame& frame, const View& view) {
 }
 
 void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
+    const bool day = frame.scenePalette() == ScenePalette::Day;
+    const std::uint8_t* const background = day
+        ? kGeneratedDaySceneBackground : kGeneratedSceneBackground;
+    const std::uint8_t (*const cat)[kSceneFrameWidth * kSceneFrameHeight] = day
+        ? kGeneratedDaySceneCat : kGeneratedSceneCat;
+    const int originX = day ? kGeneratedDaySceneOriginX : kGeneratedSceneOriginX;
+    const int originY = day ? kGeneratedDaySceneOriginY : kGeneratedSceneOriginY;
     for (int y = 0; y < kScreenHeight; ++y) {
         const std::size_t row = static_cast<std::size_t>(y * kScreenWidth);
         for (int x = 0; x < kScreenWidth; ++x) {
-            frame.set(x, y, kGeneratedSceneBackground[row + static_cast<std::size_t>(x)]);
+            frame.set(x, y, background[row + static_cast<std::size_t>(x)]);
         }
     }
 
@@ -382,11 +396,9 @@ void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
     drawGeneratedSteam(frame, view);
 
     const int catFrame = generatedCatFrame(view);
-    const int originX = kGeneratedSceneOriginX;
-    const int originY = kGeneratedSceneOriginY;
     for (int y = 0; y < kSceneFrameHeight; ++y) {
         for (int x = 0; x < kSceneFrameWidth; ++x) {
-            const std::uint8_t colour = kGeneratedSceneCat[catFrame][
+            const std::uint8_t colour = cat[catFrame][
                 static_cast<std::size_t>(y * kSceneFrameWidth + x)];
             if (colour != kSceneTransparentIndex) {
                 frame.set(originX + x, originY + y, colour);
@@ -395,7 +407,7 @@ void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
     }
 
     // Keep the room alive on a beat without washing the authored palette out.
-    if (view.motion != 0U && view.playing && view.volume > 0 && view.level > 0.65f) {
+    if (!day && view.motion != 0U && view.playing && view.volume > 0 && view.level > 0.65f) {
         frame.set(106, 56, Gold);
         frame.set(109, 57, Amber);
     }
@@ -404,9 +416,11 @@ void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
 void drawMusicViz(Frame& frame, const View& view, int top) {
     // A compact, always-present transport strip keeps the audio state visible
     // in clean mode without covering the cat's face or the header labels.
+    const auto& panelShade = frame.scenePalette() == ScenePalette::Day
+        ? kDayMusicPanelShade : kNightMusicPanelShade;
     for (int y = top; y < top + 17; ++y) {
         for (int x = 0; x < kScreenWidth; ++x) {
-            frame.set(x, y, kMusicPanelShade[frame.get(x, y)]);
+            frame.set(x, y, panelShade[frame.get(x, y)]);
         }
     }
 
@@ -739,20 +753,31 @@ void Frame::rowRgb565(int y, std::uint16_t* out) const {
     if (out == nullptr || y < 0 || y >= height) {
         return;
     }
+    const std::uint16_t* const palette = activePaletteRgb565();
     for (int x = 0; x < width; ++x) {
-        out[x] = kPalette[get(x, y)];
+        out[x] = palette[get(x, y)];
     }
 }
 
+std::uint16_t Frame::activePaletteRgb565(std::uint8_t colour) const {
+    return activePaletteRgb565()[safeColour(colour)];
+}
+
+const std::uint16_t* Frame::activePaletteRgb565() const {
+    return scenePalette_ == ScenePalette::Day
+        ? kGeneratedDayScenePalette : kGeneratedScenePalette;
+}
+
 std::uint16_t Frame::paletteRgb565(std::uint8_t colour) {
-    return kPalette[safeColour(colour)];
+    return kGeneratedScenePalette[safeColour(colour)];
 }
 
 const std::uint16_t* Frame::paletteRgb565() {
-    return kPalette;
+    return kGeneratedScenePalette;
 }
 
 void render(Frame& frame, const View& view) {
+    frame.setScenePalette(scenePaletteFor(view));
     const bool showOverlay = view.screen != Screen::Radio;
     drawGeneratedScene(frame, view, showOverlay);
     if (view.screen == Screen::Radio) {

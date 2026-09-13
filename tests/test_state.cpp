@@ -120,6 +120,34 @@ int main() {
     assert(sameState(state, decoded));
     assert(decoded.settings.volume == 300 && decoded.favorites[0].bpm == 123);
 
+    // Format 4 already stores auto-dim and schema-5 favorites. Migration must
+    // preserve both, so the existing radio sessions still replay exactly.
+    auto format4 = data;
+    format4[4] = kStateFormatAutoDim;
+    put32(format4.data() + 188, crc32(format4.data(), 188));
+    SavedState from4;
+    assert(decodeState(format4.data(), format4.size(), from4));
+    assert(sameState(state, from4) && from4.favorites[0].schema == 5);
+    for (const unsigned offset : {13u, 28u}) {
+        auto invalidOld = format4;
+        invalidOld[offset] = 3; // Sunny did not exist in format 4.
+        put32(invalidOld.data() + 188, crc32(invalidOld.data(), 188));
+        assert(!decodeState(invalidOld.data(), invalidOld.size(), from4));
+        assert(sameState(state, from4));
+    }
+    SavedState sunny = state;
+    sunny.settings.mood = static_cast<std::uint8_t>(Mood::Sunny);
+    sunny.favorites[0].mood = static_cast<std::uint8_t>(Mood::Sunny);
+    std::array<std::uint8_t, kStateBytes> sunnyBytes{};
+    assert(encodeState(sunny, sunnyBytes) && sunnyBytes[4] == 5);
+    assert(decodeState(sunnyBytes.data(), sunnyBytes.size(), from4));
+    assert(sameState(sunny, from4));
+    sunny.favorites[0].schema = 4;
+    assert(!encodeState(sunny, sunnyBytes));
+    sunny.favorites[0].schema = 5;
+    sunny.settings.mood = 4;
+    assert(!encodeState(sunny, sunnyBytes));
+
     // Format 3 used the same 192-byte layout with byte 7 reserved. It migrates
     // to the 60-second default and cannot claim a schema-5 favorite.
     auto format3 = data;
@@ -255,5 +283,5 @@ int main() {
     assert(bounded.count == 7);
     assert(!removeFavorite(bounded, 8));
 
-    std::cout << "state: format1/2 migration, format3 instruments, identity, corruption and bounds passed\n";
+    std::cout << "state: format1..4 migration, Sunny format5, identity, corruption and bounds passed\n";
 }

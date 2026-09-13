@@ -16,11 +16,16 @@ constexpr std::size_t kMusicInstrumentCount = 7;
 constexpr std::size_t kMusicMaxBarNotes = 48;
 constexpr std::uint64_t kMusicNoNoteSample = UINT64_MAX;
 
+// Append-only values encoded in schema-5 favorite codes and saved settings.
 enum class Mood : std::uint8_t {
     Cozy = 0,
     Rainy = 1,
     Night = 2,
+    Sunny = 3,
 };
+
+constexpr std::uint8_t kMoodCount =
+    static_cast<std::uint8_t>(Mood::Sunny) + 1u;
 
 enum class SoundEngine : std::uint8_t {
     Synth = 0,

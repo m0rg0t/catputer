@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "asset_version": "imagegen-day-v1",
+  "created": "2026-09-13",
+  "generator": "OpenAI imagegen built-in tool",
+  "mode": "built-in; no CLI fallback",
+  "purpose": "Sunny daytime variant of the original Catputer room; shared cat position and animation geometry",
+  "operations": [
+    {
+      "type": "edit_lighting_and_weather",
+      "reference": "../imagegen-v1/background.png",
+      "output": "background.png",
+      "prompt": "background-prompt.txt"
+    }
+  ],
+  "cat_source": "../imagegen-v1/cat-sheet.png",
+  "files": [
+    {
+      "path": "background.png",
+      "sha256": "db5ad5a43bf6de34b3e3a81efc5f31663b695cf5d20d4e2f71ad42e466edee2e",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "../imagegen-v1/background.png",
+      "sha256": "8c72c2c35aed0f6c9f873f03a6b5c4f6e87c2f00768ee30cede9daf1c8f0426f",
+      "dimensions": [
+        1672,
+        941
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "../imagegen-v1/cat-sheet.png",
+      "sha256": "908709e079899a659ef97df7d09a8335f06efb238de82ed9ca8820771000890a",
+      "dimensions": [
+        1536,
+        1024
+      ],
+      "mode": "RGB"
+    }
+  ],
+  "conversion_tool": "../../../tools/prepare_scene.py",
+  "runtime_manifest": "../../runtime/imagegen-day-v1/scene-manifest.json"
+}

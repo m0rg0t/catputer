@@ -188,8 +188,8 @@ void Controller::populateView() {
     view.favorite=findFavorite(saved,currentFavorite())>=0;
     std::memset(view.items,0,sizeof(view.items)); view.itemCount=0;
     if(view.screen==Screen::Moods) {
-        view.itemCount=3;
-        for(int i=0;i<3;++i) std::snprintf(view.items[i],32,"%s",moodName(static_cast<Mood>(i)));
+        view.itemCount=kMoodCount;
+        for(int i=0;i<kMoodCount;++i) std::snprintf(view.items[i],32,"%s",moodName(static_cast<Mood>(i)));
     } else if(view.screen==Screen::Favorites) {
         view.itemCount=saved.count;
         for(unsigned i=0;i<saved.count;++i) {

@@ -6,7 +6,7 @@
 
 Launch from M5Apps. Initialize the built-in sound source and scene, choose the initial session, and fade into music at a conservative volume. Show a brief key hint, then let the scenery take most of the screen. No connectivity setup is part of listening.
 
-A scene can change independently from the musical mood. A new mood affects the next phrase/session according to the transition policy; display the pending change so an intentional delay feels responsive. Next session requests coalesce instead of queuing a long list of skips.
+In 0.1.9-dev the scene follows the audible musical mood: Cozy (relaxed) and Night use the night room, Rainy uses daylight with rain, and Sunny uses clear daylight. A new mood takes effect at a bar boundary; the room changes with that audible snapshot. Next session requests coalesce instead of queuing a long list of skips.
 
 Play/pause applies a short fade and preserves the current transport for resumption. New session deliberately changes the seed. Recalling a favorite restarts that session from the beginning. The current eight-hex-digit seed is accessible in the information overlay.
 

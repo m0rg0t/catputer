@@ -179,18 +179,21 @@ def write_animation(animation_paths: list[Path], destination: Path) -> dict[str,
         "duration_ms": sum(durations),
         "width": DISPLAY_SIZE[0],
         "height": DISPLAY_SIZE[1],
-        "gif": "scene.gif",
+        "gif": destination.name,
         "sha256": sha256_file(destination),
     }
 
 
-def export_media(screens_dir: Path, animation_dir: Path, media_dir: Path) -> dict[str, Any]:
+def export_media(screens_dir: Path, animation_dir: Path, media_dir: Path, day_animation_dir: Path | None = None) -> dict[str, Any]:
     screen_paths = sorted(screens_dir.glob("*.ppm"))
     if not screen_paths:
         raise ValueError(f"no screenshot PPM files found in {screens_dir}")
     animation_paths = sorted(animation_dir.glob("*.ppm"))
     if not animation_paths:
         raise ValueError(f"no animation PPM files found in {animation_dir}")
+    day_paths = sorted(day_animation_dir.glob("*.ppm")) if day_animation_dir else []
+    if day_animation_dir and not day_paths:
+        raise ValueError(f"no daytime animation PPM files found in {day_animation_dir}")
 
     native_dir = media_dir / "screens" / "native240"
     scaled_dir = media_dir / "screens" / "large3x"
@@ -263,6 +266,10 @@ def export_media(screens_dir: Path, animation_dir: Path, media_dir: Path) -> dic
         },
         "animation": animation,
     }
+    if day_animation_dir:
+        day_animation = write_animation(day_paths, media_dir / "scene-day.gif")
+        day_animation["source_pattern"] = day_animation_dir.relative_to(ROOT).as_posix() + "/*.ppm"
+        manifest["day_animation"] = day_animation
     manifest_path = media_dir / "media-manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return manifest
@@ -272,6 +279,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--screens", type=Path, default=ROOT / "build/screens", help="native renderer screenshot directory")
     parser.add_argument("--animation", type=Path, default=ROOT / "build/animation", help="native renderer animation directory")
+    parser.add_argument("--day-animation", type=Path, help="optional Sunny native renderer animation directory")
     parser.add_argument("--media-dir", type=Path, default=ROOT / "docs/media", help="public media output directory")
     return parser.parse_args(list(argv) if argv is not None else None)
 
@@ -283,6 +291,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             args.screens.resolve(),
             args.animation.resolve(),
             args.media_dir.resolve(),
+            args.day_animation.resolve() if args.day_animation else None,
         )
     except (OSError, ValueError) as error:
         print(f"export_media.py: {error}", file=sys.stderr)

@@ -37,7 +37,7 @@ bool validSettingsValues(const Settings& settings) {
     return settings.volume <= 300 && validStoredBpm(settings.bpm) &&
            settings.brightness >= 10 && settings.brightness <= 100 &&
            settings.texture <= 100 && settings.motion <= 2 && settings.engine < 2 &&
-           settings.mood < 3 && validAutoDimSeconds(settings.autoDimSeconds) &&
+           settings.mood < kMoodCount && validAutoDimSeconds(settings.autoDimSeconds) &&
            validMeter(settings.meter) &&
            validTone(settings.keysTone) && validTone(settings.leadTone) &&
            validBassTone(settings.bassTone);
@@ -46,7 +46,8 @@ bool validSettingsValues(const Settings& settings) {
 // Preserve known older favorite records when loading settings. The controller
 // marks them unavailable rather than silently replaying a different score.
 bool validFavorite(const Favorite& favorite) {
-    return favorite.mood < 3 && favorite.engine < 2 && favorite.texture <= 100 &&
+    return favorite.mood < kMoodCount && favorite.engine < 2 && favorite.texture <= 100 &&
+           (favorite.mood < 3 || favorite.schema >= 5) &&
            favorite.schema >= 1 && favorite.schema <= kSessionSchema &&
            validStoredBpm(favorite.bpm) && validMeter(favorite.meter) &&
            validTone(favorite.keysTone) && validTone(favorite.leadTone) &&
@@ -72,7 +73,7 @@ bool hasDuplicateFavorite(const SavedState& state, unsigned index) {
 }
 
 std::size_t crcOffsetFor(std::uint8_t format) {
-    return format == kStateFormatInstruments || format == kStateFormatCurrent
+    return format >= kStateFormatInstruments && format <= kStateFormatCurrent
                ? kStateBytes - 4
                : kStateLegacyBytes - 4;
 }
@@ -83,7 +84,7 @@ bool validHeaderAndCrc(const std::uint8_t* data, std::size_t size) {
     }
     const std::uint8_t format = data[4];
     const bool legacy = format == kStateFormatLegacy || format == kStateFormatBpm;
-    const bool extended = format == kStateFormatInstruments || format == kStateFormatCurrent;
+    const bool extended = format >= kStateFormatInstruments && format <= kStateFormatCurrent;
     const std::size_t expected = extended ? kStateBytes : kStateLegacyBytes;
     if ((!legacy && !extended) || size != expected || data[5] != expected) {
         return false;
@@ -177,7 +178,7 @@ bool encodeState(const SavedState& state, std::array<std::uint8_t, kStateBytes>&
         }
     }
 
-    // Format 4 retains every legacy 16-byte favorite record exactly. The
+    // Format 5 retains every legacy 16-byte favorite record exactly. The
     // trailing area adds one BPM byte and four typed bytes per favorite, then
     // four global typed bytes:
     //   144..151 favorite BPM, 152..183 favorite meter/tones,
@@ -230,6 +231,9 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
     decoded.settings.motion = data[11];
     decoded.settings.engine = data[12];
     decoded.settings.mood = data[13];
+    // Sunny did not exist in formats 1..4. Do not reinterpret corrupt old
+    // bytes as a newly valid mood after adding it to the current enum.
+    if(format < kStateFormatCurrent && decoded.settings.mood >= 3) return false;
     decoded.count = data[14];
     if (decoded.count > kMaxFavorites) {
         return false;
@@ -258,11 +262,11 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
             }
         }
     } else {
-        if ((format != kStateFormatCurrent && data[7] != 0) ||
+        if ((format < kStateFormatAutoDim && data[7] != 0) ||
             !unusedRecordsAreZero(data, decoded.count)) {
             return false;
         }
-        if (format == kStateFormatCurrent) {
+        if (format >= kStateFormatAutoDim) {
             decoded.settings.autoDimSeconds = data[7];
         }
         decoded.settings.volume = static_cast<std::uint16_t>(
@@ -297,7 +301,7 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
             Favorite& favorite = decoded.favorites[i];
             readFavoriteBase(data, i, favorite);
             favorite.bpm = data[144 + i];
-            if (format == kStateFormatInstruments || format == kStateFormatCurrent) {
+            if (format >= kStateFormatInstruments) {
                 const std::size_t extra = 152 + static_cast<std::size_t>(i) * 4;
                 favorite.meter = static_cast<MusicMeter>(data[extra]);
                 favorite.keysTone = static_cast<Tone>(data[extra + 1]);
@@ -311,6 +315,7 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
                  favorite.schema > kLegacyMaxMusicSchema) ||
                 (format == kStateFormatInstruments &&
                  favorite.schema > kFormat3MaxMusicSchema) ||
+                (format < kStateFormatCurrent && favorite.mood >= 3) ||
                 hasDuplicateFavorite(decoded, i)) {
                 return false;
             }
@@ -319,7 +324,7 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
             if (data[144 + i] != 0) {
                 return false;
             }
-            if (format == kStateFormatInstruments || format == kStateFormatCurrent) {
+            if (format >= kStateFormatInstruments) {
                 const std::size_t extra = 152 + static_cast<std::size_t>(i) * 4;
                 for (std::size_t j = 0; j < 4; ++j) {
                     if (data[extra + j] != 0) {

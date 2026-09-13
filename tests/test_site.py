@@ -9,6 +9,29 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'tools'))
 import build_site
 
 class SiteBoundaries(unittest.TestCase):
+    def test_sunny_favorite_requires_current_schema(self):
+        for schema, mood, valid in ((5, 3, True), (4, 3, False), (5, 4, False), (4, 2, True)):
+            code=f'lofi{schema}-000000000ca7cafe-{mood}-1-78-18-0-0-0-3-0'
+            self.assertEqual(build_site.parse_favorite_seed({'favorite_code':code}),
+                             '000000000CA7CAFE' if valid else None)
+
+    def test_day_animation_is_hash_bound_and_optional(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); output=root/'out'
+            manifest={}
+            for key, name in (('contact_sheet','contact.png'), ('animation','scene.gif'), ('day_animation','scene-day.gif')):
+                (root/name).write_bytes(name.encode())
+                manifest[key]={'path' if key=='contact_sheet' else 'gif':name,
+                               'sha256':hashlib.sha256(name.encode()).hexdigest()}
+            with patch.object(build_site,'OUTPUT_ROOT',output):
+                copied=build_site.copy_common_media(root,output,manifest)
+                self.assertEqual((output/copied['day_animation']).read_bytes(),b'scene-day.gif')
+                (root/'scene-day.gif').write_bytes(b'stale')
+                with self.assertRaisesRegex(ValueError,'daytime animation hash mismatch'):
+                    build_site.copy_common_media(root,output,manifest)
+                del manifest['day_animation']
+                self.assertNotIn('day_animation',build_site.copy_common_media(root,output,manifest))
+
     def test_favorite_seed_with_manual_tempo(self):
         base='lofi3-000000000ca7cafe-2-1-78-18'
         for suffix in ('', '-40', '-120', '-180'):
@@ -53,13 +76,13 @@ class SiteBoundaries(unittest.TestCase):
             for engine in ('synth','hybrid'):
                 (audio/f'night-{engine}.mp3').write_bytes(b'original audio')
                 (audio/f'night-{engine}.json').write_text(json.dumps(metadata(engine)))
-            old=build_site.copy_audio(root,root/'build/site')[-1]
+            old=next(pair for pair in build_site.copy_audio(root,root/'build/site') if pair['mood']=='night')
             self.assertEqual(old['matched_seed'],'000000000CA7CAFE')
             (audio/'night-synth.mp3').write_bytes(b'new composition')
             with self.assertRaises(ValueError):build_site.copy_audio(root,root/'build/site')
             revised=metadata('synth');revised['mp3_sha256']=hashlib.sha256(b'new composition').hexdigest()
             (audio/'night-synth.json').write_text(json.dumps(revised))
-            new=build_site.copy_audio(root,root/'build/site')[-1]
+            new=next(pair for pair in build_site.copy_audio(root,root/'build/site') if pair['mood']=='night')
             self.assertNotEqual(old['engines'][0]['path'],new['engines'][0]['path'])
             for entry in new['engines']:
                 entry['frames']=5760000

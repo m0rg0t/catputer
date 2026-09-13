@@ -1,22 +1,23 @@
 # Catputer
 
-An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 composes chords, bass, melodies and drums while an original pixel-art cat reads in a rainy room.
+An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 composes chords, bass, melodies and drums while an original pixel-art cat reads in a room that changes with the mood.
 
 [Project site, audio demos and firmware downloads](https://m0rg0t.github.io/catputer/)
 
-![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
+![Sunny room, rendered on desktop](docs/media/scene-day.gif)
+![Night room, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.8-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update gives the melody more space in the mix, adds clearer answering phrases, and introduces a sleep timer and automatic screen dimming. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.9-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a sunny room and a brighter Sunny mood, while preserving the music and favorites from 0.1.8-dev. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
-- Seeded composition with three moods: Cozy, Rainy and Night.
+- Seeded composition with four moods: Cozy, Rainy, Night and Sunny.
 - Layered openings with keys, bass and a soft groove from the first bar; related chord progressions, returning melody motifs, phrase variations, swing and automatic new sessions.
 - Six selectable chord/lead tones (electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute) plus round, upright and sub bass. These are compact synthesized interpretations.
 - AUTO, 4/4, 3/4 or 6/8 meter; each session keeps one meter, and melody gates fit its bars.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
 - A translucent bottom strip overlays the room and displays actual activity of the seven music parts and the current musical pulse.
-- An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
+- An original cat with six animation poses and two built-in pixel-art rooms. Cozy and Night keep the night scene; Rainy uses daylight with rain, and Sunny uses clear daylight. Reduced/still motion and a clean scene view.
 - Pause, 0–300% output volume, AUTO or manual 40–180 BPM, mood selection, next session and up to eight favorites.
 - A 30/60/90-minute sleep timer with a final 30-second fade; automatic dimming after 30/60/120 seconds, with one keypress to wake. Both can be turned off.
 - Built-in music and artwork need **no SD, network, account or API key**. Optional SD stores settings and favorites; without it they remain in RAM until restart.
@@ -55,6 +56,8 @@ For persistent desktop favorites, add `--state build/local-state.bin`. Explicit 
 
 A favorite reproduces a session from its beginning with the same generation schema, parameters and bank. It does not restore the current playback position.
 
+Open **M** to choose Cozy, Rainy, Night or Sunny. The scene follows the mood when its music takes effect at a bar boundary. Sunny uses major progressions and an AUTO tempo of 84–92 BPM; manual tempo remains available.
+
 Open **S → BPM** to set tempo. Use `,` / `/` to adjust by 1 BPM, and Enter to switch between AUTO and manual tempo. AUTO follows the seed and mood; manual tempo stays selected across new sessions. Tempo changes take effect at the next bar while the current tune continues.
 
 Above 100%, volume adds up to 3× software gain before a soft limiter. It is a signal gain setting, not a claim of three times the acoustic loudness. Volume changes ramp over 10 ms; the native player and device share the same output stage, with the previous ADV volume curve preserved below 100%.
@@ -65,7 +68,7 @@ Open **S → SLEEP** to cycle Off / 30 / 60 / 90 minutes. The final 30 seconds f
 
 Open **S → AUTO DIM** for Off / 30 / 60 / 120 seconds. The default is 60 seconds, then the backlight dims to at most 10%. The first keypress only wakes the screen; press again to perform its action. The auto-dim preference is saved with SD settings.
 
-Version 0.1.8-dev uses generation schema 5 (`lofi5-` favorite codes) and save format 4. New favorites retain tempo, meter and all three tone choices. Earlier settings migrate; schema-1/2/3/4 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. The new melodic rules intentionally change the music generated from an old seed. Older firmware cannot read the new save format.
+Version 0.1.9-dev keeps generation schema 5 (`lofi5-` favorite codes), so 0.1.8-dev favorites and existing-mood compositions replay unchanged. Save format 5 adds Sunny without changing the 192-byte layout; valid formats 1–4 migrate. Schema-1/2/3/4 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
 
 ## Compare the sound engines
 
@@ -113,7 +116,8 @@ Python 3 is required for the tools; media export additionally needs Pillow (`pyt
 ```sh
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ./build/cmake/lofi_native --shots build/screens --animation build/animation --frames 144
-python3 tools/export_media.py
+./build/cmake/lofi_native --mood sunny --animation build/animation-day --frames 144
+python3 tools/export_media.py --day-animation build/animation-day
 python3 tools/render_audio.py
 # Optional finite meter/tone/gain stress matrix (requires the native build):
 python3 tools/verify_music.py --seconds 30
@@ -121,11 +125,11 @@ python3 tools/build_site.py
 python3 -m http.server 8080 --directory build/site
 ```
 
-The [GitHub Pages workflow](.github/workflows/pages.yml) rebuilds the firmware, native screenshots, animation and six audio demos on each push to `main`, then publishes only the generated `build/site` directory. It can also be run manually from GitHub Actions. No audio-generation API keys are needed. See [site deployment](docs/DELIVERY.md#github-pages-deployment) for details.
+The [GitHub Pages workflow](.github/workflows/pages.yml) rebuilds the firmware, native screenshots, both scene animations and eight audio demos on each push to `main`, then publishes only the generated `build/site` directory. It can also be run manually from GitHub Actions. No audio-generation API keys are needed. See [site deployment](docs/DELIVERY.md#github-pages-deployment) for details.
 
 The built-in bank is reproducible from [generate_samples.py](tools/generate_samples.py); [prepare_samples.py](tools/prepare_samples.py) validates and emits the flash bank. Optional ElevenLabs generation happens on the development computer using an environment key, with bounded requests and private raw outputs. It is never part of firmware playback. See the tools' `--help` and [audio asset notes](assets/audio/README.md).
 
-The room and cat masters were created with the built-in imagegen tool, then adapted to the LCD as indexed pixel assets. [Artwork sources and prompts](assets/source/imagegen-v1/README.md) are included. To rebuild the bundled scene after editing its sources, run `python3 tools/prepare_scene.py`, then rebuild the native preview and firmware. The device uses a 240 × 135 background, six 64 × 72 sprite containers and a shared 64-color palette; generation and image conversion happen only during development.
+The room and cat masters were created with the built-in imagegen tool, then adapted to the LCD as indexed pixel assets. [Night room and cat sources](assets/source/imagegen-v1/README.md) and [sunny room source, prompt and conversion command](assets/source/imagegen-day-v1/README.md) are included. Run `python3 tools/prepare_scene.py` for the night scene and the documented day command for the sunny scene, then rebuild. Each scene has a 240 × 135 background, six 64 × 72 sprite containers and its own 64-color palette with the same 16 UI colors. The device still uses one framebuffer; generation and conversion happen only during development.
 
 ## Project map
 

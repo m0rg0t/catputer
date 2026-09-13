@@ -6,16 +6,18 @@
 
 namespace lofi {
 constexpr std::size_t kMaxFavorites = 8;
-// The first two formats are exactly 160 bytes. Formats 3 and 4 append typed
+// The first two formats are exactly 160 bytes. Formats 3 through 5 append typed
 // instrument/meter settings while retaining the original favorite records.
 // Format 4 assigns the previously reserved header byte to auto-dim.
+// Format 5 permits Sunny as mood 3; all byte positions stay unchanged.
 // Keep the legacy size public so platform readers can accept both lengths.
 constexpr std::size_t kStateLegacyBytes = 160;
 constexpr std::size_t kStateBytes = 192;
 constexpr std::uint8_t kStateFormatLegacy = 1;
 constexpr std::uint8_t kStateFormatBpm = 2;
 constexpr std::uint8_t kStateFormatInstruments = 3;
-constexpr std::uint8_t kStateFormatCurrent = 4;
+constexpr std::uint8_t kStateFormatAutoDim = 4;
+constexpr std::uint8_t kStateFormatCurrent = 5;
 static_assert(kMusicMaxBpm <= 255, "Persisted BPM bytes must hold the full manual range");
 static_assert(kStateBytes <= 255, "Persisted state length must fit the header byte");
 static_assert(kMusicSchemaVersion <= 255, "Favorite schema must fit the saved format");

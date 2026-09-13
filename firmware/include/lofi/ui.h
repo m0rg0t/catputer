@@ -16,6 +16,11 @@ constexpr int kSceneFrameHeight = 72;
 constexpr int kSceneFrameCount = 6;
 constexpr std::uint8_t kSceneTransparentIndex = 255;
 
+enum class ScenePalette : std::uint8_t {
+    Night = 0,
+    Day,
+};
+
 // The shared renderer consumes this small, platform-neutral snapshot.  The
 // controls/platform task owns the strings and keeps them NUL-terminated.
 enum class Screen : std::uint8_t {
@@ -98,10 +103,17 @@ public:
     void rowRgb565(int y, std::uint16_t* out) const;
     const std::uint8_t* packed() const { return pixels_; }
 
+    void setScenePalette(ScenePalette scene) { scenePalette_ = scene; }
+    ScenePalette scenePalette() const { return scenePalette_; }
+    std::uint16_t activePaletteRgb565(std::uint8_t colour) const;
+    const std::uint16_t* activePaletteRgb565() const;
+
+    // Compatibility helpers return the original night palette.
     static std::uint16_t paletteRgb565(std::uint8_t colour);
     static const std::uint16_t* paletteRgb565();
 
 private:
+    ScenePalette scenePalette_ = ScenePalette::Night;
     std::uint8_t pixels_[packedBytes]{};
 };
 

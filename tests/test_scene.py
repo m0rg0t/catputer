@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
 from tools import prepare_scene
+
+
+class GeneratedNightAssetTests(unittest.TestCase):
+    def test_original_generated_include_is_byte_for_byte_stable(self) -> None:
+        include = prepare_scene.ROOT / "firmware/src/ui/generated_scene_data.inc"
+        self.assertEqual(
+            hashlib.sha256(include.read_bytes()).hexdigest(),
+            "0021508dd60abc29670956a2a2ca3cb6ce851dadb22dee9421eb374e38eda61b",
+        )
 
 
 @unittest.skipIf(prepare_scene.Image is None, "Pillow is required for scene asset tests")
@@ -83,6 +93,47 @@ class ScenePackingTests(unittest.TestCase):
         self.assertIn("kGeneratedSceneCat[6][64 * 72]", rendered)
         self.assertIn("kGeneratedScenePalette[64]", rendered)
         self.assertIn("kGeneratedSceneOriginX", rendered)
+        self.assertEqual(manifest["outputs"]["symbol_prefix"], "kGeneratedScene")
+
+    def test_custom_symbol_prefix_is_safe_and_deterministic(self) -> None:
+        data = prepare_scene.build_scene(self.background_path, self.cat_path)
+        first = prepare_scene.render_include(data, "kGeneratedDayScene")
+        second = prepare_scene.render_include(data, "kGeneratedDayScene")
+        self.assertEqual(first, second)
+        self.assertIn("kGeneratedDaySceneBackground[240 * 135]", first)
+        self.assertIn("kGeneratedDaySceneCat[6][64 * 72]", first)
+        self.assertIn("kGeneratedDayScenePalette[64]", first)
+        self.assertIn("kGeneratedDaySceneOriginX", first)
+        self.assertNotIn("kGeneratedSceneBackground", first)
+
+    def test_rejects_unsafe_symbol_prefix_before_writing(self) -> None:
+        data = prepare_scene.build_scene(self.background_path, self.cat_path)
+        include = self.root / "unsafe/generated.inc"
+        runtime = self.root / "unsafe/runtime"
+        for value in ("", "9Scene", "Day Scene", "Day;int injected", "Day\nInjected", "éScene"):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(prepare_scene.SceneError, "symbol prefix"):
+                    prepare_scene.render_include(data, value)
+        with self.assertRaisesRegex(prepare_scene.SceneError, "symbol prefix"):
+            prepare_scene.write_outputs(data, include, runtime, self.root, "Bad;Prefix")
+        self.assertFalse(include.exists())
+        self.assertFalse(runtime.exists())
+
+    def test_same_cat_is_quantized_for_each_scene_palette(self) -> None:
+        image = prepare_scene.Image
+        assert image is not None
+        day_path = self.root / "day-background.png"
+        image.new("RGB", (480, 270), (235, 215, 150)).save(day_path)
+        night = prepare_scene.build_scene(self.background_path, self.cat_path, "night")
+        day = prepare_scene.build_scene(day_path, self.cat_path, "day")
+        self.assertEqual(tuple(night["palette_rgb"][:16]), prepare_scene.UI_PALETTE_RGB)
+        self.assertEqual(tuple(day["palette_rgb"][:16]), prepare_scene.UI_PALETTE_RGB)
+        self.assertEqual(len(day["cat_indices"]), 6)
+        self.assertTrue(all(len(frame) == 64 * 72 for frame in day["cat_indices"]))
+        self.assertEqual(
+            [value == 255 for value in night["cat_indices"][0]],
+            [value == 255 for value in day["cat_indices"][0]],
+        )
 
     def test_rejects_wrong_background_aspect_ratio(self) -> None:
         image = prepare_scene.Image

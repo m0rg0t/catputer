@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "generated_by": "tools/export_media.py",
-  "generated_utc": "2026-09-13T12:42:31+00:00",
-  "source_revision": "f740ff8-dirty",
+  "generated_utc": "2026-09-13T14:28:39+00:00",
+  "source_revision": "6f38a95-dirty",
   "renderer": {
     "kind": "native_shared_renderer",
     "source_screens": "build/screens",
@@ -116,9 +116,9 @@
       "hardware_verified": false,
       "public": true,
       "private_reason": null,
-      "source_sha256": "bc2d5796d6c8ac620ebdb1f0a6183a9d9e28ad1a649ee378c915f8bed7bbe904",
-      "native_sha256": "44999bc5be6a7627eaa7db088be2b01eb99a62ad5d293482b05040ad5d15c705",
-      "scaled_sha256": "64a5709b00e7165f0bf74d79aff4f1014e76d78325842e70d1af2780b8966a70",
+      "source_sha256": "84e2426209c6c56d3621151ac77d8af08084d76319e21f1bc9f32471276dcb37",
+      "native_sha256": "244413e6ecf485cffaa3806c4dcc9dd2df6dad40a1b47e03e2719d2261e9cc9a",
+      "scaled_sha256": "ffb98f67d9f1458942b38a192ed7826eea4128f8e536d6010f3c4ede48f7445b",
       "visual_seed": null,
       "time_ms": null
     },
@@ -224,9 +224,9 @@
       "hardware_verified": false,
       "public": true,
       "private_reason": null,
-      "source_sha256": "c4fd23436371035cf0539a1fcd003f3911a0da5a0fcf521e6ec6e23f3d2e16b2",
-      "native_sha256": "4ab41f11f8278c219a67f1c4093a6b907e8b5ded07ffa93ec04a8a753c908712",
-      "scaled_sha256": "414d2b6d3534821c319b5617f7334de3bdbb1531779f2da950ec8c37a247c18b",
+      "source_sha256": "d49c2a0109c5d2ddd800d0c85ed1681e457943aedbe1a45141b261863954f47f",
+      "native_sha256": "de5461edcffb57aacfc24f905e98138d710ea3b73c247497f89e55f24670467d",
+      "scaled_sha256": "94610addbc1175c00f31050a6857786acf66565ee5a24f24d4cb70d5a195d20d",
       "visual_seed": null,
       "time_ms": null
     },
@@ -571,12 +571,84 @@
       "scaled_sha256": "7e2157d0bfb1c2098e421590bbb11057c903f5016e49c227bea0fcc90e9a4a57",
       "visual_seed": null,
       "time_ms": null
+    },
+    {
+      "id": "sunny-day",
+      "label": "Sunny Day",
+      "source_ppm": "build/screens/33-sunny-day.ppm",
+      "native_png": "screens/native240/33-sunny-day.png",
+      "scaled_png": "screens/large3x/33-sunny-day@3x.png",
+      "width": 240,
+      "height": 135,
+      "desktop_render": true,
+      "hardware_verified": false,
+      "public": true,
+      "private_reason": null,
+      "source_sha256": "40bdbc0212a1a5e858bfaefe1f8375b1d4edafe7baadfa2d90318bd3d2b846e2",
+      "native_sha256": "32923379dd24342b99aa32e9becb0ec8d0c56081b153b5fc694ea63356314594",
+      "scaled_sha256": "f4c8cebc0a663172474c893c85ffe7cc0853b544b74d3440a3615328abad224e",
+      "visual_seed": null,
+      "time_ms": null
+    },
+    {
+      "id": "sunny-clean",
+      "label": "Sunny Clean",
+      "source_ppm": "build/screens/34-sunny-clean.ppm",
+      "native_png": "screens/native240/34-sunny-clean.png",
+      "scaled_png": "screens/large3x/34-sunny-clean@3x.png",
+      "width": 240,
+      "height": 135,
+      "desktop_render": true,
+      "hardware_verified": false,
+      "public": true,
+      "private_reason": null,
+      "source_sha256": "b144facbf3930183c2eeb1273f025d867e56efb6fc7764aeb7ecebc4630f20d1",
+      "native_sha256": "89f8cc0daa54af27a5523e901f50c8d1b5dd8caa3e7925a3de79a6d2f1f2b77b",
+      "scaled_sha256": "ad790b15b02facea07a15ac1744847e5f560eb4e119ff3064179d71e366cb8c7",
+      "visual_seed": null,
+      "time_ms": null
+    },
+    {
+      "id": "rainy-day",
+      "label": "Rainy Day",
+      "source_ppm": "build/screens/35-rainy-day.ppm",
+      "native_png": "screens/native240/35-rainy-day.png",
+      "scaled_png": "screens/large3x/35-rainy-day@3x.png",
+      "width": 240,
+      "height": 135,
+      "desktop_render": true,
+      "hardware_verified": false,
+      "public": true,
+      "private_reason": null,
+      "source_sha256": "2f799e14399e9147fc6396a439e23c54860a96159ecea9f2a5798d3bef7d3fd7",
+      "native_sha256": "01bb95a161f584d23b8250b1395768c643777bdfa767898cfcbf450f4b0d6f59",
+      "scaled_sha256": "246b6b900e4c08dd54245324058bceb9dae99c236f8cfe45bb8373878f12a4b0",
+      "visual_seed": null,
+      "time_ms": null
+    },
+    {
+      "id": "night-room",
+      "label": "Night Room",
+      "source_ppm": "build/screens/36-night-room.ppm",
+      "native_png": "screens/native240/36-night-room.png",
+      "scaled_png": "screens/large3x/36-night-room@3x.png",
+      "width": 240,
+      "height": 135,
+      "desktop_render": true,
+      "hardware_verified": false,
+      "public": true,
+      "private_reason": null,
+      "source_sha256": "4a8fce76f7c72fd67a36c7fc74962e7f36c0edd97f0dc6a528b7061aed5d8bad",
+      "native_sha256": "4a1bc29f7fae0ece1fcca2da770d642d15e8e04887000b546abe7b9e25c23b3a",
+      "scaled_sha256": "9b69b9201810e01cd25670c5225f8af3022574779953bb6ad1a28a5432a5bb58",
+      "visual_seed": null,
+      "time_ms": null
     }
   ],
   "contact_sheet": {
     "path": "contact-sheet.png",
-    "public_screenshot_count": 31,
-    "sha256": "a550302f3d6b59317ba8435da459188025d2449be956e580f3c2ad3e55c6d23a"
+    "public_screenshot_count": 35,
+    "sha256": "b91c325b5b4517fb32ec53692451dd9796e9a18f37c050fab66fefc58e0c4522"
   },
   "animation": {
     "source_pattern": "build/animation/*.ppm",
@@ -588,5 +660,16 @@
     "height": 135,
     "gif": "scene.gif",
     "sha256": "15bb99625317a95333d3bad4e29e5cd2ca88d04334057fdb89e568e2498c3a8e"
+  },
+  "day_animation": {
+    "source_pattern": "build/animation-day/*.ppm",
+    "frame_count": 144,
+    "gif_frame_count": 130,
+    "fps": 12,
+    "duration_ms": 12000,
+    "width": 240,
+    "height": 135,
+    "gif": "scene-day.gif",
+    "sha256": "1952ae5ebebb3e8b18e36a208bf15feeaca3dee4759b4a2fef9e5a390dee1cf2"
   }
 }

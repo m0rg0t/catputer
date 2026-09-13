@@ -9,6 +9,7 @@
 // every palette entry.
 
 #include <cassert>
+#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -47,30 +48,37 @@ int main() {
     lofi::Frame frame;
     std::uint16_t row[lofi::kScreenWidth] = {};
     unsigned oldRawFailures = 0;
-    for (std::uint8_t index = 0; index < lofi::kPaletteSize; ++index) {
-        frame.set(0, 0, index);
-        frame.rowRgb565(0, row);
-        const std::uint16_t logical = row[0];
-        assert(logical == lofi::Frame::paletteRgb565(index));
-        const auto* oldRaw = reinterpret_cast<const std::uint8_t*>(&logical);
-        const std::uint8_t expected[2] = {
-            static_cast<std::uint8_t>(logical >> 8),
-            static_cast<std::uint8_t>(logical & 0xffu),
-        };
+    constexpr std::array scenes{lofi::ScenePalette::Night, lofi::ScenePalette::Day};
+    for (const auto scene : scenes) {
+        frame.setScenePalette(scene);
+        for (std::uint8_t index = 0; index < lofi::kPaletteSize; ++index) {
+            frame.set(0, 0, index);
+            frame.rowRgb565(0, row);
+            const std::uint16_t logical = row[0];
+            assert(logical == frame.activePaletteRgb565(index));
+            if (scene == lofi::ScenePalette::Night || index < lofi::kUiPaletteSize) {
+                assert(logical == lofi::Frame::paletteRgb565(index));
+            }
+            const auto* oldRaw = reinterpret_cast<const std::uint8_t*>(&logical);
+            const std::uint8_t expected[2] = {
+                static_cast<std::uint8_t>(logical >> 8),
+                static_cast<std::uint8_t>(logical & 0xffu),
+            };
 
-        // This is the behavior of pushImage while _swapBytes is false: the
-        // host-order uint16_t is sent as native little-endian memory.
-        if (oldRaw[0] != expected[0] || oldRaw[1] != expected[1]) {
-            ++oldRawFailures;
+            // This is the behavior of pushImage while _swapBytes is false: the
+            // host-order uint16_t is sent as native little-endian memory.
+            if (oldRaw[0] != expected[0] || oldRaw[1] != expected[1]) {
+                ++oldRawFailures;
+            }
+
+            std::uint8_t converted[2] = {};
+            convertToWire(logical, converted);
+            assert(converted[0] == expected[0]);
+            assert(converted[1] == expected[1]);
         }
-
-        std::uint8_t converted[2] = {};
-        convertToWire(logical, converted);
-        assert(converted[0] == expected[0]);
-        assert(converted[1] == expected[1]);
     }
 
-    std::printf("palette=%d old_raw_failures=%u swapped_conversion=pass\n",
+    std::printf("palettes=2 colours=%d old_raw_failures=%u swapped_conversion=pass\n",
                 lofi::kPaletteSize, oldRawFailures);
     assert(oldRawFailures > 0);
     return 0;

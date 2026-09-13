@@ -26,6 +26,7 @@ Planning session: 2026-09-12.
 | Meter interpretation | User tentatively meant musical meter, describing an audible sense of wrongness; implement coherent phrasing first, with stable session meter and AUTO/manual choices for comparison |
 | Tempo and loudness controls | User requested manual BPM settings and volume up to 300%; keep AUTO tempo available |
 | 0.1.8-dev scope | User accepted clearer mix and phrasing, a sleep timer and automatic screen dimming; retain the fuller opening and both sound engines |
+| Daytime scope | User requested an additional sunny background and mode, with night artwork for night/relaxed moods. Cozy is treated as relaxed; Rainy uses daylight with rain, Sunny clear daylight. Existing schema-5 music remains unchanged |
 | Sleep and dim defaults | Sleep Off/30/60/90 minutes, final 30-second fade to pause; auto-dim Off/30/60/120 seconds, default 60, first key wakes only |
 | Public identity and delivery | Catputer, `m0rg0t/catputer`; publish the project site on GitHub Pages and provide application-only builds |
 
@@ -35,7 +36,7 @@ Planning session: 2026-09-12.
 | --- | --- | --- |
 | Overall plan | This document set | Accepted; implementation underway |
 | Production engine | A or B based on matched listening and measurements | Deliberately deferred until feasibility comparison |
-| Detailed art design | Original orange cat with headphones and a book in a rainy room | Imagegen masters, six sprite frames and indexed assets used by the shared pixel renderer |
+| Detailed art design | Original orange cat with headphones and a book in a day/night room | Imagegen masters, six shared sprite poses and two palettes used by the shared pixel renderer |
 | Bluetooth audio output | Requested if feasible; stock ESP32-S3 has neither A2DP nor LE Audio | Direct output is unavailable; external transmitter/module or a network bridge remains unselected. See [hardware feasibility](ARCHITECTURE.md#bluetooth-audio-feasibility) |
 
 ## Engineering proposals to validate

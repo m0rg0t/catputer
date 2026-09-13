@@ -80,7 +80,7 @@ std::uint64_t mix64(std::uint64_t value) noexcept {
 Config sanitized(Config config) noexcept {
     const auto mood = static_cast<std::uint8_t>(config.mood);
     const auto soundEngine = static_cast<std::uint8_t>(config.soundEngine);
-    if (mood > static_cast<std::uint8_t>(Mood::Night)) {
+    if (mood >= kMoodCount) {
         config.mood = Mood::Cozy;
     }
     if (soundEngine > static_cast<std::uint8_t>(SoundEngine::Hybrid)) {
@@ -506,7 +506,13 @@ struct Engine::Impl {
     }
 
     void chooseProgression() noexcept {
-        minorSession = current.mood != Mood::Cozy || scoreRng.chance(1, 4);
+        if (current.mood == Mood::Sunny) {
+            minorSession = false;
+        } else {
+            // Keep this original expression and short-circuit draw behavior
+            // unchanged for schema-5 Cozy, Rainy and Night sessions.
+            minorSession = current.mood != Mood::Cozy || scoreRng.chance(1, 4);
+        }
         if (!minorSession) {
             static constexpr std::uint8_t degrees[][4] = {
                 {0, 9, 2, 7},
@@ -757,6 +763,9 @@ struct Engine::Impl {
         case Mood::Night:
             autoBpm = static_cast<std::uint16_t>(72 + scoreRng.bounded(9));
             break;
+        case Mood::Sunny:
+            autoBpm = static_cast<std::uint16_t>(84 + scoreRng.bounded(9));
+            break;
         }
         const std::uint32_t meterDraw = scoreRng.bounded(10);
         const MusicMeter automaticMeter = meterDraw < 7u ? MusicMeter::FourFour :
@@ -765,8 +774,11 @@ struct Engine::Impl {
         swingPercent = static_cast<std::uint8_t>(55 + scoreRng.bounded(5));
         static constexpr std::uint8_t cozyKeys[] = {0, 2, 5, 7, 9};
         static constexpr std::uint8_t darkKeys[] = {0, 2, 3, 5, 7, 9, 10};
+        static constexpr std::uint8_t sunnyKeys[] = {0, 4, 5, 7, 9};
         if (current.mood == Mood::Cozy) {
             keyPitchClass = cozyKeys[scoreRng.bounded(5)];
+        } else if (current.mood == Mood::Sunny) {
+            keyPitchClass = sunnyKeys[scoreRng.bounded(5)];
         } else {
             keyPitchClass = darkKeys[scoreRng.bounded(7)];
         }
@@ -1779,6 +1791,8 @@ const char* moodName(Mood mood) noexcept {
         return "Rainy";
     case Mood::Night:
         return "Night";
+    case Mood::Sunny:
+        return "Sunny";
     }
     return "Unknown";
 }
@@ -1817,7 +1831,7 @@ bool validBpm(std::uint16_t bpm) noexcept {
 }
 
 bool validConfig(const Config& config) noexcept {
-    return static_cast<std::uint8_t>(config.mood) <= static_cast<std::uint8_t>(Mood::Night) &&
+    return static_cast<std::uint8_t>(config.mood) < kMoodCount &&
            static_cast<std::uint8_t>(config.soundEngine) <=
                static_cast<std::uint8_t>(SoundEngine::Hybrid) &&
            validBpm(config.bpm) && validMeter(config.meter) &&
@@ -2191,7 +2205,9 @@ bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
     if (*cursor++ != '-') {
         return false;
     }
-    if (*cursor < '0' || *cursor > '2') {
+    constexpr char kMaximumMoodCharacter =
+        static_cast<char>('0' + kMoodCount - 1u);
+    if (*cursor < '0' || *cursor > kMaximumMoodCharacter) {
         return false;
     }
     const Mood mood = static_cast<Mood>(*cursor++ - '0');

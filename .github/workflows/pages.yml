@@ -52,7 +52,8 @@ jobs:
       - name: Render screenshots, animation and audio
         run: |
           ./build/cmake/lofi_native --shots build/screens --animation build/animation --frames 144
-          python tools/export_media.py
+          ./build/cmake/lofi_native --mood sunny --animation build/animation-day --frames 144
+          python tools/export_media.py --day-animation build/animation-day
           python tools/render_audio.py --seconds 180
 
       - name: Package firmware and build public site

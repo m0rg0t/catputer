@@ -48,6 +48,7 @@ AUDIO_SPECS = (
     ("cozy", "Cozy"),
     ("rainy", "Rainy"),
     ("night", "Night"),
+    ("sunny", "Sunny"),
 )
 ENGINES = (
     ("synth", "Synth"),
@@ -157,6 +158,12 @@ def copy_common_media(media_root: Path, output_root: Path, manifest: dict[str, A
         "contact_sheet": copy_allowed(contact_source, output_root / "media" / contact, media_root),
         "animation": copy_allowed(animation_source, output_root / "media" / animation, media_root),
     }
+    if "day_animation" in manifest:
+        daytime = manifest["day_animation"]
+        day_source = ensure_inside(media_root / str(daytime["gif"]), media_root)
+        if sha256_file(day_source) != daytime.get("sha256"):
+            raise ValueError("daytime animation hash mismatch; export media again")
+        copied["day_animation"] = copy_allowed(day_source, output_root / "media" / day_source.name, media_root)
     # Do not copy the source manifest verbatim: it includes private/scripted
     # scenarios.  A filtered manifest is written after all public assets are
     # selected.
@@ -185,9 +192,11 @@ def parse_favorite_seed(value: Any) -> str | None:
         favorite_code = value.get("favorite_code")
         if isinstance(favorite_code, str):
             legacy = re.fullmatch(r"lofi[1-3]-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}(?:-[0-9]{1,3})?", favorite_code)
-            current = re.fullmatch(r"lofi[45]-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-3]-[0-5]-[0-5]-[0-2]", favorite_code)
+            current = re.fullmatch(r"lofi[45]-[0-9a-fA-F]{16}-[0-3]-[0-1]-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-3]-[0-5]-[0-5]-[0-2]", favorite_code)
             if legacy or current:
                 parts = favorite_code.split("-")
+                if parts[0] == "lofi4" and int(parts[2]) > 2:
+                    return None
                 tempo_ok = (len(parts) == 6 or 40 <= int(parts[6]) <= 180
                             or (current and int(parts[6]) == 0))
                 if int(parts[4]) <= 100 and int(parts[5]) <= 100 and tempo_ok:
@@ -518,6 +527,7 @@ section { padding:72px 0; border-top:1px solid rgba(112,192,193,.15); }
 .section-intro { display:flex; align-items:end; justify-content:space-between; gap:20px; margin-bottom:22px; }
 .section-intro p { color:var(--muted); max-width:42rem; margin:0; }
 .media-strip { display:grid; grid-template-columns:1.25fr .75fr; gap:18px; }
+.scene-loops { display:grid; align-content:start; gap:18px; }
 .media-card { border:1px solid var(--line); background:rgba(16,29,44,.84); padding:12px; }
 .media-card img { width:100%; display:block; image-rendering:pixelated; }
 .media-card .caption { margin-bottom:0; }
@@ -573,6 +583,8 @@ def render_index(
     hero_image = html.escape(hero["native"])
     contact = html.escape(copied_media["contact_sheet"])
     animation = html.escape(copied_media["animation"])
+    day_animation = html.escape(copied_media.get("day_animation", ""))
+    day_card = f'<div class="media-card"><img src="{day_animation}" alt="Sunny daytime room animated by the shared renderer"><p class="caption">Sunny day · 12 FPS native renderer capture · no rain.</p></div>' if day_animation else ''
     revision = html.escape(str(manifest.get("source_revision", "uncommitted")))
     generated = html.escape(str(manifest.get("generated_utc", "unknown")))
     public_manifest = {
@@ -583,6 +595,7 @@ def render_index(
         "screens": screens,
         "contact_sheet": copied_media["contact_sheet"],
         "animation": copied_media["animation"],
+        "day_animation": copied_media.get("day_animation"),
         "audio": audio_pairs,
         "release_files": releases,
     }
@@ -608,11 +621,12 @@ def render_index(
   <header><div class="wrap"><nav><a class="wordmark" href="#top">Catputer</a><ul><li><a href="#scene">Scene</a></li><li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Build</a></li><li><a href="https://github.com/m0rg0t/catputer">GitHub</a></li></ul></nav></div></header>
   <main id="top">
     <div class="wrap"><section class="hero" style="border-top:0">
-      <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for long nights.</h1><p class="lead">Catputer composes a quiet stream on the device while an original pixel-art cat reads beside a rainy window. The built-in scene and music are designed for a 240 × 135 display and no network connection.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a></div></div>
+      <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for slow days and long nights.</h1><p class="lead">Catputer composes a quiet stream on the device while an original pixel-art cat reads beside the window. Four moods bring warm daylight or a rainy night to the built-in 240 × 135 room. No network or SD card is needed to play.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a></div></div>
       <div class="hero-frame"><img src="{hero_image}" alt="{html.escape(hero['label'])} desktop render at 240 by 135 pixels"><div class="caption">{html.escape(hero['label'])} · native renderer capture · 240×135 · physical display unverified</div></div>
     </section></div>
     <section id="scene"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Shared renderer evidence</div><h2>Rain, light, and a cat with a pulse.</h2></div><p>The screenshots use the same drawing code compiled for the native preview. They are desktop renders, shown at the device’s native size and an integer nearest-neighbour scale.</p></div>
-      <div class="media-strip"><article class="media-card"><img src="{contact}" alt="Labeled contact sheet of public native renderer scenarios"><p class="caption">Public scenario contact sheet · scripted states from the native renderer · hardware unverified.</p></article><article class="media-card"><img src="{animation}" alt="Animated pixel-art room GIF from the shared renderer"><p class="caption">Scene loop · 12 FPS GIF from native renderer frames · no prerecorded video.</p></article></div>
+      <p class="muted">Cozy and Night keep the night room. Rainy brings daylight with rain; Sunny brings clear skies and brighter major-key music. The room changes when the new mood becomes audible.</p>
+      <div class="media-strip"><article class="media-card"><img src="{contact}" alt="Labeled contact sheet of public native renderer scenarios"><p class="caption">Public scenario contact sheet · scripted states from the native renderer · hardware unverified.</p></article><div class="scene-loops"><article class="media-card"><img src="{animation}" alt="Animated night room GIF from the shared renderer"><p class="caption">Night room · 12 FPS native renderer capture.</p></article>{day_card}</div></div>
       <details style="margin-top:18px"><summary>Explore all {len(screens)} screen states</summary><div class="gallery">{gallery}</div></details>
     </div></section>
     <section id="audio"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Matched listening tests</div><h2>Two engines, one mood.</h2></div><p>Hear the same composition through two instrument engines. Choose a mood, play a sample, then compare its warmth and rhythm with the other version.</p></div>{audio_html}</div></section>
@@ -678,7 +692,7 @@ def build_site(media_root: Path, output_root: Path) -> dict[str, Any]:
         "media_source_manifest": "docs/media/media-manifest.json",
         "public_files": {
             "index": "index.html",
-            "media": [copied_media["contact_sheet"], copied_media["animation"], "media/media-manifest.json"]
+            "media": list(copied_media.values()) + ["media/media-manifest.json"]
             + [item["native"] for item in screens]
             + [item["scaled"] for item in screens],
             "audio": [entry["path"] for pair in audio_pairs for entry in pair["engines"] if entry.get("available")],

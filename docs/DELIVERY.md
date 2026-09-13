@@ -9,8 +9,8 @@
 | 0. Baseline | Pin the stack, create shared-core/native/device targets, log hardware resources, establish install profile | Empty ADV app and host runner compile; actual memory/layout assumptions recorded; no automatic flashing |
 | 1. Audio feasibility | Produce/audition the compact sample bank, implement one composer and both instrument candidates, bounded output buffers, a minimal moving screen | Sample manifest and auditions, matched WAVs, device output examples and a timing/heap/size table; continuous audio with visual load |
 | 2. Choose the sound | Tune instruments, inspect multi-seed longer renders, present A/B results | User selects an engine using listening and measured limits; rejected candidate remains documented |
-| 3. Radio behavior | Arrangement, smooth transitions, three moods, transport, seeds, favorites and optional SD loading | 30-minute listening review; deterministic event replay; missing-SD and invalid-pack behavior works |
-| 4. Scene and UI | Finish one scene, controls, help/settings, render scenarios | Real-code contact sheet and animation capture reviewed at native size; no audio regression under visual load |
+| 3. Radio behavior | Arrangement, smooth transitions, four moods, transport, seeds, favorites and optional SD loading | 30-minute listening review; deterministic event replay; missing-SD and invalid-pack behavior works |
+| 4. Scene and UI | Finish day/night scenes, controls, help/settings, render scenarios | Real-code contact sheet and animation capture reviewed at native size; no audio regression under visual load |
 | 5. Soak and package | Physical tests, app BIN checks, content manifest, checksums and installation guide | Two-hour device soak passes; installation and return to M5Apps checked; release candidate has evidence |
 | 6. Site and release materials | Build a static product page from matching captures/audio/version/artifacts | Site preview and validated distribution archive ready; publishing is a subsequent requested action |
 
@@ -103,7 +103,7 @@ Public packaging must exclude private favorites/settings, serial logs, device du
 
 The project site is published at <https://m0rg0t.github.io/catputer/>. The repository's Pages source is **GitHub Actions**. The workflow in [pages.yml](../.github/workflows/pages.yml) runs on pushes to `main` and supports manual dispatch.
 
-Each run builds the pinned PlatformIO firmware and the native renderer, runs the native and Python checks, exports fresh PNG/GIF captures and six matched 180-second MP3 demos, and creates the validated application-only package. The site builder checks media, audio and package hashes before the workflow uploads only `build/site`. The build needs no OpenRouter, ElevenLabs or other private API keys.
+Each run builds the pinned PlatformIO firmware and the native renderer, runs the native and Python checks, exports fresh PNG captures, day/night GIFs and eight matched 180-second MP3 demos, and creates the validated application-only package. The site builder checks media, audio and package hashes before the workflow uploads only `build/site`. The build needs no OpenRouter, ElevenLabs or other private API keys.
 
 The deployment job runs only after a successful build, with Pages write and OpenID Connect permissions scoped to that job and the `github-pages` environment. A failed build leaves the previous site online. The website serves a development candidate; deployment does not establish hardware verification or create a tagged firmware release.
 

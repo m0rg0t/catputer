@@ -1,6 +1,18 @@
 # Implementation and verification
 
-This is the development candidate for the accepted plan, version **0.1.8-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.9-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+
+## Sunny mood and day/night room · 0.1.9-dev
+
+The fourth mood, Sunny, adds major progressions with AUTO 84–92 BPM. Cozy and Night keep the original night room; Rainy uses the new day room with rain, and Sunny uses clear daylight. Both scenes retain the six cat poses. The palette follows the audible snapshot at a bar boundary, so a pending mood selection does not change the room early. Each frame owns its palette and the original night include is byte-for-byte unchanged. The 16 UI colors and cat transparency masks match across scenes; the translucent visualization uses two compile-time shade tables.
+
+The integrated Mac build passes **8/8 native suites and 53 Python tests**. These cover Sunny selection and favorite replay, valid save formats 1–4 migrating to format 5, old-format mood bounds, independently interleaved frame palettes, rain/lamp behavior, all display indices and the actual pinned M5GFX RGB565 wire conversion for both palettes. The Sunny SDL preview also completes a bounded run with dummy audio/video and state saving. Thirty-five public screenshot states and two 144-frame scene loops come from the shared renderer; the Sunny, Rainy and mood-menu captures were visually inspected at 3× integer scale. These remain desktop captures, not physical LCD evidence.
+
+The [216-case music matrix](evidence/v019-music-matrix.json) renders 30 seconds per case across all four moods, meters, engines, selected tones and 40/120/180 BPM at 300% volume. Its **207,360,000 frames have zero clipped samples, dropped notes or score-rule violations**. Maximum voices remain 12, with at most 9 voice steals per case and peaks from 26,766 to 31,220. Matched engine scores and tone-independent composition checks pass. These finite checks do not establish device audio deadlines or subjective musical quality.
+
+All eight 180-second listening demos have zero clips or dropped notes. The six Cozy/Rainy/Night WAV and MP3 files, score hashes and event counts are identical to the preserved 0.1.8-dev baselines. Sunny's matching Synth/Hybrid score is `5d9213cae9fc4dfc`, 1,528 events. [Audio compatibility evidence](evidence/v019-audio-compatibility.json) binds these results to file hashes. Twelve shorter old-mood score/PCM cases are also pinned in the native tests. Music schema 5 is retained; 0.1.8-dev favorites remain replayable. Save format 5 keeps 192 bytes and permits Sunny mood 3; older firmware cannot decode the new format.
+
+The local ADV application is **749,552 bytes**, leaving **561,168 bytes** under the compact profile. Linker static RAM remains **67,384 bytes**. The day art adds constant flash data while the device retains one 32,400-byte pixel buffer and one 480-byte RGB565 transfer row. Runtime heap and hardware frame/audio timing still need measurement. Both rooms and all instruments are in the app BIN; no additional SD resources are required.
 
 ## Mix, phrasing and comfort controls · 0.1.8-dev
 

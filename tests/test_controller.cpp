@@ -23,6 +23,25 @@ lofi::Snapshot snapshotFor(lofi::Controller& controller, std::uint16_t audibleBp
 int main() {
     using namespace lofi;
 
+    Controller sunnyMenu(42);
+    auto sunnySnapshot = snapshotFor(sunnyMenu, 78);
+    sunnyMenu.key('m');
+    assert(sunnyMenu.view.itemCount == 4 && std::strcmp(sunnyMenu.view.items[3], "Sunny") == 0);
+    for(int i=0;i<3;++i) sunnyMenu.key('.');
+    const auto sunnyAction = sunnyMenu.key('\n');
+    assert(sunnyAction.kind == ActionKind::Config && sunnyAction.config.mood == Mood::Sunny);
+    assert(sunnyMenu.saved.settings.mood == 3);
+    // Scene uses the audible snapshot, not a pending menu choice.
+    sunnyMenu.populateView();
+    assert(sunnyMenu.view.mood == 0);
+    sunnySnapshot.config = sunnyAction.config;
+    sunnyMenu.setSnapshot(sunnySnapshot);sunnyMenu.populateView();
+    assert(sunnyMenu.view.mood == 3);
+    sunnyMenu.key('f');sunnyMenu.key('l');
+    const auto sunnyRecall = sunnyMenu.key('\n');
+    assert(sunnyRecall.kind == ActionKind::Config && sunnyRecall.restartSession &&
+           sunnyRecall.config.mood == Mood::Sunny && sunnyMenu.saved.favorites[0].schema == 5);
+
     Controller c(UINT64_C(0x123456789abcdef0));
     const Snapshot snap = snapshotFor(c, 72);
     c.key('f');

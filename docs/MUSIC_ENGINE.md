@@ -39,7 +39,7 @@ For candidates passing those gates, score warmth/timbre (35%), musical coherence
 
 Proposed starting palette:
 
-- 4/4 time. AUTO tempo uses the seed and mood (Cozy 76–84, Rainy 68–76, Night 72–80 BPM). A manual override permits 40–180 BPM and changes at a bar boundary while the current tune continues.
+- 4/4 time. AUTO tempo uses the seed and mood (Cozy 76–84, Rainy 68–76, Night 72–80, Sunny 84–92 BPM). A manual override permits 40–180 BPM and changes at a bar boundary while the current tune continues.
 - At manual tempos above the session's AUTO tempo, harmonic release tails shorten proportionally to reduce pressure on the twelve-voice pool. AUTO retains the existing note envelopes and deterministic audio.
 - Curated four- or eight-bar progressions using major/minor sevenths and occasional ninths. Choose one key and tonal palette per session.
 - Voice-led chord inversions: minimize movement and keep the melody and bass in distinct registers. Avoid uncontrolled extensions and large jumps on every chord.
@@ -67,7 +67,9 @@ These rules improve structural coherence; they do not establish that every seed 
 
 ## Clearer mix and responses · schema 5
 
-Version 0.1.8-dev uses schema 5. Answering bars now leave a full beat of space before a shorter response; the midpoint echoes only part of the opening motif after a beat, and the full hook returns at the next eight-bar boundary. The richer first-bar arrangement, session meter, chord-tone endings and passing-note resolution rules remain in place. Synth and Hybrid still play the same score for matching parameters.
+Version 0.1.9-dev retains schema 5 from 0.1.8-dev. Sunny is appended as mood 3, with major progressions and tonic choices C/E/F/G/A. Its phrase, meter and bounded-voice rules use the same composer. Existing Cozy/Rainy/Night RNG ordering and audio remain unchanged.
+
+The 0.1.8-dev phrasing rules remain in place. Answering bars now leave a full beat of space before a shorter response; the midpoint echoes only part of the opening motif after a beat, and the full hook returns at the next eight-bar boundary. The richer first-bar arrangement, session meter, chord-tone endings and passing-note resolution rules remain in place. Synth and Hybrid still play the same score for matching parameters.
 
 While the lead envelope is active, only the chord bed eases down toward 88% gain, with approximately 20 ms attack and 120 ms release time constants. Bass and drums keep their level. This is separate from the existing subtle kick-triggered attenuation. It adds fixed scalar state, with no new voices or sample buffers. This revision intentionally changes the generated score and PCM; schema-4 favorites require earlier firmware for faithful replay.
 

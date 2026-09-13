@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render and encode the six matched development demos, with bound metadata."""
+"""Render and encode the eight matched development demos, with bound metadata."""
 import argparse
 import hashlib
 import json
@@ -23,7 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seconds", type=int, default=180, choices=range(1, 601), metavar="1..600")
     parser.add_argument("--seed", type=lambda text: int(text, 0), default=0xCA7CAFE)
-    parser.add_argument("--mood", choices=("cozy", "rainy", "night"))
+    parser.add_argument("--mood", choices=("cozy", "rainy", "night", "sunny"))
     parser.add_argument("--engine", choices=("synth", "hybrid"))
     args = parser.parse_args()
     if not 0 <= args.seed < 2**64:
@@ -31,7 +31,7 @@ def main():
     output = ROOT / "build/audio"
     output.mkdir(parents=True, exist_ok=True)
     version, profile = read_version(ROOT), music_profile(ROOT)
-    for mood in ([args.mood] if args.mood else ("cozy", "rainy", "night")):
+    for mood in ([args.mood] if args.mood else ("cozy", "rainy", "night", "sunny")):
         for engine in ([args.engine] if args.engine else ("synth", "hybrid")):
             stem = f"{mood}-{engine}"
             wav, meta, mp3 = [output / f"{stem}.rendering.{ext}" for ext in ("wav", "json", "mp3")]

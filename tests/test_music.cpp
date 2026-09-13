@@ -294,6 +294,8 @@ void checkScheduledBar(const lofi::ScoreBar& bar, std::uint64_t& previousBarEnd,
 }
 
 void testBpmValidationAndSanitizing() {
+    CHECK(lofi::kMoodCount == 4);
+    CHECK(std::strcmp(lofi::moodName(Mood::Sunny), "Sunny") == 0);
     CHECK(lofi::validBpm(0));
     CHECK(lofi::validBpm(lofi::kMusicMinBpm));
     CHECK(lofi::validBpm(lofi::kMusicMaxBpm));
@@ -338,6 +340,11 @@ void testBpmValidationAndSanitizing() {
     invalid = Config{};
     invalid.bassTone = static_cast<lofi::BassTone>(99);
     CHECK(!lofi::validConfig(invalid));
+    invalid = Config{};
+    invalid.mood = static_cast<Mood>(lofi::kMoodCount);
+    CHECK(!lofi::validConfig(invalid));
+    Engine clampedMood(invalid);
+    CHECK(clampedMood.config().mood == Mood::Cozy);
 }
 
 void testFavoriteRoundTrip() {
@@ -376,8 +383,21 @@ void testFavoriteRoundTrip() {
         "lofi4-fedcba9876543210-2-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
         "lofi5-fedcba987654321-2-1-100-0-0-0-0-3-0", parsed));
+    source.mood = Mood::Sunny;
+    source.bpm = 0;
+    source.meter = MusicMeter::Auto;
+    source.keysTone = lofi::Tone::ElectricPiano;
+    source.leadTone = lofi::Tone::Vibraphone;
+    source.bassTone = lofi::BassTone::Round;
+    Engine sunny(source);
+    CHECK(sunny.writeFavoriteCode(code, sizeof(code)) > 0);
+    CHECK(std::strcmp(code,
+                      "lofi5-fedcba9876543210-3-1-100-0-0-0-0-3-0") == 0);
+    CHECK(Engine::parseFavoriteCode(code, parsed));
+    CHECK(sameConfig(source, parsed));
+
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-3-1-100-0-0-0-0-3-0", parsed));
+        "lofi5-fedcba9876543210-4-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
         "lofi5-fedcba9876543210-2-1-101-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
@@ -461,6 +481,121 @@ void testReplayAndBlockDeterminism() {
         renderToNextBar(automaticScore, bar);
         renderToNextBar(manualScore, bar);
     }
+}
+
+void testExistingMoodSchemaFiveBaselines() {
+    struct Baseline {
+        Mood mood;
+        SoundEngine backend;
+        std::uint64_t seed;
+        std::uint16_t bpm;
+        std::uint8_t meterNumerator;
+        std::uint8_t meterDenominator;
+        std::uint32_t events;
+        std::uint64_t scoreHash;
+        std::uint64_t pcm;
+    };
+    static constexpr Baseline baselines[] = {
+        {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe), 83, 3, 4,
+         68, UINT64_C(0x1a4c7d192dc04e6a), UINT64_C(0x678f86ec30572c8d)},
+        {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef), 76, 4, 4,
+         58, UINT64_C(0x32d75d5b939da9c7), UINT64_C(0x6c0337fdc6277334)},
+        {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe), 83, 3, 4,
+         68, UINT64_C(0x1a4c7d192dc04e6a), UINT64_C(0xbc1304e3bff90a5e)},
+        {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef), 76, 4, 4,
+         58, UINT64_C(0x32d75d5b939da9c7), UINT64_C(0xd6ef32fbf4656561)},
+        {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe), 73, 4, 4,
+         55, UINT64_C(0xb45da02f63a51db8), UINT64_C(0xa7fe98e3b0bbb06b)},
+        {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef), 68, 4, 4,
+         52, UINT64_C(0xa439e405356f38c6), UINT64_C(0x3bb59eaec00e4889)},
+        {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe), 73, 4, 4,
+         55, UINT64_C(0xb45da02f63a51db8), UINT64_C(0x25b8ecc5b0ad3c53)},
+        {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef), 68, 4, 4,
+         52, UINT64_C(0xa439e405356f38c6), UINT64_C(0xcbbe917a10338601)},
+        {Mood::Night, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe), 75, 4, 4,
+         56, UINT64_C(0x7287cc641987cdbd), UINT64_C(0x9db707988a890f94)},
+        {Mood::Night, SoundEngine::Synth, UINT64_C(0x0123456789abcdef), 78, 6, 8,
+         90, UINT64_C(0xee9ab682447a779d), UINT64_C(0x37232c5a787ab5c3)},
+        {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe), 75, 4, 4,
+         56, UINT64_C(0x7287cc641987cdbd), UINT64_C(0xc78910c47943a41a)},
+        {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef), 78, 6, 8,
+         90, UINT64_C(0xee9ab682447a779d), UINT64_C(0x5d7836e1e48d87ed)},
+    };
+
+    constexpr std::size_t frames = lofi::kMusicSampleRate * 8u;
+    for (const Baseline& baseline : baselines) {
+        Config config{};
+        config.seed = baseline.seed;
+        config.mood = baseline.mood;
+        config.soundEngine = baseline.backend;
+        config.texture = 23;
+        Engine engine(config);
+        const std::vector<std::int16_t> audio = renderFrames(engine, frames, 509);
+        const lofi::Snapshot snapshot = engine.snapshot();
+        const lofi::Diagnostics diagnostics = engine.diagnostics();
+        CHECK(snapshot.bpm == baseline.bpm);
+        CHECK(snapshot.meterNumerator == baseline.meterNumerator);
+        CHECK(snapshot.meterDenominator == baseline.meterDenominator);
+        CHECK(diagnostics.scoreEventCount == baseline.events);
+        CHECK(diagnostics.scoreEventHash == baseline.scoreHash);
+        CHECK(pcmHash(audio) == baseline.pcm);
+        CHECK(diagnostics.droppedNoteEvents == 0);
+    }
+}
+
+void testSunnyMoodGeneration() {
+    static constexpr std::uint8_t brightKeys[] = {0, 4, 5, 7, 9};
+    constexpr std::uint64_t seeds[] = {
+        UINT64_C(0x000000000ca7cafe),
+        UINT64_C(0x0123456789abcdef),
+        UINT64_C(0xbadc0ffee0ddf00d),
+        UINT64_C(0x53554e4e595f4441),
+    };
+
+    for (const std::uint64_t seed : seeds) {
+        Config automatic{};
+        automatic.seed = seed;
+        automatic.mood = Mood::Sunny;
+        automatic.soundEngine = SoundEngine::Synth;
+        automatic.texture = 0;
+        Engine autoEngine(automatic);
+        const lofi::Snapshot snapshot = autoEngine.snapshot();
+        const lofi::ScoreBar autoBar = autoEngine.scoreBar();
+        CHECK(snapshot.bpm >= 84 && snapshot.bpm <= 92);
+        CHECK(!autoBar.minor);
+        CHECK(std::find(std::begin(brightKeys), std::end(brightKeys),
+                        autoBar.keyPitchClass) != std::end(brightKeys));
+
+        Config manual = automatic;
+        manual.bpm = 117;
+        Engine manualEngine(manual);
+        CHECK(manualEngine.snapshot().bpm == 117);
+        CHECK(sameScoreContent(autoBar, manualEngine.scoreBar()));
+    }
+
+    Config synthConfig{};
+    synthConfig.seed = UINT64_C(0x53554e4e595f4142);
+    synthConfig.mood = Mood::Sunny;
+    synthConfig.soundEngine = SoundEngine::Synth;
+    synthConfig.texture = 20;
+    synthConfig.bpm = 92;
+    synthConfig.meter = MusicMeter::SixEight;
+    Config hybridConfig = synthConfig;
+    hybridConfig.soundEngine = SoundEngine::Hybrid;
+    Engine synth(synthConfig);
+    Engine hybrid(hybridConfig);
+    constexpr std::size_t frames = lofi::kMusicSampleRate * 30u;
+    const std::vector<std::int16_t> synthAudio = renderFrames(synth, frames, 347);
+    const std::vector<std::int16_t> hybridAudio = renderFrames(hybrid, frames, 701);
+    const lofi::Diagnostics synthDiagnostics = synth.diagnostics();
+    const lofi::Diagnostics hybridDiagnostics = hybrid.diagnostics();
+    CHECK(synthDiagnostics.scoreEventCount == hybridDiagnostics.scoreEventCount);
+    CHECK(synthDiagnostics.scoreEventHash == hybridDiagnostics.scoreEventHash);
+    CHECK(synthAudio != hybridAudio);
+    CHECK(synthDiagnostics.droppedNoteEvents == 0);
+    CHECK(hybridDiagnostics.droppedNoteEvents == 0);
+    CHECK(synthDiagnostics.maxActiveVoices <= lofi::kMusicVoiceCapacity);
+    CHECK(hybridDiagnostics.maxActiveVoices <= lofi::kMusicVoiceCapacity);
 }
 
 void testBackendIndependentScore() {
@@ -755,7 +890,7 @@ void testRecognizablePhraseShapeAcrossMeters() {
     for (std::uint8_t meterValue = 1; meterValue <= 3; ++meterValue) {
         Config config{};
         config.seed = UINT64_C(0x000000000ca7cafe);
-        config.mood = Mood::Cozy;
+        config.mood = Mood::Sunny;
         config.soundEngine = SoundEngine::Synth;
         config.texture = 0;
         config.bpm = 120;
@@ -824,8 +959,9 @@ void testOpeningHasEveryLayerAndHeadroom() {
         UINT64_C(0x000000000ca7cafe),
         UINT64_C(0x0123456789abcdef),
         UINT64_C(0xbadc0ffee0ddf00d),
+        UINT64_C(0x53554e4e595f4441),
     };
-    for (std::size_t moodIndex = 0; moodIndex < 3; ++moodIndex) {
+    for (std::size_t moodIndex = 0; moodIndex < lofi::kMoodCount; ++moodIndex) {
         lofi::Diagnostics byEngine[2]{};
         for (std::size_t engineIndex = 0; engineIndex < 2; ++engineIndex) {
             Config config{};
@@ -897,7 +1033,7 @@ void testOpeningHasEveryLayerAndHeadroom() {
 
 void testFastTempoVoicePressure() {
     for (std::uint8_t meterValue = 1; meterValue <= 3; ++meterValue) {
-        for (std::size_t moodIndex = 0; moodIndex < 3; ++moodIndex) {
+        for (std::size_t moodIndex = 0; moodIndex < lofi::kMoodCount; ++moodIndex) {
             lofi::Diagnostics byEngine[2]{};
             for (std::size_t engineIndex = 0; engineIndex < 2; ++engineIndex) {
                 Config config{};
@@ -959,7 +1095,7 @@ void testScheduledHarmonyMovementAndPhraseVariety() {
     constexpr std::size_t kBars = 36;
     constexpr std::size_t kPhrases = kBars / 4;
 
-    for (std::size_t moodIndex = 0; moodIndex < 3; ++moodIndex) {
+    for (std::size_t moodIndex = 0; moodIndex < lofi::kMoodCount; ++moodIndex) {
         for (const std::uint64_t seed : seeds) {
             Config config{};
             config.seed = seed;
@@ -1576,6 +1712,8 @@ int main() {
     testBpmValidationAndSanitizing();
     testFavoriteRoundTrip();
     testReplayAndBlockDeterminism();
+    testExistingMoodSchemaFiveBaselines();
+    testSunnyMoodGeneration();
     testBackendIndependentScore();
     testMeterSchedulingAndBackendDeterminism();
     testToneSelectionDoesNotChangeScore();

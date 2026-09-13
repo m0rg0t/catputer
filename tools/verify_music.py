@@ -44,7 +44,7 @@ def main():
     (ROOT / "build/tmp").mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="music-matrix-", dir=ROOT / "build/tmp") as tmp:
         tmp = Path(tmp)
-        for mood in ("cozy", "rainy", "night"):
+        for mood in ("cozy", "rainy", "night", "sunny"):
             for meter in ("4/4", "3/4", "6/8"):
                 baseline_scores = {}
                 for bpm, keys, lead, bass in cases:
