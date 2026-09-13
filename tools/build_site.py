@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 from typing import Any, Iterable
+from urllib.parse import quote, urlsplit
 import zipfile
 try:
     from .build_release import music_profile, read_version
@@ -31,6 +32,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[1]
 MEDIA_ROOT = ROOT / "docs/media"
 OUTPUT_ROOT = ROOT / "build/site"
+REPOSITORY_URL = "https://github.com/m0rg0t/catputer"
 
 PUBLIC_DOCS = (
     "README.md",
@@ -303,12 +305,31 @@ def copy_audio(root: Path, output_root: Path) -> list[dict[str, Any]]:
 
 def copy_docs(root: Path, output_root: Path) -> list[str]:
     copied: list[str] = []
+    revision = git_revision()
     for relative in PUBLIC_DOCS:
         source = ensure_inside(root / relative, root)
         if not source.is_file():
             continue
         destination = output_root / "source" / relative
         copied.append(copy_allowed(source, destination, root))
+        # Keep links usable without publishing the rest of the source tree.
+        # These selected documents use ordinary inline Markdown links/images.
+        def repository_link(match: re.Match[str]) -> str:
+            prefix, target, suffix = match.groups()
+            parts = urlsplit(target)
+            if parts.scheme or parts.netloc or not parts.path:
+                return match.group(0)
+            linked = ensure_inside(source.parent / parts.path, root)
+            if not linked.is_file():
+                raise ValueError(f"broken document link in {relative}: {target}")
+            path = quote(linked.relative_to(root).as_posix())
+            base = (f"https://raw.githubusercontent.com/m0rg0t/catputer/{revision}"
+                    if prefix.startswith("!") else f"{REPOSITORY_URL}/blob/{revision}")
+            fragment = f"#{parts.fragment}" if parts.fragment else ""
+            return f"{prefix}{base}/{path}{fragment}{suffix}"
+        destination.write_text(
+            re.sub(r"(!?\[[^\]\n]*\]\()([^()\s]+)(\))", repository_link,
+                   source.read_text(encoding="utf-8")), encoding="utf-8")
     return copied
 
 
@@ -535,7 +556,7 @@ dialog::backdrop { background:rgba(0,0,0,.76); }
 dialog img { display:block; width:100%; image-rendering:pixelated; }
 dialog button { margin-top:8px; background:var(--panel2); color:var(--cream); border:1px solid var(--line); border-radius:5px; padding:7px 10px; }
 @media (max-width:820px) { .hero,.media-strip,.columns { grid-template-columns:1fr; } .gallery { grid-template-columns:repeat(2,1fr); } }
-@media (max-width:540px) { .wrap { padding:0 15px; } nav ul { gap:9px; font-size:.7rem; } .hero { padding-top:48px; } .gallery,.controls,.audio-grid { grid-template-columns:1fr; } .shot figcaption { display:block; } .shot figcaption span { display:block; text-align:left; margin-top:3px; } .pair-head { display:block; } }
+@media (max-width:540px) { .wrap { padding:0 15px; } nav { flex-wrap:wrap; gap:8px 12px; padding:12px 0; } nav ul { gap:9px; font-size:.7rem; } .hero { padding-top:48px; } .gallery,.controls,.audio-grid { grid-template-columns:1fr; } .shot figcaption { display:block; } .shot figcaption span { display:block; text-align:left; margin-top:3px; } .pair-head { display:block; } }
 """
 
 
@@ -572,7 +593,7 @@ def render_index(
     audio_html = render_audio(audio_pairs)
     release_html = render_releases(releases)
     docs_html = " · ".join(
-        f'<a href="{html.escape(path)}">{html.escape(Path(path).name)}</a>' for path in copied_docs
+        f'<a href="{REPOSITORY_URL}/blob/{git_revision()}/{html.escape(path.removeprefix("source/"))}">{html.escape(Path(path).name)}</a>' for path in copied_docs
     )
     return f"""<!doctype html>
 <html lang="en">
