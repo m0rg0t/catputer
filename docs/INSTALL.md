@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.6-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.7-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -41,3 +41,5 @@ The bottom strip shows real instrument activity and musical pulses over the room
 Version 0.1.5-dev retains the LCD RGB565 correction and larger text, and introduces generation schema 4. It migrates earlier saved settings and retains old favorites, marked `OLD`; faithful replay needs the earlier firmware. New favorites include the selected tempo, meter and tones. Older firmware cannot read the new save format, so retain a copy of old state before a downgrade.
 
 Version 0.1.6-dev changes only the visualization backing and label contrast. Music schema 4, save format 3 and existing 0.1.5-dev favorites remain compatible.
+
+Version 0.1.7-dev fixes random-draw ordering so timing and velocity follow the intended schema-4 sequence across compilers. Save format 3 and existing schema-4 favorites remain readable. Earlier builds affected by compiler ordering can sound slightly different when replayed; the reference desktop sequence is preserved.

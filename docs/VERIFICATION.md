@@ -1,8 +1,16 @@
 # Implementation and verification
 
-This is the local development candidate for the accepted plan, version **0.1.6-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.7-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
 
-## Current update · 0.1.6-dev
+## Compiler consistency and Pages · 0.1.7-dev
+
+The first GitHub Pages build on Linux/GCC 13 exposed a score regression hidden by the passing Mac/Clang checks. Twenty-two event calls consumed timing and velocity randomness in one function argument list, whose evaluation order is not fixed by C++17. Explicitly drawing timing before velocity preserves the intended schema-4 desktop sequence. The exact score and PCM hash assertions remain unchanged; they are required checks in the Pages workflow.
+
+The site workflow builds the pinned ADV application, checks native and Python code, renders current screenshots and six audio demos, then publishes the allowlisted site and validated development package. Publication status is available in [GitHub Actions](https://github.com/m0rg0t/catputer/actions/workflows/pages.yml); package sizes and checksums come from the published `downloads/latest.json`. The earlier measured releases below remain versioned history. No new physical hardware verification is implied.
+
+Local checks pass: 8/8 native tests and 47 Python tests; the exact schema-4 score/PCM regression also passes under Linux/GCC 12. All six refreshed 180-second demos retain their previous score hashes with zero clips or dropped notes. The local ADV application is 686,320 bytes, with 624,400 bytes of compact-profile headroom and 67,264 bytes of linker static RAM. The package and screenshot/audio manifests pass their hash checks.
+
+## Translucent visualization · 0.1.6-dev
 
 The music strip overlays the room with a 55%-opaque dark ink backing, quantized to the existing 64-color palette. A compile-time 64-byte lookup preserves the 32,400-byte framebuffer and avoids runtime color searches. The upper solid red rule was removed, and role labels use the brighter Moon color. The ordinary and clean views were visually reviewed at integer scale; screenshots remain desktop evidence.
 

@@ -859,6 +859,17 @@ struct Engine::Impl {
         insertEvent(event);
     }
 
+    void addHumanizedEvent(std::uint8_t step, int timingBias, int timingRadius,
+                           std::uint8_t durationSteps, Instrument instrument,
+                           int note, int velocity, int velocityRadius) noexcept {
+        // Keep these draws in schema order. Function argument evaluation order is
+        // unspecified, so drawing inside addEvent(...) diverged between compilers.
+        const int timingOffset = timingBias + scoreRng.centered(timingRadius);
+        const int adjustedVelocity = velocity + scoreRng.centered(velocityRadius);
+        addEvent(step, timingOffset, durationSteps, instrument, note,
+                 adjustedVelocity);
+    }
+
     void generateBar() noexcept {
         eventCount = 0;
         nextEvent = 0;
@@ -908,10 +919,9 @@ struct Engine::Impl {
         const std::uint8_t rootGate = std::max<std::uint8_t>(
             1, std::min<std::uint8_t>(static_cast<std::uint8_t>(secondBassStep - 1u),
                                       stepsPerBeat + 2u));
-        addEvent(0, 52 + scoreRng.centered(timingRadius), rootGate,
-                 Instrument::Bass, bassRoot,
-                 (section == ArrangementSection::Intro ? 68 : 74) +
-                     scoreRng.centered(5));
+        addHumanizedEvent(0, 52, timingRadius, rootGate, Instrument::Bass,
+                          bassRoot,
+                          section == ArrangementSection::Intro ? 68 : 74, 5);
         lastBassNote = currentBassRoot;
 
         const bool flowingBass = section == ArrangementSection::Intro ||
@@ -946,19 +956,17 @@ struct Engine::Impl {
                 static_cast<std::uint8_t>(stepsPerBar - secondBassStep);
             const std::uint8_t secondGate = std::max<std::uint8_t>(
                 1, static_cast<std::uint8_t>(secondGap - 1u));
-            addEvent(secondBassStep, 34 + scoreRng.centered(timingRadius),
-                     secondGate, Instrument::Bass,
-                     second,
-                     (section == ArrangementSection::Intro ? 57 : 65) +
-                         scoreRng.centered(5));
+            addHumanizedEvent(secondBassStep, 34, timingRadius, secondGate,
+                              Instrument::Bass, second,
+                              section == ArrangementSection::Intro ? 57 : 65, 5);
             lastBassNote = static_cast<std::uint8_t>(second);
             if (approach) {
                 const std::uint8_t target = bassPitchForDegree(nextHarmony.degree,
                                                                 lastBassNote);
                 const std::uint8_t approachNote = scaleBridgeToward(
                     target, lastBassNote, kBassLow, kBassHigh);
-                addEvent(approachStep, scoreRng.centered(24), 2, Instrument::Bass,
-                         approachNote, 48 + scoreRng.centered(4));
+                addHumanizedEvent(approachStep, 0, 24, 2, Instrument::Bass,
+                                  approachNote, 48, 4);
                 lastBassNote = approachNote;
             }
         } else {
@@ -967,8 +975,8 @@ struct Engine::Impl {
             if (std::abs(static_cast<int>(target) - bassRoot) > 7) {
                 const std::uint8_t approachNote = scaleBridgeToward(
                     target, bassRoot, kBassLow, kBassHigh);
-                addEvent(approachStep, scoreRng.centered(22), 2, Instrument::Bass,
-                         approachNote, 43 + scoreRng.centered(3));
+                addHumanizedEvent(approachStep, 0, 22, 2, Instrument::Bass,
+                                  approachNote, 43, 3);
                 lastBassNote = approachNote;
             }
         }
@@ -980,33 +988,28 @@ struct Engine::Impl {
             if (section == ArrangementSection::Intro || fullDrums) {
                 const int kick = section == ArrangementSection::Intro ? 69 : 89;
                 const int snare = section == ArrangementSection::Intro ? 50 : 75;
-                addEvent(0, scoreRng.centered(16), 3, Instrument::Kick, 36,
-                         kick + scoreRng.centered(5));
+                addHumanizedEvent(0, 0, 16, 3, Instrument::Kick, 36, kick, 5);
                 static constexpr std::uint8_t secondKicks[] = {8, 10, 8, 7};
-                addEvent(secondKicks[pattern], scoreRng.centered(22), 2,
-                         Instrument::Kick, 36, kick - 12 + scoreRng.centered(5));
-                addEvent(4, scoreRng.centered(24), 2, Instrument::Snare, 38,
-                         snare + scoreRng.centered(6));
-                addEvent(12, scoreRng.centered(24), 2, Instrument::Snare, 38,
-                         snare + 3 + scoreRng.centered(6));
+                addHumanizedEvent(secondKicks[pattern], 0, 22, 2,
+                                  Instrument::Kick, 36, kick - 12, 5);
+                addHumanizedEvent(4, 0, 24, 2, Instrument::Snare, 38, snare, 6);
+                addHumanizedEvent(12, 0, 24, 2, Instrument::Snare, 38,
+                                  snare + 3, 6);
                 for (std::uint8_t step = 2; step < 16; step += 2) {
                     const bool rest = fullDrums && pattern == 1u && step == 6u;
                     if (!rest) {
-                        addEvent(step, scoreRng.centered(18), 1, Instrument::Hat, 42,
-                                 ((step & 3u) == 0u ? 37 : 44) +
-                                     scoreRng.centered(4));
+                        addHumanizedEvent(step, 0, 18, 1, Instrument::Hat, 42,
+                                          (step & 3u) == 0u ? 37 : 44, 4);
                     }
                 }
                 if ((barIndex & 1u) != 0u) {
-                    addEvent(15, scoreRng.centered(10), 1, Instrument::Rim, 37,
-                             38 + scoreRng.centered(4));
+                    addHumanizedEvent(15, 0, 10, 1, Instrument::Rim, 37, 38, 4);
                 }
             } else if (section == ArrangementSection::Breakdown) {
                 addEvent(4, scoreRng.centered(18), 2, Instrument::Rim, 37, 42);
                 addEvent(12, scoreRng.centered(18), 2, Instrument::Rim, 37, 45);
                 for (std::uint8_t step = 2; step < 16; step += 4) {
-                    addEvent(step, scoreRng.centered(16), 1, Instrument::Hat, 42,
-                             31 + scoreRng.centered(3));
+                    addHumanizedEvent(step, 0, 16, 1, Instrument::Hat, 42, 31, 3);
                 }
             } else {
                 addEvent(4, scoreRng.centered(18), 2, Instrument::Rim, 37, 37);
@@ -1016,23 +1019,20 @@ struct Engine::Impl {
             if (section == ArrangementSection::Intro || fullDrums) {
                 const int kick = section == ArrangementSection::Intro ? 66 : 86;
                 const int snare = section == ArrangementSection::Intro ? 48 : 70;
-                addEvent(0, scoreRng.centered(16), 3, Instrument::Kick, 36,
-                         kick + scoreRng.centered(4));
+                addHumanizedEvent(0, 0, 16, 3, Instrument::Kick, 36, kick, 4);
                 if (pattern != 0u || fullDrums) {
-                    addEvent(pattern == 3u ? 6u : 8u, scoreRng.centered(18), 2,
-                             Instrument::Kick, 36, kick - 18 + scoreRng.centered(4));
+                    addHumanizedEvent(pattern == 3u ? 6u : 8u, 0, 18, 2,
+                                      Instrument::Kick, 36, kick - 18, 4);
                 }
-                addEvent(4, scoreRng.centered(20), 2, Instrument::Snare, 38,
-                         snare + scoreRng.centered(5));
-                addEvent(8, scoreRng.centered(20), 2, Instrument::Snare, 38,
-                         snare - 3 + scoreRng.centered(5));
+                addHumanizedEvent(4, 0, 20, 2, Instrument::Snare, 38, snare, 5);
+                addHumanizedEvent(8, 0, 20, 2, Instrument::Snare, 38,
+                                  snare - 3, 5);
                 for (std::uint8_t step = 2; step < 12; step += 2) {
-                    addEvent(step, scoreRng.centered(16), 1, Instrument::Hat, 42,
-                             (step == 2u ? 35 : 42) + scoreRng.centered(4));
+                    addHumanizedEvent(step, 0, 16, 1, Instrument::Hat, 42,
+                                      step == 2u ? 35 : 42, 4);
                 }
                 if ((barIndex & 1u) != 0u) {
-                    addEvent(11, scoreRng.centered(9), 1, Instrument::Rim, 37,
-                             36 + scoreRng.centered(3));
+                    addHumanizedEvent(11, 0, 9, 1, Instrument::Rim, 37, 36, 3);
                 }
             } else if (section == ArrangementSection::Breakdown) {
                 addEvent(4, scoreRng.centered(18), 2, Instrument::Rim, 37, 41);
@@ -1048,22 +1048,18 @@ struct Engine::Impl {
             if (section == ArrangementSection::Intro || fullDrums) {
                 const int kick = section == ArrangementSection::Intro ? 67 : 88;
                 const int snare = section == ArrangementSection::Intro ? 50 : 73;
-                addEvent(0, scoreRng.centered(14), 3, Instrument::Kick, 36,
-                         kick + scoreRng.centered(4));
+                addHumanizedEvent(0, 0, 14, 3, Instrument::Kick, 36, kick, 4);
                 if (pattern != 0u || fullDrums) {
-                    addEvent(pattern == 3u ? 9u : 8u, scoreRng.centered(16), 2,
-                             Instrument::Kick, 36, kick - 15 + scoreRng.centered(4));
+                    addHumanizedEvent(pattern == 3u ? 9u : 8u, 0, 16, 2,
+                                      Instrument::Kick, 36, kick - 15, 4);
                 }
-                addEvent(6, scoreRng.centered(20), 2, Instrument::Snare, 38,
-                         snare + scoreRng.centered(5));
+                addHumanizedEvent(6, 0, 20, 2, Instrument::Snare, 38, snare, 5);
                 for (std::uint8_t step = 2; step < 12; step += 2) {
-                    addEvent(step, scoreRng.centered(14), 1, Instrument::Hat, 42,
-                             (step == 2u || step == 8u ? 36 : 43) +
-                                 scoreRng.centered(4));
+                    addHumanizedEvent(step, 0, 14, 1, Instrument::Hat, 42,
+                                      step == 2u || step == 8u ? 36 : 43, 4);
                 }
                 if ((barIndex & 1u) != 0u) {
-                    addEvent(11, scoreRng.centered(8), 1, Instrument::Rim, 37,
-                             38 + scoreRng.centered(3));
+                    addHumanizedEvent(11, 0, 8, 1, Instrument::Rim, 37, 38, 3);
                 }
             } else if (section == ArrangementSection::Breakdown) {
                 addEvent(6, scoreRng.centered(16), 2, Instrument::Rim, 37, 43);

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "generated_by": "tools/export_media.py",
-  "generated_utc": "2026-09-13T09:31:41+00:00",
-  "source_revision": "b93ca7c-dirty",
+  "generated_utc": "2026-09-13T09:50:03+00:00",
+  "source_revision": "8614b71-dirty",
   "renderer": {
     "kind": "native_shared_renderer",
     "source_screens": "build/screens",
@@ -224,9 +224,9 @@
       "hardware_verified": false,
       "public": true,
       "private_reason": null,
-      "source_sha256": "2d301c4d0f23ebdb81bab7246441fae90950544a6b8d22e635e0e91c59f84893",
-      "native_sha256": "6f80c53e46b342435f89a5ad4f163d46073c931a897a6ba857d4d96fd1c6b481",
-      "scaled_sha256": "e096084683fb8b92ae79d9e5b7156dab5c0a5e5841c479069b046d5ba848e486",
+      "source_sha256": "d960aec5dab96b3d5bf624d8c4ddb5006b046a8ff3c1eb0f3d389cf63e81d8eb",
+      "native_sha256": "1a986c813900fc76318fbabf7b81443f1b4c50a85793f932a997c2823a726220",
+      "scaled_sha256": "5e9beb59d9748033dc58b8cb0ef7fe208fd35c391ee42d74dd9b967cbbe5bdff",
       "visual_seed": null,
       "time_ms": null
     },
@@ -450,7 +450,7 @@
   "contact_sheet": {
     "path": "contact-sheet.png",
     "public_screenshot_count": 24,
-    "sha256": "49131e46429f423a9697dd13da0c030578d840e37fd25d646515a0462f00b9a4"
+    "sha256": "5bde8d7e031c0416e8d5de0ebee8b339216a45029129432e84031207950c9115"
   },
   "animation": {
     "source_pattern": "build/animation/*.ppm",
