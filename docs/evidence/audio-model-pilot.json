@@ -1,0 +1,420 @@
+{
+  "date": "2026-09-13",
+  "purpose": "Development-time model advice; not a quality score or hardware verification",
+  "version": "0.1.5-dev",
+  "generation_schema": 4,
+  "seed": "0xCA7CAFE",
+  "advisory_only": true,
+  "hardware_verified": false,
+  "inference_cost_usd": 0.036675,
+  "models_received_score_or_expected_meter": false,
+  "records": [
+    {
+      "created_utc": "2026-09-13T09:18:29.072815+00:00",
+      "requested_model": "google/gemini-3.8-flash",
+      "returned_model": "google/gemini-3.8-flash",
+      "provider": "Google",
+      "source_file": "cozy-synth.wav",
+      "source_sha256": "321b67c25164424638cb2ec0e18f51343d95eca2b3dbe3bcb5ea3488d5a394a0",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 45.0,
+      "excerpt_sha256": "a38a1ee568768c122b3e6b28703711f263d8ec120f49db4ec8ee7af6521639a7",
+      "excerpt_bytes": 2880044,
+      "audio_preprocessing": "Exact PCM excerpt; no gain, normalization, resampling or effects",
+      "prompt": "Listen to the attached instrumental music excerpt as an independent music\nproducer. The intended experience is calm, melodic, endlessly generated lofi radio.\nJudge only what is audible. No score, tempo, meter, instrument labels or previous\nreviews are provided. Do not assume there are defects. Do not invent vocals,\ninstruments, exact notes/chords, measured dB/frequency values or exact timestamps.\nSeparate musical preference from an audible technical defect. Swing, syncopation,\nrepetition and unusual meter are not automatically errors. A clip boundary is an\nexcerpt cut, not proof of a broken musical phrase. If you cannot hear/access the\naudio, say so and give no musical findings. Give at most four prioritized issues,\neach with an approximate interval in SECONDS RELATIVE TO THIS EXCERPT, confidence,\nwhat you actually hear and one small practical change to audition. Consider\nmelodic direction, harmonic fit, rhythm, balance, repetition and harsh timbre.\nThis runs on a 12-voice mono synthesizer: suggestions should fit that constraint.\nDo not prescribe a large sample library or a pretrained generator on the device.\nReturn one JSON object, no markdown:\n{\"audio_access\": true, \"summary\": \"...\", \"strengths\": [\"...\"],\n \"pulse\": {\"bpm_guess\": null, \"meter_guess\": null, \"confidence\": \"low\"},\n \"issues\": [{\"category\": \"melody|harmony|rhythm|balance|variety|timbre|artifact\",\n \"start_seconds\": 0, \"end_seconds\": 10, \"confidence\": \"low|medium|high\",\n \"heard\": \"...\", \"suggestion\": \"...\", \"kind\": \"preference|suspected_defect\"}],\n \"uncertainties\": [\"...\"]}\nUse null for uncertain BPM/meter. Write prose in English. Do not treat your\nguesses as measurements. Empty issues are acceptable.\n",
+      "max_tokens": 4096,
+      "finish_reason": "stop",
+      "review": {
+        "audio_access": true,
+        "summary": "A laid-back lofi instrumental driven by a steady relaxed hip-hop beat, vinyl crackle/noise texture, mellow keys, and a subtle electric piano or synth counter-melody. The overall mood is chilled, cohesive, and suitable for background listening, though the midrange can feel slightly busy and repetitive.",
+        "strengths": [
+          "Pleasant relaxed lofi groove with effective swing and chill ambiance.",
+          "Warm, well-blended tonal palette fitting the lofi radio aesthetic.",
+          "Percussion and bass work well together to hold down a stable, unobtrusive foundation."
+        ],
+        "pulse": {
+          "bpm_guess": 76,
+          "meter_guess": "4/4",
+          "confidence": "high"
+        },
+        "issues": [
+          {
+            "category": "repetition",
+            "start_seconds": 0,
+            "end_seconds": 38,
+            "confidence": "medium",
+            "heard": "The main chord loop and rhythmic figure repeat continuously without much variation in voicing, dynamic arc, or arrangement rests.",
+            "suggestion": "Audition introducing an occasional dropped beat, a brief filter sweep on the keys every 8 or 16 bars, or subtle variations in the chord voicings to maintain interest.",
+            "kind": "preference"
+          },
+          {
+            "category": "balance",
+            "start_seconds": 10,
+            "end_seconds": 38,
+            "confidence": "low",
+            "heard": "The mid-frequency keys and background noise texture slightly compete with the subtle melodic lines, causing the top lines to feel slightly submerged.",
+            "suggestion": "Try gently notching the keys in the 1\u20132 kHz area or slightly dipping the background crackle/noise level so upper lead notes speak more clearly.",
+            "kind": "preference"
+          }
+        ],
+        "uncertainties": [
+          "Exact synth voice allocations and polyphony limits cannot be confirmed purely by listening."
+        ]
+      },
+      "usage": {
+        "prompt_tokens": 1525,
+        "completion_tokens": 382,
+        "total_tokens": 1907,
+        "cost": 0.00257625,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 1125,
+          "video_tokens": 0
+        }
+      },
+      "prompt_version": 1,
+      "request_options": {
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        },
+        "response_format": {
+          "type": "json_object"
+        }
+      },
+      "model_claimed_audio_access": true,
+      "timestamp_basis": "excerpt_relative",
+      "timestamp_precision": "model_estimate"
+    },
+    {
+      "created_utc": "2026-09-13T09:19:02.761058+00:00",
+      "requested_model": "google/gemini-2.5-pro",
+      "returned_model": "google/gemini-2.5-pro",
+      "provider": "Google",
+      "source_file": "cozy-synth.wav",
+      "source_sha256": "321b67c25164424638cb2ec0e18f51343d95eca2b3dbe3bcb5ea3488d5a394a0",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 45.0,
+      "excerpt_sha256": "a38a1ee568768c122b3e6b28703711f263d8ec120f49db4ec8ee7af6521639a7",
+      "excerpt_bytes": 2880044,
+      "audio_preprocessing": "Exact PCM excerpt; no gain, normalization, resampling or effects",
+      "prompt": "Listen to the attached instrumental music excerpt as an independent music\nproducer. The intended experience is calm, melodic, endlessly generated lofi radio.\nJudge only what is audible. No score, tempo, meter, instrument labels or previous\nreviews are provided. Do not assume there are defects. Do not invent vocals,\ninstruments, exact notes/chords, measured dB/frequency values or exact timestamps.\nSeparate musical preference from an audible technical defect. Swing, syncopation,\nrepetition and unusual meter are not automatically errors. A clip boundary is an\nexcerpt cut, not proof of a broken musical phrase. If you cannot hear/access the\naudio, say so and give no musical findings. Give at most four prioritized issues,\neach with an approximate interval in SECONDS RELATIVE TO THIS EXCERPT, confidence,\nwhat you actually hear and one small practical change to audition. Consider\nmelodic direction, harmonic fit, rhythm, balance, repetition and harsh timbre.\nThis runs on a 12-voice mono synthesizer: suggestions should fit that constraint.\nDo not prescribe a large sample library or a pretrained generator on the device.\nReturn one JSON object, no markdown:\n{\"audio_access\": true, \"summary\": \"...\", \"strengths\": [\"...\"],\n \"pulse\": {\"bpm_guess\": null, \"meter_guess\": null, \"confidence\": \"low\"},\n \"issues\": [{\"category\": \"melody|harmony|rhythm|balance|variety|timbre|artifact\",\n \"start_seconds\": 0, \"end_seconds\": 10, \"confidence\": \"low|medium|high\",\n \"heard\": \"...\", \"suggestion\": \"...\", \"kind\": \"preference|suspected_defect\"}],\n \"uncertainties\": [\"...\"]}\nUse null for uncertain BPM/meter. Write prose in English. Do not treat your\nguesses as measurements. Empty issues are acceptable.\n",
+      "max_tokens": 4096,
+      "finish_reason": "stop",
+      "review": {
+        "audio_access": true,
+        "summary": "The piece successfully establishes a calm, melodic, and generative lofi atmosphere suitable for its intended purpose. The primary instruments (bass, keys, and lead) are well-balanced and their timbres are pleasingly soft. The main areas for refinement involve addressing a potentially abrupt melodic transition and exploring minor adjustments to enhance rhythmic variety and reduce a subtle timbral dissonance in the lead instrument.",
+        "strengths": [
+          "The overall mood is very consistent and perfectly matches the 'calm, lofi radio' brief, with gentle timbres and a relaxed pace.",
+          "The bass line provides a solid and unobtrusive harmonic foundation that anchors the piece effectively.",
+          "There is a good sense of balance between the low, mid, and high range elements, with no single instrument overpowering the others."
+        ],
+        "pulse": {
+          "bpm_guess": 75,
+          "meter_guess": "4/4",
+          "confidence": "medium"
+        },
+        "issues": [
+          {
+            "category": "melody",
+            "start_seconds": 21,
+            "end_seconds": 24,
+            "confidence": "medium",
+            "heard": "A new melodic phrase begins that feels harmonically and rhythmically disconnected from the preceding section. The phrase seems to start unexpectedly and doesn't resolve in a way that connects smoothly back to the main progression.",
+            "suggestion": "Adjust the starting note or timing of this melodic phrase to create a smoother transition from the previous harmony. Alternatively, alter the phrase's contour to better lead into the following chord change.",
+            "kind": "preference"
+          },
+          {
+            "category": "timbre",
+            "start_seconds": 0,
+            "end_seconds": 38,
+            "confidence": "low",
+            "heard": "The lead melodic instrument has a very pure, flute-like tone. Occasionally, it seems to have a slight, very subtle high-frequency ringing or dissonance that briefly clashes with the softer keyboard chords.",
+            "suggestion": "Apply a slightly lower cutoff frequency on the lead synth's low-pass filter to gently roll off the highest frequencies, softening the tone to better blend with the backing instruments.",
+            "kind": "preference"
+          },
+          {
+            "category": "variety",
+            "start_seconds": 0,
+            "end_seconds": 38,
+            "confidence": "low",
+            "heard": "The chordal synth part, which plays arpeggiated figures, maintains a very consistent rhythm and pattern throughout the excerpt. While pleasant, this consistency could become monotonous over a longer listening session.",
+            "suggestion": "Introduce occasional, subtle variations to the arpeggiator's pattern, such as skipping a note or slightly altering the rhythmic subdivision for one or two beats, to add interest without disrupting the calm mood.",
+            "kind": "preference"
+          }
+        ],
+        "uncertainties": [
+          "It is difficult to determine if the consistent vinyl crackle is a static sample loop or dynamically generated. If it is a short, noticeable loop, it could become a repetitive distraction over time."
+        ]
+      },
+      "usage": {
+        "prompt_tokens": 1525,
+        "completion_tokens": 1348,
+        "total_tokens": 2873,
+        "cost": 0.01538625,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 1125,
+          "video_tokens": 0
+        }
+      },
+      "prompt_version": 1,
+      "request_options": {
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        },
+        "response_format": {
+          "type": "json_object"
+        }
+      },
+      "model_claimed_audio_access": true,
+      "timestamp_basis": "excerpt_relative",
+      "timestamp_precision": "model_estimate"
+    },
+    {
+      "created_utc": "2026-09-13T09:19:43.699303+00:00",
+      "requested_model": "google/gemini-3.8-flash",
+      "returned_model": "google/gemini-3.8-flash",
+      "provider": "Google",
+      "source_file": "night-synth.wav",
+      "source_sha256": "750193c9713dd12a8f51ac1e1de147c652f053d4c12f0bf267e6a291ee3871fc",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 45.0,
+      "excerpt_sha256": "382e3f6773df9599054a933a3bddc442a45a8cd62e8b22e0d6681e141b142701",
+      "excerpt_bytes": 2880044,
+      "audio_preprocessing": "Exact PCM excerpt; no gain, normalization, resampling or effects",
+      "prompt": "Listen to the attached instrumental music excerpt as an independent music\nproducer. The intended experience is calm, melodic, endlessly generated lofi radio.\nJudge only what is audible. No score, tempo, meter, instrument labels or previous\nreviews are provided. Do not assume there are defects. Do not invent vocals,\ninstruments, exact notes/chords, measured dB/frequency values or exact timestamps.\nSeparate musical preference from an audible technical defect. Swing, syncopation,\nrepetition and unusual meter are not automatically errors. A clip boundary is an\nexcerpt cut, not proof of a broken musical phrase. If you cannot hear/access the\naudio, say so and give no musical findings. Give at most four prioritized issues,\neach with an approximate interval in SECONDS RELATIVE TO THIS EXCERPT, confidence,\nwhat you actually hear and one small practical change to audition. Consider\nmelodic direction, harmonic fit, rhythm, balance, repetition and harsh timbre.\nThis runs on a 12-voice mono synthesizer: suggestions should fit that constraint.\nDo not prescribe a large sample library or a pretrained generator on the device.\nReturn one JSON object, no markdown:\n{\"audio_access\": true, \"summary\": \"...\", \"strengths\": [\"...\"],\n \"pulse\": {\"bpm_guess\": null, \"meter_guess\": null, \"confidence\": \"low\"},\n \"issues\": [{\"category\": \"melody|harmony|rhythm|balance|variety|timbre|artifact\",\n \"start_seconds\": 0, \"end_seconds\": 10, \"confidence\": \"low|medium|high\",\n \"heard\": \"...\", \"suggestion\": \"...\", \"kind\": \"preference|suspected_defect\"}],\n \"uncertainties\": [\"...\"]}\nUse null for uncertain BPM/meter. Write prose in English. Do not treat your\nguesses as measurements. Empty issues are acceptable.\n",
+      "max_tokens": 4096,
+      "finish_reason": "stop",
+      "review": {
+        "audio_access": true,
+        "summary": "A mellow, atmospheric lofi track driven by warm electric piano chords, a subtle synth lead, a gentle bassline, and a laid-back boom-bap drum groove with ambient texture. The arrangement maintains a coherent, chill vibe suitable for background listening, though the high-register lead feels slightly sparse and wandering.",
+        "strengths": [
+          "Pleasant, warm electric piano voicings with appropriate lofi character",
+          "Relaxed drum groove that sits comfortably in the mix without being overpowering",
+          "Effective use of vinyl crackle or background texture to establish mood"
+        ],
+        "pulse": {
+          "bpm_guess": 74,
+          "meter_guess": "4/4",
+          "confidence": "medium"
+        },
+        "issues": [
+          {
+            "category": "melody",
+            "start_seconds": 9.0,
+            "end_seconds": 25.0,
+            "confidence": "medium",
+            "heard": "The high synth/bell melody enters with rather hesitant, isolated single notes that meander without establishing a memorable contour or strong hook.",
+            "suggestion": "Audition giving the lead phrase slightly more rhythmic cohesion or subtle call-and-response phrasing against the chord changes.",
+            "kind": "preference"
+          },
+          {
+            "category": "balance",
+            "start_seconds": 15.0,
+            "end_seconds": 35.0,
+            "confidence": "low",
+            "heard": "The low-end bass tone is quite subdued beneath the kick and chords, making the harmonic foundation feel a bit light in the sub-bass register.",
+            "suggestion": "Slightly increase the gain or low-pass filter cutoff of the bass voice to provide a clearer low-end anchor.",
+            "kind": "preference"
+          }
+        ],
+        "uncertainties": [
+          "Exact synthesizer voice allocation between drums, chords, bass, and lead."
+        ]
+      },
+      "usage": {
+        "prompt_tokens": 1525,
+        "completion_tokens": 374,
+        "total_tokens": 1899,
+        "cost": 0.00254625,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 1125,
+          "video_tokens": 0
+        }
+      },
+      "prompt_version": 1,
+      "request_options": {
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        },
+        "response_format": {
+          "type": "json_object"
+        }
+      },
+      "model_claimed_audio_access": true,
+      "timestamp_basis": "excerpt_relative",
+      "timestamp_precision": "model_estimate"
+    },
+    {
+      "created_utc": "2026-09-13T09:20:11.708109+00:00",
+      "requested_model": "google/gemini-2.5-pro",
+      "returned_model": "google/gemini-2.5-pro",
+      "provider": "Google",
+      "source_file": "night-synth.wav",
+      "source_sha256": "750193c9713dd12a8f51ac1e1de147c652f053d4c12f0bf267e6a291ee3871fc",
+      "excerpt_start_seconds": 0,
+      "excerpt_seconds": 45.0,
+      "excerpt_sha256": "382e3f6773df9599054a933a3bddc442a45a8cd62e8b22e0d6681e141b142701",
+      "excerpt_bytes": 2880044,
+      "audio_preprocessing": "Exact PCM excerpt; no gain, normalization, resampling or effects",
+      "prompt": "Listen to the attached instrumental music excerpt as an independent music\nproducer. The intended experience is calm, melodic, endlessly generated lofi radio.\nJudge only what is audible. No score, tempo, meter, instrument labels or previous\nreviews are provided. Do not assume there are defects. Do not invent vocals,\ninstruments, exact notes/chords, measured dB/frequency values or exact timestamps.\nSeparate musical preference from an audible technical defect. Swing, syncopation,\nrepetition and unusual meter are not automatically errors. A clip boundary is an\nexcerpt cut, not proof of a broken musical phrase. If you cannot hear/access the\naudio, say so and give no musical findings. Give at most four prioritized issues,\neach with an approximate interval in SECONDS RELATIVE TO THIS EXCERPT, confidence,\nwhat you actually hear and one small practical change to audition. Consider\nmelodic direction, harmonic fit, rhythm, balance, repetition and harsh timbre.\nThis runs on a 12-voice mono synthesizer: suggestions should fit that constraint.\nDo not prescribe a large sample library or a pretrained generator on the device.\nReturn one JSON object, no markdown:\n{\"audio_access\": true, \"summary\": \"...\", \"strengths\": [\"...\"],\n \"pulse\": {\"bpm_guess\": null, \"meter_guess\": null, \"confidence\": \"low\"},\n \"issues\": [{\"category\": \"melody|harmony|rhythm|balance|variety|timbre|artifact\",\n \"start_seconds\": 0, \"end_seconds\": 10, \"confidence\": \"low|medium|high\",\n \"heard\": \"...\", \"suggestion\": \"...\", \"kind\": \"preference|suspected_defect\"}],\n \"uncertainties\": [\"...\"]}\nUse null for uncertain BPM/meter. Write prose in English. Do not treat your\nguesses as measurements. Empty issues are acceptable.\n",
+      "max_tokens": 4096,
+      "finish_reason": "stop",
+      "review": {
+        "audio_access": true,
+        "summary": "The excerpt strongly fits the intended 'calm, melodic lofi radio' experience with a pleasant, relaxed mood and gentle, rounded timbres. The main areas for refinement are in harmonic consistency and textural balance to further enhance the calm atmosphere and prevent occasional melodic notes from sounding unintentionally jarring.",
+        "strengths": [
+          "The overall timbre is very fitting for the lofi genre, with soft, rounded keyboard and bell-like sounds that create a gentle and non-fatiguing listening experience.",
+          "The harmonic language is generally sophisticated and jazzy, contributing effectively to the relaxed, pensive mood.",
+          "The rhythmic feel is loose and unhurried, which aligns perfectly with the goal of an endlessly generated calm radio stream."
+        ],
+        "pulse": {
+          "bpm_guess": null,
+          "meter_guess": null,
+          "confidence": "low"
+        },
+        "issues": [
+          {
+            "category": "harmony",
+            "start_seconds": 22,
+            "end_seconds": 25,
+            "confidence": "medium",
+            "heard": "A descending melodic figure contains a note that creates a brief but noticeable dissonance against the underlying sustained harmony. It sounds less like an intentional jazzy color tone and more like an unintended clash that momentarily disrupts the calm mood.",
+            "suggestion": "Adjust the generative logic for this melodic phrase to favor notes that are more consonant with the current chord, such as the chord's root, third, fifth, or seventh.",
+            "kind": "preference"
+          },
+          {
+            "category": "balance",
+            "start_seconds": 30,
+            "end_seconds": 35,
+            "confidence": "medium",
+            "heard": "In this section, multiple melodic lines and chordal elements seem to occupy a similar mid-range frequency and dynamic level. This density makes it slightly difficult to follow the primary musical idea, causing a subtle sense of clutter.",
+            "suggestion": "To improve clarity, try slightly lowering the velocity (volume) of the secondary chordal accompaniment when a primary melody is playing in the same register.",
+            "kind": "preference"
+          },
+          {
+            "category": "timbre",
+            "start_seconds": 38,
+            "end_seconds": 43,
+            "confidence": "low",
+            "heard": "The keyboard-like instrument playing chords in the lower-mid register has a slightly 'hollow' or thin quality in this specific passage compared to other parts of the excerpt, which makes it feel less supportive of the melody above it.",
+            "suggestion": "Slightly decrease the filter cutoff or increase the resonance on the synth patch for this instrument to give it a warmer, fuller-bodied sound in that register.",
+            "kind": "preference"
+          }
+        ],
+        "uncertainties": [
+          "The rhythmic structure feels very free and unquantized, making it difficult to determine if there is a consistent underlying tempo or meter. This is not a defect and fits the genre, but it makes pulse analysis highly speculative.",
+          "It is unclear if the faint, sustained sound in the background is a dedicated pad instrument or the long release tails of the primary keyboard voices. This affects how one might approach textural balance suggestions."
+        ]
+      },
+      "usage": {
+        "prompt_tokens": 1525,
+        "completion_tokens": 1426,
+        "total_tokens": 2951,
+        "cost": 0.01616625,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 1125,
+          "video_tokens": 0
+        }
+      },
+      "prompt_version": 1,
+      "request_options": {
+        "reasoning": {
+          "effort": "low",
+          "exclude": true
+        },
+        "response_format": {
+          "type": "json_object"
+        }
+      },
+      "model_claimed_audio_access": true,
+      "timestamp_basis": "excerpt_relative",
+      "timestamp_precision": "model_estimate"
+    }
+  ],
+  "score_cross_checks": [
+    {
+      "file": "cozy-45-score.csv",
+      "sha256": "3a646177402dc23778d41e46c511ff3c246b52b69d675372e52bb5745d20ee83",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 1,
+      "meters": [
+        "4/4"
+      ],
+      "bars": 15,
+      "scheduled_notes": 308,
+      "max_notes_in_bar": 23,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          67
+        ],
+        "lead": [
+          64,
+          76
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 5
+      },
+      "resolved_passing_notes": 4,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 2,
+      "distinct_four_bar_lead_phrases": 3,
+      "rule_violations": []
+    },
+    {
+      "file": "night-45-score.csv",
+      "sha256": "cca0595b030e61ef55f37095873f608e34f114bcd28b8494dfeb3b561a81bb3a",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 1,
+      "meters": [
+        "3/4"
+      ],
+      "bars": 20,
+      "scheduled_notes": 347,
+      "max_notes_in_bar": 20,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          46
+        ],
+        "keys": [
+          56,
+          70
+        ],
+        "lead": [
+          72,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 5
+      },
+      "resolved_passing_notes": 5,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 2,
+      "distinct_four_bar_lead_phrases": 4,
+      "rule_violations": []
+    }
+  ]
+}

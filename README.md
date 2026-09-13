@@ -75,6 +75,8 @@ Add `--meter 3/4 --keys felt --lead flute --bass upright` to audition a differen
 
 The event hash and count in the metadata establish whether both renders played the same score. Host render times are not ESP32 timing measurements. See [current verification](docs/VERIFICATION.md), [the engine comparison](docs/MUSIC_ENGINE.md) and [sample production](docs/SAMPLE_PRODUCTION.md).
 
+Optional [audio-model feedback](docs/AUDIO_MODEL_REVIEW.md) sends short rendered WAV excerpts to OpenRouter during development. A four-request Gemini pilot, its limitations and a repeatable `tools/review_audio.py` command are documented there. This adds no cloud dependency to the device.
+
 For note-level inspection of harmony and phrase development, export the same shared composer as CSV. This renders offline and never opens an audio device:
 
 ```sh
