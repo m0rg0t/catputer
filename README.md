@@ -7,7 +7,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 ![Sunny room, rendered on desktop](docs/media/scene-day.gif)
 ![Night room, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.9-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a sunny room and a brighter Sunny mood, while preserving the music and favorites from 0.1.8-dev. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.10-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update makes the upper volume range stronger for the built-in speaker, with peak control and unchanged quiet levels, music and favorites. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -60,7 +60,7 @@ Open **M** to choose Cozy, Rainy, Night or Sunny. The scene follows the mood whe
 
 Open **S → BPM** to set tempo. Use `,` / `/` to adjust by 1 BPM, and Enter to switch between AUTO and manual tempo. AUTO follows the seed and mood; manual tempo stays selected across new sessions. Tempo changes take effect at the next bar while the current tune continues.
 
-Above 100%, volume adds up to 3× software gain before a soft limiter. It is a signal gain setting, not a claim of three times the acoustic loudness. Volume changes ramp over 10 ms; the native player and device share the same output stage, with the previous ADV volume curve preserved below 100%.
+The 0–100% range and default 35% level keep their previous behavior. Above 100%, the output control now supplies progressively stronger gain: at 300%, it applies 12× core gain (6× the nominal 100% pre-gain), with a peak envelope that limits sharp transients instead of flattening the whole waveform. The percentage is an output-control scale, not an acoustic loudness multiplier. Volume changes and transitions between limiter paths ramp over 10 ms. The native player and device share this stage; the sleep fade still runs afterward.
 
 Open **I → CHORDS / MELODY / BASS / METER** and use `,` / `/` or Enter to select sounds and meter. Changes apply at a bar boundary. AUTO chooses a meter from the seed, favoring 4/4, and holds it for the whole session. In 6/8, BPM counts the two dotted-quarter pulses per bar. Start with 4/4 for the familiar lofi groove; 3/4 has a waltz pulse and 6/8 groups its six eighth notes into two pulses.
 
@@ -68,7 +68,7 @@ Open **S → SLEEP** to cycle Off / 30 / 60 / 90 minutes. The final 30 seconds f
 
 Open **S → AUTO DIM** for Off / 30 / 60 / 120 seconds. The default is 60 seconds, then the backlight dims to at most 10%. The first keypress only wakes the screen; press again to perform its action. The auto-dim preference is saved with SD settings.
 
-Version 0.1.9-dev keeps generation schema 5 (`lofi5-` favorite codes), so 0.1.8-dev favorites and existing-mood compositions replay unchanged. Save format 5 adds Sunny without changing the 192-byte layout; valid formats 1–4 migrate. Schema-1/2/3/4 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
+Version 0.1.10-dev keeps generation schema 5 (`lofi5-` favorite codes), so 0.1.8-dev favorites and existing-mood compositions replay unchanged. Save format 5 still includes Sunny in the 192-byte layout; valid formats 1–4 migrate. Schema-1/2/3/4 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
 
 ## Compare the sound engines
 

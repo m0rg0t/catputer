@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.9-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.10-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -50,4 +50,4 @@ Version 0.1.6-dev changes only the visualization backing and label contrast. Mus
 
 Version 0.1.7-dev fixes random-draw ordering so timing and velocity follow the intended schema-4 sequence across compilers, and pins floating-point multiply/add rounding. Save format 3 and existing schema-4 favorites remain readable. Earlier builds affected by compiler ordering can sound slightly different when replayed; the reference desktop note sequence is preserved.
 
-Version 0.1.9-dev adds Sunny and both built-in day/night rooms. Generation schema 5 is unchanged: 0.1.8-dev favorites still replay the same music. Save format 5 keeps the 192-byte layout and permits Sunny; valid formats 1–4 migrate, preserving the format-4 auto-dim preference. Formats 1–3 default auto-dim to 60 seconds. Schema-1/2/3/4 favorites remain visible as `OLD` and removable; replay of a schema-4 favorite requires 0.1.7-dev. Keep a backup before downgrading, because older firmware cannot read format 5. Sleep timers are never saved. No extra scene files need to be copied to SD.
+Version 0.1.10-dev raises maximum output while keeping the default and 0–100% range unchanged. Use `=` or S → VOLUME to raise the level, up to 300%. Sunny and both built-in day/night rooms remain included. Generation schema 5 is unchanged: 0.1.8-dev favorites still replay the same music. Save format 5 keeps the 192-byte layout and permits Sunny; valid formats 1–4 migrate, preserving the format-4 auto-dim preference. Formats 1–3 default auto-dim to 60 seconds. Schema-1/2/3/4 favorites remain visible as `OLD` and removable; replay of a schema-4 favorite requires 0.1.7-dev. Keep a backup before downgrading, because older firmware cannot read format 5. Sleep timers are never saved. No extra scene files need to be copied to SD.

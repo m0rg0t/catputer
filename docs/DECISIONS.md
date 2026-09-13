@@ -28,6 +28,7 @@ Planning session: 2026-09-12.
 | 0.1.8-dev scope | User accepted clearer mix and phrasing, a sleep timer and automatic screen dimming; retain the fuller opening and both sound engines |
 | Daytime scope | User requested an additional sunny background and mode, with night artwork for night/relaxed moods. Cozy is treated as relaxed; Rainy uses daylight with rain, Sunny clear daylight. Existing schema-5 music remains unchanged |
 | Sleep and dim defaults | Sleep Off/30/60/90 minutes, final 30-second fade to pause; auto-dim Off/30/60/120 seconds, default 60, first key wakes only |
+| Speaker maximum · 0.1.10-dev | User reports the built-in speaker remains too quiet at max. Strengthen the upper output range with controlled peaks; retain default 35%, 0–100% behavior, score/favorites and the post-limiter sleep fade |
 | Public identity and delivery | Catputer, `m0rg0t/catputer`; publish the project site on GitHub Pages and provide application-only builds |
 
 ## Under discussion

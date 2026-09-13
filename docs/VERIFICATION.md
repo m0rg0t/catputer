@@ -1,6 +1,26 @@
 # Implementation and verification
 
-This is the development candidate for the accepted plan, version **0.1.9-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.10-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+
+## Stronger speaker output · 0.1.10-dev
+
+The user reports that the built-in speaker is still too quiet at maximum. The upper output curve now reaches 12× core pre-gain at 300%, followed by a no-lookahead peak envelope: 32,000 target, immediate attack, 8 ms hold and 50 ms release. Gain recovery is capped by the current sample's required attenuation, including a sustained over-ceiling signal. The old soft limiter and 0–100% curve remain unchanged; a 10 ms crossfade accompanies threshold crossings and the independent sleep fade remains afterward. The default is still 35%.
+
+The [output comparison](evidence/v0110-output-level.json) runs **80 three-minute renders**: the preserved 0.1.9-dev binary and current native binary across all four moods, both engines, and 0/35/100/200/300%. At 300%, RMS rises **4.53–5.55 dB**, from 5,606–7,244 to 10,535–12,208 PCM units, with a 32,000 peak and no full-scale clipped samples. Every tested 0/35/100% WAV is byte-identical to 0.1.9-dev; all scores, event counts and schemas match. The report checks monotonic RMS across the selected volume levels. These are digital level measurements, not acoustic SPL measurements or a physical listening pass.
+
+The [216-case meter/tone/gain matrix](evidence/v0110-music-matrix.json) passes at 300%, with **207,360,000 frames, zero clipped samples, zero dropped notes and zero score-rule violations**. Matched Synth/Hybrid scores and tone-independent composition remain intact. Session schema 5, save format 5, scenes and instrument source data are unchanged.
+
+A review of pinned M5Unified 0.2.17 finds no hidden digital attenuation: master/channel 255 and magnification 8 give approximately 0.98447× at I2S. The ADV callback uses codec register 0x32=0xBF (0 dB). The new output therefore keeps those settings and controls average level before the existing output driver. Raising the codec or driver gain afterward would bypass the software peak bound. The [official ADV schematic](https://m5stack-doc.oss-cn-shenzhen.aliyuncs.com/1178/Sch_M5CardputerAdv_v1.0_2025_06_20_17_19_58.pdf) shows the fixed-gain NS4150B built-in speaker path and the separate jack tap. No speaker power/SPL measurement is claimed.
+
+The local ADV application builds at **749,936 bytes**, leaving **560,784 bytes** under the compact profile. Linker static RAM stays **67,384 bytes**; the limiter adds only scalar state to the existing output object, with no audio buffers, allocation or extra latency. Render deadlines, physical loudness and speaker distortion at max still require an ADV listening run.
+
+All **8 native suites and 53 Python tests pass**. Output tests cover every PCM16 input, strict peak/sign bounds, one-LSB saturation rounding, sustained overload, hold/release, buffer splitting, threshold crossings, retargeting, mute, sleep fade and reset. A bounded Sunny/300% SDL run with dummy audio/video and state saving also passes. The eight raw engine listening demos keep their prior WAV/MP3 hashes; the louder output stage is applied to device/SDL playback and explicit `--volume` renders.
+
+Reproduce the comparison after preserving/building the earlier native executable:
+
+```sh
+python3 tools/verify_output_level.py --baseline-native /path/to/0.1.9/lofi_native
+```
 
 ## Sunny mood and day/night room · 0.1.9-dev
 

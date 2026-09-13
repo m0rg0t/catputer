@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "generated_by": "tools/export_media.py",
-  "generated_utc": "2026-09-13T14:28:39+00:00",
-  "source_revision": "6f38a95-dirty",
+  "generated_utc": "2026-09-13T16:59:20+00:00",
+  "source_revision": "ee93e99-dirty",
   "renderer": {
     "kind": "native_shared_renderer",
     "source_screens": "build/screens",
@@ -224,9 +224,9 @@
       "hardware_verified": false,
       "public": true,
       "private_reason": null,
-      "source_sha256": "d49c2a0109c5d2ddd800d0c85ed1681e457943aedbe1a45141b261863954f47f",
-      "native_sha256": "de5461edcffb57aacfc24f905e98138d710ea3b73c247497f89e55f24670467d",
-      "scaled_sha256": "94610addbc1175c00f31050a6857786acf66565ee5a24f24d4cb70d5a195d20d",
+      "source_sha256": "d1353ee11a01cbd7b7e8fcb9132ad884f2e31c02b9a5ed5bcf8128c3bfe5680d",
+      "native_sha256": "862f96b79675a42a77c247248e2d4348373eeef51f12d75e647302d682db423a",
+      "scaled_sha256": "f150d3fcdecad4c9c35daf6ca0906f24e4006e6442ccf64b291021ffd763f946",
       "visual_seed": null,
       "time_ms": null
     },
@@ -648,7 +648,7 @@
   "contact_sheet": {
     "path": "contact-sheet.png",
     "public_screenshot_count": 35,
-    "sha256": "b91c325b5b4517fb32ec53692451dd9796e9a18f37c050fab66fefc58e0c4522"
+    "sha256": "92db88c3c5840ac1e4ce77e2279ef150be81b345543315f396964e8e67eccfb2"
   },
   "animation": {
     "source_pattern": "build/animation/*.ppm",
