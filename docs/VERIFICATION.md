@@ -4,11 +4,13 @@ This is the development candidate for the accepted plan, version **0.1.7-dev**. 
 
 ## Compiler consistency and Pages · 0.1.7-dev
 
-The first GitHub Pages build on Linux/GCC 13 exposed a score regression hidden by the passing Mac/Clang checks. Twenty-two event calls consumed timing and velocity randomness in one function argument list, whose evaluation order is not fixed by C++17. Explicitly drawing timing before velocity preserves the intended schema-4 desktop sequence. The exact score and PCM hash assertions remain unchanged; they are required checks in the Pages workflow.
+The first GitHub Pages build on Linux/GCC 13 exposed a score regression hidden by the passing Mac/Clang checks. Twenty-two event calls consumed timing and velocity randomness in one function argument list, whose evaluation order is not fixed by C++17. Explicitly drawing timing before velocity preserves the intended schema-4 desktop sequence. The exact score hash assertion remains unchanged.
+
+The next check isolated floating-point multiply/add contraction as a second difference. Native and firmware builds now use `-ffp-contract=off`. In the 14-second regression below, enabling versus disabling contraction on Mac changed 2,771 of 448,000 PCM16 samples, each by only one unit, while the score hash stayed `f0d5794f6cab7f00`. The explicit non-contracted PCM reference is `b52edd474ab7066c`; the previous `dee9e5a94acbcedb` reference used the Mac compiler's default contraction. Exact score and PCM assertions remain required checks in the Pages workflow; no tolerance or platform-specific alternate hash is accepted.
 
 The site workflow builds the pinned ADV application, checks native and Python code, renders current screenshots and six audio demos, then publishes the allowlisted site and validated development package. Publication status is available in [GitHub Actions](https://github.com/m0rg0t/catputer/actions/workflows/pages.yml); package sizes and checksums come from the published `downloads/latest.json`. The earlier measured releases below remain versioned history. No new physical hardware verification is implied.
 
-Local checks pass: 8/8 native tests and 47 Python tests; the exact schema-4 score/PCM regression also passes under Linux/GCC 12. All six refreshed 180-second demos retain their previous score hashes with zero clips or dropped notes. The local ADV application is 686,320 bytes, with 624,400 bytes of compact-profile headroom and 67,264 bytes of linker static RAM. The package and screenshot/audio manifests pass their hash checks.
+Local checks pass: 8/8 native tests and 47 Python tests; the exact schema-4 score/PCM regression also passes under Linux/GCC 12 and x86 Clang. All six refreshed 180-second demos retain their previous score hashes with zero clips or dropped notes. The local ADV application is 686,496 bytes, with 624,224 bytes of compact-profile headroom and 67,264 bytes of linker static RAM. The package and screenshot/audio manifests pass their hash checks.
 
 ## Translucent visualization · 0.1.6-dev
 

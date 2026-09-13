@@ -17,7 +17,7 @@ file(GLOB CORE_SOURCES CONFIGURE_DEPENDS firmware/src/core/*.cpp firmware/src/au
 add_library(lofi_core ${CORE_SOURCES})
 target_include_directories(lofi_core PUBLIC firmware/include)
 target_compile_definitions(lofi_core PUBLIC LOFI_VERSION="${LOFI_VERSION}")
-target_compile_options(lofi_core PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(lofi_core PRIVATE -Wall -Wextra -Wpedantic -ffp-contract=off)
 add_executable(lofi_native native/main.cpp)
 target_link_libraries(lofi_native PRIVATE lofi_core)
 find_package(SDL2 CONFIG QUIET)

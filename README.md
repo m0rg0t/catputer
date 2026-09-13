@@ -6,7 +6,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.7-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update fixes compiler-dependent ordering of random timing and velocity draws. The translucent music activity strip, selectable tones, meter-aware phrases, manual BPM, volume up to 300% and the LCD correction remain available. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.7-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update fixes compiler-dependent ordering of random timing and velocity draws and aligns floating-point rounding between builds. The translucent music activity strip, selectable tones, meter-aware phrases, manual BPM, volume up to 300% and the LCD correction remain available. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 

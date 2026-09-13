@@ -433,7 +433,15 @@ void testReplayAndBlockDeterminism() {
     CHECK(smallBlocks.snapshot().meterDenominator == 4);
     CHECK(left.scoreEventCount == 82);
     CHECK(left.scoreEventHash == UINT64_C(0xf0d5794f6cab7f00));
-    CHECK(pcmHash(reference) == UINT64_C(0xdee9e5a94acbcedb));
+    // The core disables FP contraction so this exact PCM stream stays portable
+    // between ARM and x86 hosts and matches the firmware arithmetic policy.
+    constexpr std::uint64_t expectedPcmHash = UINT64_C(0xb52edd474ab7066c);
+    const std::uint64_t referencePcmHash = pcmHash(reference);
+    if (referencePcmHash != expectedPcmHash) {
+        std::cerr << "reference PCM hash: 0x" << std::hex << referencePcmHash
+                  << std::dec << '\n';
+    }
+    CHECK(referencePcmHash == expectedPcmHash);
 
     Config manualConfig = config;
     manualConfig.bpm = 151;

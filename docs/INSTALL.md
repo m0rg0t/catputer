@@ -42,4 +42,4 @@ Version 0.1.5-dev retains the LCD RGB565 correction and larger text, and introdu
 
 Version 0.1.6-dev changes only the visualization backing and label contrast. Music schema 4, save format 3 and existing 0.1.5-dev favorites remain compatible.
 
-Version 0.1.7-dev fixes random-draw ordering so timing and velocity follow the intended schema-4 sequence across compilers. Save format 3 and existing schema-4 favorites remain readable. Earlier builds affected by compiler ordering can sound slightly different when replayed; the reference desktop sequence is preserved.
+Version 0.1.7-dev fixes random-draw ordering so timing and velocity follow the intended schema-4 sequence across compilers, and pins floating-point multiply/add rounding. Save format 3 and existing schema-4 favorites remain readable. Earlier builds affected by compiler ordering can sound slightly different when replayed; the reference desktop note sequence is preserved.
