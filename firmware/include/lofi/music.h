@@ -8,6 +8,8 @@ namespace lofi {
 constexpr std::uint32_t kMusicSampleRate = 32000;
 constexpr std::uint8_t kMusicVoiceCapacity = 12;
 constexpr std::uint32_t kMusicSchemaVersion = 3;
+constexpr std::uint16_t kMusicMinBpm = 40;
+constexpr std::uint16_t kMusicMaxBpm = 180;
 constexpr std::size_t kMusicInstrumentCount = 7;
 constexpr std::size_t kMusicMaxBarNotes = 48;
 constexpr std::uint64_t kMusicNoNoteSample = UINT64_MAX;
@@ -51,6 +53,7 @@ struct Config {
     SoundEngine soundEngine = SoundEngine::Synth;
     std::uint8_t volume = 78;       // 0..100
     std::uint8_t texture = 18;      // 0..100
+    std::uint16_t bpm = 0;          // 0=AUTO, otherwise 40..180
 };
 
 struct Snapshot {
@@ -114,6 +117,7 @@ struct ScoreBar {
 
 const char* moodName(Mood mood) noexcept;
 const char* soundEngineName(SoundEngine engine) noexcept;
+bool validBpm(std::uint16_t bpm) noexcept;
 bool validConfig(const Config& config) noexcept;
 
 class Engine {
@@ -153,7 +157,7 @@ public:
     ScoreBar scoreBar() const noexcept;
 
     // Stable, allocation-free favorite representation:
-    // lofi3-<16 hex seed>-<mood>-<engine>-<volume>-<texture>
+    // lofi3-<16 hex seed>-<mood>-<engine>-<volume>-<texture>[-<manual bpm>]
     static constexpr std::size_t kFavoriteCodeCapacity = 48;
     std::size_t writeFavoriteCode(char* output, std::size_t capacity) const noexcept;
     static bool parseFavoriteCode(const char* text, Config& output) noexcept;

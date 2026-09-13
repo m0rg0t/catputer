@@ -9,6 +9,13 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'tools'))
 import build_site
 
 class SiteBoundaries(unittest.TestCase):
+    def test_favorite_seed_with_manual_tempo(self):
+        base='lofi3-000000000ca7cafe-2-1-78-18'
+        for suffix in ('', '-40', '-120', '-180'):
+            self.assertEqual(build_site.parse_favorite_seed({'favorite_code':base+suffix}), '000000000CA7CAFE')
+        for suffix in ('-0', '-39', '-181', '-65536', '-120-1', '-abc'):
+            self.assertIsNone(build_site.parse_favorite_seed({'favorite_code':base+suffix}))
+
     def test_cannot_replace_source_or_arbitrary_existing_folder(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);source=root/'firmware';source.mkdir();sentinel=source/'keep.cpp';sentinel.write_text('keep')

@@ -22,6 +22,7 @@ Planning session: 2026-09-12.
 | Artwork production | Use imagegen for the room, cat and animation frames, then adapt them to the small screen |
 | Opening arrangement | Richer polyphony and earlier instrument entry, following feedback on the Night demo |
 | Harmonic development | Improve coherence and variety throughout playback in all moods while preserving the richer opening |
+| Tempo and loudness controls | User requested manual BPM settings and volume up to 300%; keep AUTO tempo available |
 
 ## Under discussion
 

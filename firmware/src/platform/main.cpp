@@ -7,6 +7,7 @@
 #include <array>
 #include "lofi/controller.h"
 #include "lofi/music.h"
+#include "lofi/output_gain.h"
 #include "lofi/state.h"
 #include "lofi/ui.h"
 
@@ -70,23 +71,28 @@ void audioTask(void*) {
     // M5Unified 0.2.17 explicitly requires three runtime buffers in rotation:
     // at most two are queued, so the third remains application-owned while filled.
     static std::int16_t pcm[3][512];
-    unsigned index=0;bool pending=false,started=false;unsigned volume=101;
+    unsigned index=0;bool pending=false,started=false;
+    OutputGain gain(outputVolume.load(std::memory_order_relaxed));
     for(;;) {
         Action command;
         while(xQueueReceive(commands,&command,0)==pdTRUE) {
             switch(command.kind) {
-                case ActionKind::Config:engine.requestConfig(command.config);break;
+                case ActionKind::Config:
+                    engine.requestConfig(command.config);
+                    if(command.restartSession) engine.requestNext(command.config.seed);
+                    break;
                 case ActionKind::Pause:engine.pause(command.paused);break;
                 case ActionKind::Next:engine.requestNext();break;
                 case ActionKind::None:break;
             }
         }
-        const unsigned requested=outputVolume.load(std::memory_order_relaxed);
-        if(volume!=requested) {volume=requested;M5Cardputer.Speaker.setVolume(volume*255/100);}
+        gain.setVolume(outputVolume.load(std::memory_order_relaxed));
         const auto queued=M5Cardputer.Speaker.isPlaying(0);
         if(queued>=2) {vTaskDelay(1);continue;}
         if(!pending) {
-            const auto before=micros();engine.render(pcm[index],512);const auto duration=std::uint32_t(micros()-before);
+            const auto before=micros();engine.render(pcm[index],512);
+            gain.process(pcm[index],512);
+            const auto duration=std::uint32_t(micros()-before);
             auto snap=engine.snapshot();
             // Approximate audible position: queued source blocks plus configured
             // four x 256-frame DMA buffering. Exact hardware latency is unmeasured.
@@ -152,10 +158,17 @@ void setup() {
     M5Cardputer.Display.setBrightness(controller.saved.settings.brightness*255/100);
     M5Cardputer.Speaker.end();
     auto speaker=M5Cardputer.Speaker.config();speaker.sample_rate=kMusicSampleRate;speaker.stereo=false;
+    // Mono mixing in pinned M5Unified doubles the sample. With magnification
+    // 8 the remaining driver gain is <1; OutputGain applies the old 2x boost
+    // before its limiter instead of allowing the driver's final clamp to clip.
+    speaker.magnification=OutputGain::kAdvSpeakerMagnification;
     speaker.dma_buf_len=256;speaker.dma_buf_count=4;speaker.task_priority=4;speaker.task_pinned_core=1;
     M5Cardputer.Speaker.config(speaker);
     if(!M5Cardputer.Speaker.begin()) {fail("Audio initialization failed");return;}
-    M5Cardputer.Speaker.setVolume(controller.saved.settings.volume*255/100);outputVolume.store(controller.saved.settings.volume);
+    // OutputGain owns the volume curve and limiting. Keep the library master
+    // fixed: passing a percentage above 100 here would wrap its uint8_t API.
+    M5Cardputer.Speaker.setVolume(255);M5Cardputer.Speaker.setChannelVolume(0,255);
+    outputVolume.store(controller.saved.settings.volume);
     commands=xQueueCreate(8,sizeof(Action));saves=xQueueCreate(1,sizeof(SavedState));
     if(!commands || !saves) {fail("Audio queue allocation failed");return;}
     if(sdMounted && xTaskCreatePinnedToCore(storageTask,"lofi-storage",4096,nullptr,1,nullptr,0)!=pdPASS) {

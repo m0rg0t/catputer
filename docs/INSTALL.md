@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.3-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.4-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -28,6 +28,10 @@ Space play/pause; `-` / `=` volume; `M` moods; `N` next session; `F` add/remove 
 
 In menus use `;` / `.` up/down, `,` / `/` left/right, Enter select, backtick/Escape back. Backspace removes a selected favorite. Keyboard letters are case-insensitive. The native preview also accepts arrow keys and `Q` to quit.
 
-Mood/engine/session changes take effect at the next bar with a fade. A favorite restarts a seed at its beginning, not at the point where it was saved. Replay is tied to generation schema, parameters and the matching hybrid sample bank.
+In **S → BPM**, use `,` / `/` for 1 BPM steps from 40 to 180. Enter toggles AUTO/manual; starting manual mode uses the currently audible tempo. AUTO chooses tempo from the mood and seed. Manual tempo remains selected across new sessions and is retained in favorites.
 
-Version 0.1.3-dev fixes LCD RGB565 byte order and enlarges status, control and help text. It retains 0.1.2-dev's schema 3 and `lofi3-` codes, so settings and favorites from that version remain compatible. Existing schema-1 and schema-2 favorites stay in the save file and display `OLD`; they require the earlier firmware for faithful replay. Settings are retained, and old favorites can be removed normally. Do not reinterpret a `lofi1-` or `lofi2-` code as the same composition under schema 3.
+Volume runs from 0 to 300% in 5% steps. Above 100% it adds software gain, with a soft limiter before PCM output; actual loudness depends on the speaker or headphones. Volume changes ramp over 10 ms. The default remains 35%.
+
+Mood/engine/session changes take effect at the next bar with a fade. A BPM-only change takes effect at the next bar without restarting the current tune. A favorite restarts a seed at its beginning, not at the point where it was saved. Replay is tied to generation schema, parameters, tempo and the matching hybrid sample bank.
+
+Version 0.1.4-dev retains the LCD RGB565 correction, larger text and generation schema 3. It reads earlier 160-byte saves and upgrades to format 2 when saving, retaining settings and favorites. Earlier favorites use AUTO tempo; new manual-tempo codes append `-<BPM>`. Older firmware cannot read format 2, so retain a copy of the old state before a downgrade. Existing schema-1 and schema-2 favorites remain visible as `OLD` and require the earlier firmware for faithful replay.

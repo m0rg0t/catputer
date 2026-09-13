@@ -88,7 +88,17 @@ Config sanitized(Config config) noexcept {
     }
     config.volume = std::min<std::uint8_t>(config.volume, 100);
     config.texture = std::min<std::uint8_t>(config.texture, 100);
+    if (config.bpm != 0) {
+        config.bpm = std::max<std::uint16_t>(
+            kMusicMinBpm, std::min<std::uint16_t>(config.bpm, kMusicMaxBpm));
+    }
     return config;
+}
+
+bool sameExceptBpm(const Config& left, const Config& right) noexcept {
+    return left.seed == right.seed && left.mood == right.mood &&
+           left.soundEngine == right.soundEngine && left.volume == right.volume &&
+           left.texture == right.texture;
 }
 
 float fastSin(std::uint32_t phase) noexcept {
@@ -299,6 +309,7 @@ struct Engine::Impl {
     Config current{};
     Config pendingConfig{};
     bool pendingChange = false;
+    bool pendingRestartRequested = false;
     std::uint32_t pendingApplyBar = 0;
 
     mutable std::atomic_flag commandLock = ATOMIC_FLAG_INIT;
@@ -350,6 +361,7 @@ struct Engine::Impl {
     std::uint32_t barIndex = 0;
     std::uint32_t sessionBars = 64;
     std::uint16_t bpm = 76;
+    std::uint16_t autoBpm = 76;
     std::uint8_t swingPercent = 56;
     std::uint8_t keyPitchClass = 0;
     bool minorSession = false;
@@ -375,8 +387,18 @@ struct Engine::Impl {
         return barIndex + 1 >= sessionBars;
     }
 
-    bool pendingTransitionDue() const noexcept {
+    bool pendingChangeDue() const noexcept {
         return pendingChange && barIndex >= pendingApplyBar;
+    }
+
+    bool pendingTempoOnly() const noexcept {
+        return pendingChange && !pendingRestartRequested &&
+               pendingConfig.bpm != current.bpm &&
+               sameExceptBpm(pendingConfig, current);
+    }
+
+    bool pendingRestartDue() const noexcept {
+        return pendingChangeDue() && !pendingTempoOnly();
     }
 
     std::uint64_t barStartSample() const noexcept {
@@ -400,6 +422,23 @@ struct Engine::Impl {
     std::uint32_t durationSamples(std::uint8_t steps) const noexcept {
         return std::max<std::uint32_t>(1, static_cast<std::uint32_t>(
             (stepQ32 * static_cast<std::uint64_t>(steps)) >> 32));
+    }
+
+    void updateEffectiveTempo() noexcept {
+        bpm = current.bpm == 0 ? autoBpm : current.bpm;
+        stepQ32 = (static_cast<std::uint64_t>(kMusicSampleRate) * 60u << 32) /
+                  (static_cast<std::uint64_t>(bpm) * 4u);
+    }
+
+    float harmonicRelease(float automaticCoefficient) const noexcept {
+        if (current.bpm == 0 || bpm <= autoBpm) {
+            return automaticCoefficient;
+        }
+        // Envelope coefficients are per sample. At a faster manual tempo,
+        // shorten harmonic tails by the same tempo ratio so they retain their
+        // musical length and do not crowd percussion out of the fixed pool.
+        return std::pow(automaticCoefficient,
+                        static_cast<float>(bpm) / static_cast<float>(autoBpm));
     }
 
     void clearAudioState() noexcept {
@@ -660,13 +699,13 @@ struct Engine::Impl {
 
         switch (current.mood) {
         case Mood::Cozy:
-            bpm = static_cast<std::uint16_t>(76 + scoreRng.bounded(9));
+            autoBpm = static_cast<std::uint16_t>(76 + scoreRng.bounded(9));
             break;
         case Mood::Rainy:
-            bpm = static_cast<std::uint16_t>(68 + scoreRng.bounded(9));
+            autoBpm = static_cast<std::uint16_t>(68 + scoreRng.bounded(9));
             break;
         case Mood::Night:
-            bpm = static_cast<std::uint16_t>(72 + scoreRng.bounded(9));
+            autoBpm = static_cast<std::uint16_t>(72 + scoreRng.bounded(9));
             break;
         }
         swingPercent = static_cast<std::uint8_t>(55 + scoreRng.bounded(5));
@@ -686,8 +725,7 @@ struct Engine::Impl {
         lastBassNote = currentBassRoot;
         lastLeadNote = nearestPitch(keyPitchClass, 72, 64, 83);
 
-        stepQ32 = (static_cast<std::uint64_t>(kMusicSampleRate) * 60u << 32) /
-                  (static_cast<std::uint64_t>(bpm) * 4u);
+        updateEffectiveTempo();
         sessionSample = 0;
         barIndex = 0;
         barStartQ32 = 0;
@@ -695,6 +733,7 @@ struct Engine::Impl {
         eventCount = 0;
         nextEvent = 0;
         pendingChange = false;
+        pendingRestartRequested = false;
         pendingApplyBar = 0;
         transitionGain = resetCounters ? 1.0f : 0.0f;
         transitionFadeIn = resetCounters ? 0 : kFadeFrames;
@@ -1039,6 +1078,10 @@ struct Engine::Impl {
         }
 
         const bool hadPendingChange = pendingChange;
+        const bool wasTempoOnly = pendingTempoOnly();
+        if (!hadPendingChange) {
+            pendingRestartRequested = false;
+        }
         if (hasConfig) {
             pendingConfig = requestedConfig;
             pendingChange = true;
@@ -1048,6 +1091,7 @@ struct Engine::Impl {
                 pendingConfig = current;
             }
             pendingChange = true;
+            pendingRestartRequested = true;
             // Configuration and next-session requests are independent. Keep
             // all config fields, then let the later request choose the seed.
             if (!hasConfig || nextSequence > configSequence) {
@@ -1055,7 +1099,25 @@ struct Engine::Impl {
                     mix64(pendingConfig.seed ^ UINT64_C(0x4e4558545f534553));
             }
         }
-        if (!hadPendingChange && pendingChange) {
+        if (pendingChange && !pendingRestartRequested &&
+            pendingConfig.bpm == current.bpm &&
+            sameExceptBpm(pendingConfig, current)) {
+            // Coalescing a pending manual/AUTO selection back to the active
+            // configuration cancels it. An independent Next request keeps
+            // pendingRestartRequested set and therefore still restarts.
+            pendingChange = false;
+            pendingApplyBar = 0;
+            return;
+        }
+        const bool isTempoOnly = pendingTempoOnly();
+        if (pendingChange && (!hadPendingChange || wasTempoOnly != isTempoOnly)) {
+            if (isTempoOnly) {
+                // Tempo changes do not restart the score. They take effect at
+                // the immediate next edge, using that edge as the new Q32
+                // timing origin.
+                pendingApplyBar = barIndex;
+                return;
+            }
             const std::uint64_t end = barEndSample();
             const std::uint64_t remaining = end > sessionSample ? end - sessionSample : 0;
             // Never jump into the middle of a transition envelope. A request
@@ -1198,21 +1260,21 @@ struct Engine::Impl {
             voice->attackIncrement = 1.0f / 224.0f;
             voice->sustain = 0.23f;
             voice->decay = current.mood == Mood::Rainy ? 0.99988f : 0.99984f;
-            voice->release = 0.99972f;
+            voice->release = harmonicRelease(0.99972f);
             voice->gain = 0.185f;
             break;
         case Instrument::Bass:
             voice->attackIncrement = 1.0f / 112.0f;
             voice->sustain = 0.54f;
             voice->decay = 0.99955f;
-            voice->release = 0.99885f;
+            voice->release = harmonicRelease(0.99885f);
             voice->gain = 0.25f;
             break;
         case Instrument::Lead:
             voice->attackIncrement = 1.0f / 180.0f;
             voice->sustain = 0.16f;
             voice->decay = 0.99968f;
-            voice->release = 0.9989f;
+            voice->release = harmonicRelease(0.9989f);
             voice->gain = 0.14f;
             break;
         case Instrument::Kick:
@@ -1419,7 +1481,30 @@ struct Engine::Impl {
     }
 
     void advanceBar() noexcept {
-        const bool transition = pendingTransitionDue() || automaticTransitionDue();
+        const bool automatic = automaticTransitionDue();
+        if (pendingChangeDue() && pendingTempoOnly()) {
+            current.bpm = pendingConfig.bpm;
+            pendingChange = false;
+            pendingRestartRequested = false;
+            pendingApplyBar = 0;
+
+            if (automatic) {
+                Config next = current;
+                next.seed = mix64(current.seed ^ UINT64_C(0x4e4558545f534553));
+                ++sessionTransitions;
+                startSession(next, false);
+                return;
+            }
+
+            ++barIndex;
+            barStartQ32 = barEndQ32;
+            updateEffectiveTempo();
+            barEndQ32 = barStartQ32 + stepQ32 * 16u;
+            generateBar();
+            return;
+        }
+
+        const bool transition = pendingRestartDue() || automatic;
         if (transition) {
             Config next = pendingChange ? pendingConfig : current;
             if (!pendingChange) {
@@ -1505,10 +1590,15 @@ const char* soundEngineName(SoundEngine engine) noexcept {
     return "Unknown";
 }
 
+bool validBpm(std::uint16_t bpm) noexcept {
+    return bpm == 0 || (bpm >= kMusicMinBpm && bpm <= kMusicMaxBpm);
+}
+
 bool validConfig(const Config& config) noexcept {
     return static_cast<std::uint8_t>(config.mood) <= static_cast<std::uint8_t>(Mood::Night) &&
            static_cast<std::uint8_t>(config.soundEngine) <=
-               static_cast<std::uint8_t>(SoundEngine::Hybrid);
+               static_cast<std::uint8_t>(SoundEngine::Hybrid) &&
+           validBpm(config.bpm);
 }
 
 Engine::Engine(const Config& config) noexcept {
@@ -1638,7 +1728,7 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         state.dcOutput = dcBlocked;
         mix = softClip(dcBlocked * 1.32f);
 
-        const bool wantsTransition = state.pendingTransitionDue() ||
+        const bool wantsTransition = state.pendingRestartDue() ||
                                      state.automaticTransitionDue();
         const std::uint64_t end = state.barEndSample();
         const std::uint64_t remaining = end > state.sessionSample ?
@@ -1737,27 +1827,29 @@ char hexDigit(std::uint8_t value) noexcept {
                         static_cast<char>('a' + value - 10);
 }
 
-bool parseDecimal(const char*& cursor, std::uint8_t& value) noexcept {
+bool parseDecimal(const char*& cursor, std::uint16_t maximum,
+                  std::uint16_t& value) noexcept {
     if (*cursor < '0' || *cursor > '9') {
         return false;
     }
     unsigned parsed = 0;
     while (*cursor >= '0' && *cursor <= '9') {
         parsed = parsed * 10u + static_cast<unsigned>(*cursor - '0');
-        if (parsed > 100u) {
+        if (parsed > maximum) {
             return false;
         }
         ++cursor;
     }
-    value = static_cast<std::uint8_t>(parsed);
+    value = static_cast<std::uint16_t>(parsed);
     return true;
 }
 
-void appendDecimal(char*& cursor, std::uint8_t value) noexcept {
+void appendDecimal(char*& cursor, std::uint16_t value) noexcept {
     if (value >= 100) {
-        *cursor++ = '1';
-        *cursor++ = '0';
-        *cursor++ = '0';
+        *cursor++ = static_cast<char>('0' + value / 100);
+        value = static_cast<std::uint16_t>(value % 100);
+        *cursor++ = static_cast<char>('0' + value / 10);
+        *cursor++ = static_cast<char>('0' + value % 10);
     } else if (value >= 10) {
         *cursor++ = static_cast<char>('0' + value / 10);
         *cursor++ = static_cast<char>('0' + value % 10);
@@ -1792,6 +1884,10 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
     appendDecimal(cursor, saved.volume);
     *cursor++ = '-';
     appendDecimal(cursor, saved.texture);
+    if (saved.bpm != 0) {
+        *cursor++ = '-';
+        appendDecimal(cursor, saved.bpm);
+    }
     *cursor = '\0';
     const std::size_t length = static_cast<std::size_t>(cursor - local);
     if (capacity <= length) {
@@ -1839,19 +1935,31 @@ bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
     if (*cursor++ != '-') {
         return false;
     }
-    std::uint8_t volume = 0;
-    if (!parseDecimal(cursor, volume) || *cursor++ != '-') {
+    std::uint16_t volume = 0;
+    if (!parseDecimal(cursor, 100, volume) || *cursor++ != '-') {
         return false;
     }
-    std::uint8_t texture = 0;
-    if (!parseDecimal(cursor, texture) || *cursor != '\0') {
+    std::uint16_t texture = 0;
+    if (!parseDecimal(cursor, 100, texture)) {
+        return false;
+    }
+    std::uint16_t bpm = 0;
+    if (*cursor == '-') {
+        ++cursor;
+        if (!parseDecimal(cursor, kMusicMaxBpm, bpm) ||
+            bpm < kMusicMinBpm) {
+            return false;
+        }
+    }
+    if (*cursor != '\0') {
         return false;
     }
     output.seed = seed;
     output.mood = mood;
     output.soundEngine = soundEngine;
-    output.volume = volume;
-    output.texture = texture;
+    output.volume = static_cast<std::uint8_t>(volume);
+    output.texture = static_cast<std::uint8_t>(texture);
+    output.bpm = bpm;
     return true;
 }
 

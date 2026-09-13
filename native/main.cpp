@@ -1,5 +1,6 @@
 #include "lofi/controller.h"
 #include "lofi/music.h"
+#include "lofi/output_gain.h"
 #include "lofi/sample_bank.h"
 #include "lofi/state.h"
 #include "lofi/ui.h"
@@ -28,8 +29,8 @@ struct Options {
     Config config{};
     double seconds=90;
     fs::path wav,meta,score,shots,animation,state;
-    unsigned frames=48, smokeMs=0;
-    bool noAudio=false, moodExplicit=false, engineExplicit=false;
+    unsigned frames=48, smokeMs=0, volume=100;
+    bool noAudio=false, moodExplicit=false, engineExplicit=false, bpmExplicit=false, volumeExplicit=false;
 };
 std::uint64_t number(const std::string& s) {
     std::size_t consumed=0; auto value=std::stoull(s,&consumed,0);
@@ -48,6 +49,8 @@ Options options(int argc,char** argv) {
         else if(a=="--animation") o.animation=value();
         else if(a=="--state") o.state=value();
         else if(a=="--seed") o.config.seed=number(value());
+        else if(a=="--bpm") { auto v=value(); auto n=v=="auto"?0:number(v); if(v!="auto" && (n<kMusicMinBpm || n>kMusicMaxBpm)) throw std::runtime_error("BPM: auto or 40..180"); o.config.bpm=static_cast<std::uint16_t>(n);o.bpmExplicit=true; }
+        else if(a=="--volume") { auto n=number(value()); if(n>OutputGain::kMaxPercent) throw std::runtime_error("Volume: 0..300 percent"); o.volume=static_cast<unsigned>(n);o.volumeExplicit=true; }
         else if(a=="--seconds") { auto s=value(); std::size_t pos=0; o.seconds=std::stod(s,&pos); if(pos!=s.size() || !std::isfinite(o.seconds) || o.seconds<=0 || o.seconds>7200) throw std::runtime_error("Seconds must be in (0,7200]"); }
         else if(a=="--frames") { auto n=number(value()); if(n<1 || n>720) throw std::runtime_error("Frames must be 1..720"); o.frames=static_cast<unsigned>(n); }
         else if(a=="--engine") { o.engineExplicit=true; auto v=value(); if(v=="synth") o.config.soundEngine=SoundEngine::Synth; else if(v=="hybrid") o.config.soundEngine=SoundEngine::Hybrid; else throw std::runtime_error("Engine: synth or hybrid"); }
@@ -59,6 +62,7 @@ Options options(int argc,char** argv) {
                 <<"  --wav FILE [--seconds 90] [--meta FILE]\n"
                 <<"  --score FILE   Export scheduled notes/harmony as CSV for --seconds\n"
                 <<"  --engine synth|hybrid --mood cozy|rainy|night --seed INTEGER\n"
+                <<"  --bpm auto|40..180 --volume 0..300  Playback/WAV output settings\n"
                 <<"  --shots DIRECTORY   Export actual renderer scenarios as PPM\n"
                 <<"  --animation DIRECTORY [--frames 48]   Export at 12 FPS\n"
                 <<"  --state FILE   Optional local settings/favorites\n"
@@ -83,14 +87,16 @@ void exportAudio(const Options& o) {
     if(!out) throw std::runtime_error("Cannot open WAV output");
     const auto frames=static_cast<std::uint64_t>(std::llround(o.seconds*kMusicSampleRate));
     waveHeader(out,static_cast<std::uint32_t>(frames*2)); std::array<std::int16_t,512> pcm{};
-    double worstUs=0; long double squares=0; std::uint64_t clips=0; auto start=std::chrono::steady_clock::now();
+    double worstUs=0; long double squares=0; std::uint64_t clips=0; int outputPeak=0; auto start=std::chrono::steady_clock::now();
+    OutputGain gain(o.volume);
     Diagnostics opening=engine.diagnostics();
     const auto initialBpm=engine.snapshot().bpm;
     for(std::uint64_t done=0;done<frames;) {
         const auto n=static_cast<std::size_t>(std::min<std::uint64_t>(512,frames-done)); auto t=std::chrono::steady_clock::now();
         engine.render(pcm.data(),n);
+        if(o.volumeExplicit) gain.process(pcm.data(),n);
         worstUs=std::max(worstUs,std::chrono::duration<double,std::micro>(std::chrono::steady_clock::now()-t).count());
-        for(std::size_t i=0;i<n;++i) { write16(out,static_cast<std::uint16_t>(pcm[i])); squares+=static_cast<long double>(pcm[i])*pcm[i]; if(pcm[i]==32767 || pcm[i]==-32768) ++clips; }
+        for(std::size_t i=0;i<n;++i) { write16(out,static_cast<std::uint16_t>(pcm[i])); squares+=static_cast<long double>(pcm[i])*pcm[i];outputPeak=std::max(outputPeak,std::abs(int(pcm[i]))); if(pcm[i]==32767 || pcm[i]==-32768) ++clips; }
         done+=n;
         if(done<=10*kMusicSampleRate) opening=engine.diagnostics();
     }
@@ -103,10 +109,12 @@ void exportAudio(const Options& o) {
         parent(o.meta); std::ofstream m(o.meta);
         m<<"{\n  \"version\": \""<<LOFI_VERSION<<"\",\n  \"source\": \"native_shared_engine\",\n  \"hardware_verified\": false,\n"
          <<"  \"generation_schema\": "<<kMusicSchemaVersion<<",\n  \"bpm\": "<<initialBpm<<",\n"
+         <<"  \"bpm_override\": "<<o.config.bpm<<",\n  \"output_gain_percent\": "<<o.volume<<",\n"
+         <<"  \"output_gain_applied\": "<<(o.volumeExplicit?"true":"false")<<",\n  \"limited_samples\": "<<gain.limitedSamples()<<",\n"
          <<"  \"engine\": \""<<soundEngineName(o.config.soundEngine)<<"\",\n  \"mood\": \""<<moodName(o.config.mood)<<"\",\n"
          <<"  \"favorite_code\": \""<<favorite<<"\",\n  \"sample_bank\": \""<<builtinSampleBankId()<<"\",\n"
          <<"  \"sample_rate\": "<<kMusicSampleRate<<",\n  \"frames\": "<<frames<<",\n  \"rms\": "<<std::sqrt(static_cast<double>(squares/frames))<<",\n"
-         <<"  \"peak\": "<<d.absolutePeak<<",\n  \"clipped_samples\": "<<clips<<",\n  \"max_voices\": "<<int(d.maxActiveVoices)<<",\n"
+         <<"  \"peak\": "<<outputPeak<<",\n  \"core_peak\": "<<d.absolutePeak<<",\n  \"clipped_samples\": "<<clips<<",\n  \"max_voices\": "<<int(d.maxActiveVoices)<<",\n"
          <<"  \"voice_capacity\": "<<int(kMusicVoiceCapacity)<<",\n  \"voice_steals\": "<<d.stolenVoices<<",\n  \"dropped_note_events\": "<<d.droppedNoteEvents<<",\n"
          <<"  \"score_hash\": \""<<std::hex<<d.scoreEventHash<<std::dec<<"\",\n  \"score_events\": "<<d.scoreEventCount<<",\n"
          <<"  \"opening_seconds\": "<<double(std::min<std::uint64_t>(frames,10*kMusicSampleRate))/kMusicSampleRate<<",\n"
@@ -124,7 +132,7 @@ void exportAudio(const Options& o) {
          <<"  \"host_worst_block_us\": "<<worstUs<<",\n  \"host_render_seconds\": "<<elapsed<<"\n}\n";
         if(!m) throw std::runtime_error("Metadata write failed");
     }
-    std::cout<<o.wav<<": "<<frames<<" frames, peak "<<d.absolutePeak<<", clips "<<clips<<", host "<<elapsed<<"s\n";
+    std::cout<<o.wav<<": "<<frames<<" frames, peak "<<outputPeak<<", clips "<<clips<<", host "<<elapsed<<"s\n";
 }
 void exportScore(const Options& o) {
     Engine engine(o.config); parent(o.score); std::ofstream out(o.score);
@@ -169,7 +177,9 @@ void ppm(const fs::path& path,const Frame& frame) {
     if(!f) throw std::runtime_error("Screenshot write failed");
 }
 void exportScreens(const Options& o) {
-    Controller controller(o.config.seed); controller.saved.settings.mood=static_cast<std::uint8_t>(o.config.mood);controller.saved.settings.engine=static_cast<std::uint8_t>(o.config.soundEngine);controller.saved.settings.texture=o.config.texture; Engine engine(o.config); std::array<std::int16_t,512> buffer{};
+    Controller controller(o.config.seed); controller.saved.settings.mood=static_cast<std::uint8_t>(o.config.mood);controller.saved.settings.engine=static_cast<std::uint8_t>(o.config.soundEngine);controller.saved.settings.texture=o.config.texture;controller.saved.settings.bpm=o.config.bpm;
+    if(o.volumeExplicit) controller.saved.settings.volume=o.volume;
+    Engine engine(o.config); std::array<std::int16_t,512> buffer{};
     for(int i=0;i<500;++i) engine.render(buffer.data(),buffer.size());
     controller.setSnapshot(engine.snapshot()); controller.tick(3200); controller.view.batteryPercent=76;
     Frame frame;
@@ -185,6 +195,12 @@ void exportScreens(const Options& o) {
         controller.key('s');shot("10-settings");controller.key('h');shot("11-help");controller.view.screen=Screen::Diagnostics;shot("12-diagnostics");
         controller.view.screen=Screen::Radio;controller.view.batteryPercent=9;shot("13-low-battery");
         controller.notice("SAVE FAILED - KEPT IN MEMORY",5000);shot("15-save-error");controller.view.notice[0]=0;controller.view.sdReady=true;shot("16-sd-ready");
+        controller.saved.settings.volume=300;shot("17-volume-boost");
+        controller.saved.settings.volume=35;controller.saved.settings.bpm=120;
+        auto manual=o.config;manual.bpm=120;engine.reset(manual);controller.setSnapshot(engine.snapshot());
+        controller.key('s');controller.view.selection=1;shot("18-bpm-manual");
+        controller.saved.settings.bpm=0;auto automatic=o.config;automatic.bpm=0;engine.reset(automatic);controller.setSnapshot(engine.snapshot());
+        shot("19-bpm-auto");
     }
     if(!o.animation.empty()) {
         fs::create_directories(o.animation); View v=controller.view; v.screen=Screen::Radio; v.clean=true;v.batteryPercent=76;v.notice[0]=0;
@@ -192,7 +208,7 @@ void exportScreens(const Options& o) {
     }
 }
 void action(Engine& engine,const Action& a) {
-    switch(a.kind) {case ActionKind::Config:engine.requestConfig(a.config);break;case ActionKind::Pause:engine.pause(a.paused);break;case ActionKind::Next:engine.requestNext();break;case ActionKind::None:break;}
+    switch(a.kind) {case ActionKind::Config:engine.requestConfig(a.config);if(a.restartSession)engine.requestNext(a.config.seed);break;case ActionKind::Pause:engine.pause(a.paused);break;case ActionKind::Next:engine.requestNext();break;case ActionKind::None:break;}
 }
 int interactive(const Options& o) {
 #ifdef LOFI_HAS_SDL
@@ -215,11 +231,15 @@ int interactive(const Options& o) {
     if(!o.state.empty()) {
         if(!o.moodExplicit) cfg.mood=static_cast<Mood>(controller.saved.settings.mood);
         if(!o.engineExplicit) cfg.soundEngine=static_cast<SoundEngine>(controller.saved.settings.engine);
+        if(!o.bpmExplicit) cfg.bpm=controller.saved.settings.bpm;
         cfg.texture=controller.saved.settings.texture;
     }
     controller.saved.settings.mood=static_cast<std::uint8_t>(cfg.mood);
     controller.saved.settings.engine=static_cast<std::uint8_t>(cfg.soundEngine);
     controller.saved.settings.texture=cfg.texture;
+    controller.saved.settings.bpm=cfg.bpm;
+    if(o.volumeExplicit) controller.saved.settings.volume=o.volume;
+    OutputGain gain(controller.saved.settings.volume);
     Engine engine(cfg); Frame frame; std::array<std::int16_t,512> pcm{}; std::array<std::uint16_t,240*135> pixels{};
     if(audio) SDL_PauseAudioDevice(audio,0);
     bool running=true;std::uint64_t lastDraw=0,lastSave=0,silentProduced=0;
@@ -242,7 +262,8 @@ int interactive(const Options& o) {
         unsigned produced=0;
         while(produced<6 && ((audio && SDL_GetQueuedAudioSize(audio)<6144) || (!audio && silentProduced<now*kMusicSampleRate/1000))) {
             engine.render(pcm.data(),pcm.size());
-            for(auto& value:pcm) value=static_cast<std::int16_t>(int(value)*controller.saved.settings.volume/100);
+            gain.setVolume(controller.saved.settings.volume);
+            gain.process(pcm.data(),pcm.size());
             if(audio && SDL_QueueAudio(audio,pcm.data(),pcm.size()*2)!=0) throw std::runtime_error(SDL_GetError());
             silentProduced+=pcm.size();++produced;
         }

@@ -39,7 +39,8 @@ For candidates passing those gates, score warmth/timbre (35%), musical coherence
 
 Proposed starting palette:
 
-- 4/4 time at 68–88 BPM; default around 76 BPM. A mood narrows the range instead of choosing a radically different tempo every phrase.
+- 4/4 time. AUTO tempo uses the seed and mood (Cozy 76–84, Rainy 68–76, Night 72–80 BPM). A manual override permits 40–180 BPM and changes at a bar boundary while the current tune continues.
+- At manual tempos above the session's AUTO tempo, harmonic release tails shorten proportionally to reduce pressure on the twelve-voice pool. AUTO retains the existing note envelopes and deterministic audio.
 - Curated four- or eight-bar progressions using major/minor sevenths and occasional ninths. Choose one key and tonal palette per session.
 - Voice-led chord inversions: minimize movement and keep the melody and bass in distinct registers. Avoid uncontrolled extensions and large jumps on every chord.
 - Bass emphasizes roots and selected fifths, with occasional prepared approaches. Preserve space around the kick.

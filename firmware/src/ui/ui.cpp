@@ -397,16 +397,16 @@ void drawStatus(Frame& frame, const View& view, const char* title) {
     frame.fillRect(0, 13, 240, 1, Brick);
     drawText(frame, 4, 3, title, Cream, 35);
     drawText(frame, 40, 3, moodName(view.mood), Cream, 29);
-    char bpm[4], volume[5];
+    char bpm[4], volume[6];
     std::snprintf(bpm, sizeof(bpm), "%d", clampInt(view.bpm, 0, 999));
-    std::snprintf(volume, sizeof(volume), "V%d", clampInt(view.volume, 0, 100));
+    std::snprintf(volume, sizeof(volume), "V%d%%", clampInt(view.volume, 0, 300));
     drawText(frame, 76, 3, bpm, Gold, 17);
     drawText(frame, 96, 3, "BPM", Moon, 17);
     drawText(frame, 120, 3, view.playing ? "PLAY" : "PAUSE", Cream, 29);
     if (view.favorite) {
         drawStar(frame, 158, 7, Gold);
     }
-    drawText(frame, 176, 3, volume, view.volume == 0 ? Amber : Cream, 23);
+    drawText(frame, 176, 3, volume, view.volume == 0 || view.volume > 100 ? Gold : Cream, 29);
     drawBattery(frame, 219, 3, view.batteryPercent);
 }
 
@@ -419,11 +419,11 @@ void drawFooter(Frame& frame, const View& view) {
         drawText(frame, 4, 118, view.notice, Gold, 232);
         drawText(frame, 4, 127, "SPACE PLAY   -/= VOL   H HELP", Cream, 232);
     } else if (view.pending) {
-        drawText(frame, 4, 118, "NEXT SESSION QUEUED", Gold, 232);
+        drawText(frame, 4, 118, "CHANGE AT NEXT BAR", Gold, 232);
         drawText(frame, 4, 127, "SPACE PLAY   -/= VOL   H HELP", Cream, 232);
     } else {
         drawText(frame, 4, 118, "SPACE PLAY   -/= VOL   M MOOD", Cream, 232);
-        drawText(frame, 4, 127, "N NEXT   F FAV   V CLEAN   H HELP", Cream, 232);
+        drawText(frame, 4, 127, "N NEXT   S SET   V CLEAN   H HELP", Cream, 232);
     }
 }
 
@@ -656,7 +656,9 @@ void render(Frame& frame, const View& view) {
     drawOverlay(frame, view);
     frame.fillRect(0, 120, 240, 15, Ink);
     frame.fillRect(0, 120, 240, 1, Brick);
-    drawText(frame, 4, 125, "ENTER OK   ESC BACK   ;/. MOVE", Cream, 232);
+    drawText(frame, 4, 125, view.screen == Screen::Settings && view.selection == 1
+             ? "ENTER AUTO/MANUAL  ,/ BPM  ESC BACK"
+             : "ENTER OK   ESC BACK   ;/. MOVE", Cream, 232);
 }
 
 } // namespace lofi

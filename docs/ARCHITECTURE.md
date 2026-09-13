@@ -80,6 +80,10 @@ No file I/O, display calls, logging, JSON parsing, allocation or mutex held by s
 
 Audio timing comes from the sample timeline. For beat-linked animation, compensate for queued output latency using consumed/estimated played sample position. If an exact playback position is unavailable, publish the known estimate and test phase error physically; do not synchronize to an unrelated `millis()` beat timer.
 
+Manual tempo is a configuration override: 0 selects the seed/mood tempo, and 40–180 selects a fixed BPM. A tempo-only update keeps the current score, voices and session, takes effect at the next bar edge, and uses that edge as the new fractional-sample timing origin. It must not recompute elapsed time as `bar × new bar length`. Explicit favorite replay requests a restart even when its seed matches the current session.
+
+The shared `OutputGain` stage runs after synthesis with no allocation. Volume spans 0–300% and ramps over 320 samples (10 ms). Below 100%, it preserves the ADV's prior squared 0–255 volume response; above 100%, it adds linear gain up to three times the nominal level. The previous M5Unified mono pre-gain is moved before the soft limiter. With master/channel volume fixed at 255 and speaker magnification set to 8, the pinned library's remaining mono conversion gain is about 0.98447; the limiter's 32,700 ceiling remains below full scale after that conversion. Keeping magnification at the ADV default of 16 would add another boost after limiting and cause clipping.
+
 Proposed baseline: worst observed 512-sample render time below 8 ms under stress, zero producer starvation, and queue low-water diagnostics. Missing a visual deadline drops a frame. It must not skip audio work. Detect underruns explicitly instead of inferring success from average CPU usage.
 
 ## Initial memory ledger

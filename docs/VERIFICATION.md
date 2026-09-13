@@ -1,12 +1,13 @@
 # Implementation and verification
 
-This is the local development candidate for the accepted plan, version **0.1.3-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the local development candidate for the accepted plan, version **0.1.4-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
 
 ## Implemented
 
 - Shared C++17 composer and renderer with deterministic 64-bit seeds, three moods, six arrangement sections and automatic session changes.
 - Twelve bounded voices; pure synth and hybrid instruments; seven locally generated hybrid one-shots totaling 58,240 PCM bytes.
 - Offline 32 kHz mono PCM16 output. The ADV adapter rotates three 512-frame buffers through the pinned M5Unified speaker API; commands are copied to the audio task and SD work runs separately.
+- AUTO or manual 40–180 BPM, with tempo-only changes at bar boundaries. Shared 0–300% output gain, 10 ms volume ramps and a soft limiter before the normalized device output path.
 - Original imagegen room/cat artwork adapted for the shared 240 × 135 renderer. The 64-color indexed framebuffer uses 32,400 bytes plus a 480-byte output row. Background, six 64 × 72 cat frames and the RGB565 palette use 60,176 bytes of constant scene data in flash. Engine inline storage is 8,192 bytes.
 - Menus, help, settings, favorites, clean scene and motion levels. Fixed 160-byte versioned/CRC-checked optional SD state with valid backup/temp recovery. No-SD state lives in RAM.
 - Native SDL preview and WAV/PPM exports, deterministic sample tooling, a media exporter, allowlisted static site builder and app-only package builder.
@@ -29,13 +30,25 @@ Audio comparison measurements are recorded below. The completed firmware build i
 - Listen through the ADV speaker and jack; compare the two candidates, then select/tune the production sound.
 - Measure startup time, internal free heap/largest block, task stack margins, render deadlines and audible dropouts while animation/keys/SD saves are active. Serial `queue_empty` counts are source-queue observations, not verified DMA underruns.
 - Perform the planned two-hour **device** soak and battery/runtime measurements.
-- Recheck the corrected 0.1.3-dev display on the ADV, verify Home/return behavior and neighboring applications, and exercise physical SD failure/recovery. The user ran 0.1.2-dev on the device and supplied a photo; that establishes startup, not complete installation or hardware acceptance.
+- Recheck the 0.1.4-dev display, manual tempo and boosted output on the ADV, verify Home/return behavior and neighboring applications, and exercise physical SD failure/recovery. The user ran 0.1.2-dev on the device and supplied a photo; that establishes startup, not complete installation or hardware acceptance.
 - Implement external SD sample/scene packs later. The current optional SD feature is settings/favorites only.
 - Select the public project license and remote repository, then publish only when requested. The local Git repository and README are prepared; the site is local.
 
 ## Practical behavior
 
-Controls received within the last 20 ms of a bar may wait one extra bar, allowing a complete fade. Favorites replay from the beginning and are version/bank dependent. Rapid changes are coalesced while preserving accepted musical parameters. SD write failures keep changes in RAM and stop saves until restart; hot-plug recovery is not implemented.
+Mood/engine/replay requests received within the last 20 ms of a bar may wait one extra bar, allowing a complete fade. Tempo-only changes take effect at the next bar without a restart. Favorites replay from the beginning and are version/bank dependent. Rapid changes are coalesced while preserving accepted musical parameters. SD write failures keep changes in RAM and stop saves until restart; hot-plug recovery is not implemented.
+
+## Manual BPM and output gain · 2026-09-13
+
+Settings now has eight rows, including BPM and volume up to 300%. BPM uses AUTO or 40–180 in one-beat-per-minute steps; Enter on the BPM row toggles AUTO/manual. Settings and favorite records preserve the selected mode. Format 2 remains exactly 160 bytes: the original favorite record bytes are retained, volume's high byte occupies header byte 6, global BPM byte 15, and favorite BPM bytes 144–151. The decoder migrates valid format-1 files to AUTO and rejects their previously invalid volume values above 100. Format 2 validates the wider volume, BPM ranges, reserved bytes and CRC. No private SD state is included in test fixtures or packages.
+
+Tempo changes preserve the current session, notes and fractional sample clock. Coalescing back to the active tempo cancels the pending change; reaching a control limit does not restart playback. Favorite replay explicitly requests a restart even at the same seed. AUTO consumes the same random draws as before; its regression reference (Rainy/Synth, seed `0x0123456789abcdef`, texture 23, 14 seconds) remains BPM 74, 84 note starts, score hash `e2ebee7135b74f78` and PCM16 hash `4ee8918a12e09f44`.
+
+At manual tempos above the session's AUTO tempo, keys, bass and lead release tails shorten proportionally in seconds to retain their approximate length in beats. This keeps the existing twelve-voice pool usable at faster tempos. The 180 BPM Cozy/Synth regression improved from five dropped incoming notes to zero in 60 seconds. The final [tempo and gain sweep](evidence/tempo-gain-check.json) covers 40, 120 and 180 BPM, all three moods and both engines at 300%: 18 × 60 seconds, 34,560,000 frames, zero clipped samples, zero dropped note events and matching A/B score hashes/counts. The largest output peak was 31,050; AUTO audio retains its previous regression hash. These finite host checks do not establish all-seed behavior or device audio deadlines.
+
+The output-stage tests cover every PCM16 input at 300%, volume values spanning 255/256, soft-limiter bounds, monotonic gain, block-size independence, mute and ramp retargeting. Review against pinned M5Unified caught its additional mono gain after synthesis. The corrected adapter uses magnification 8 and moves the previous 2× pre-gain ahead of the limiter; its remaining digital gain is about 0.98447, so the 32,700 limiter ceiling stays below 32,193 at the final library conversion. Below 100%, the prior level curve is preserved apart from rounding and limited peaks. This proves a digital bound, not speaker distortion or perceived loudness on hardware.
+
+The native player uses the same output stage. WAV exports remain raw engine comparisons unless `--volume` is explicitly supplied; metadata records whether the stage was applied. `--bpm auto|40..180` controls native playback and exports. The updated 18-screen contact sheet was visually reviewed, including 300%, manual BPM and AUTO BPM. Seven native suites pass in normal and UBSAN builds; a dummy SDL audio/video run at 180 BPM/300% and the screenshot exporter also pass under UBSAN.
 
 ## LCD correction · 2026-09-13
 
@@ -43,7 +56,7 @@ The user's first device photo showed recognizable scene geometry with scrambled 
 
 Status labels, control hints, clean-view status and help now use 5 × 7 glyphs instead of 3 × 5. The radio footer has two separated rows on a solid dark background and fewer simultaneous shortcuts; help lists the remaining controls, including engine selection and the distinct movement/adjustment keys. The 15 updated native screenshots were visually reviewed. This remains host evidence until the corrected build is checked on the same device.
 
-The composer, samples, schema and save format are unchanged. Six 180-second demos were regenerated with the new build version and retain their previous score hashes and zero clipped samples. The older score-audit and two-hour soak records below remain evidence for the unchanged music core, with their original version metadata preserved.
+The 0.1.3-dev LCD update left the composer, samples, schema and save format unchanged. Its six 180-second demos retained their previous score hashes and zero clipped samples. The older score-audit and two-hour soak records below retain their original version metadata and establish the AUTO-mode baseline.
 
 ## Recorded comparison · 2026-09-13
 
@@ -81,8 +94,8 @@ The pinned M5GFX tag `0.2.22` was verified locally and used through an ignored l
 
 ## Final firmware artifact
 
-Application BIN: 676,864 bytes; 633,856 bytes below the `0x140000` compact limit. Linker static RAM: 67,136 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
+Application BIN: 681,168 bytes; 629,552 bytes below the `0x140000` compact limit. Linker static RAM: 67,208 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
 
-BIN SHA-256: `459d95a231bcd2b6b7ecfd8a0a6ccae7c996d436abd7e11a8b43ee907b0ad8cb`.
+BIN SHA-256: `c5467348447f9f29bbffabfbfefc642fdb1309e793b700c6eff6fe4559f20400`.
 
-The 0.1.3-dev update passes six native CTest suites (including the optional M5GFX conversion check) and 35 Python tests; its release archive and 15 native-renderer screenshots are validated. The host's full system temporary disk initially interrupted firmware compilation and the storage test; using an ignored project build directory as `TMPDIR` allowed both to complete. The preceding harmony update also passed UBSAN and an SDL smoke run, with 18 score exports, six three-minute A/B demos, two two-hour offline renders, schema-1/2 save retention and current-schema/MP3 provenance checks.
+The 0.1.4-dev update passes seven native CTest suites (including output gain and the optional M5GFX conversion check), the same seven under UBSAN, and 36 Python tests. Its application image, release archive and 18 native-renderer screenshots are validated. The preceding harmony update's evidence includes 18 score exports, six three-minute A/B demos and two two-hour offline renders; those AUTO-mode baselines remain distinct from the new tempo/gain sweep above.

@@ -4,7 +4,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.3-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. An initial device run exposed an LCD byte-order bug; this update corrects the transfer and enlarges the status, control and help text. The corrected display, physical audio quality, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.4-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds manual BPM and volume up to 300%, retaining the LCD color correction and larger text from 0.1.3-dev. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -12,7 +12,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 - Layered openings with keys, bass and a soft groove from the first bar; related chord progressions, returning melody motifs, phrase variations, swing and automatic new sessions.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
 - An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
-- Pause, volume, mood selection, next session and up to eight favorites.
+- Pause, 0–300% output volume, AUTO or manual 40–180 BPM, mood selection, next session and up to eight favorites.
 - Built-in music and artwork need **no SD, network, account or API key**. Optional SD stores settings and favorites; without it they remain in RAM until restart.
 - A native SDL preview, deterministic WAV exports, real-code screenshot exports, sample tools and a local site generator.
 
@@ -31,12 +31,12 @@ ctest --test-dir build/cmake --output-on-failure
 ./build/cmake/lofi_native
 ```
 
-For persistent desktop favorites, add `--state build/local-state.bin`. Explicit `--engine` / `--mood` flags override saved settings. The preview starts audio immediately at a modest master volume.
+For persistent desktop favorites, add `--state build/local-state.bin`. Explicit `--engine`, `--mood`, `--bpm` and `--volume` flags override saved settings. The preview starts audio immediately at a modest master volume.
 
 | Key | Action |
 | --- | --- |
 | Space | Play/pause |
-| `-` / `=` | Volume |
+| `-` / `=` | Volume 0–300%, in 5% steps |
 | `M` / `N` | Mood menu / next session |
 | `F` / `L` | Toggle favorite / favorite list |
 | `V` / `S` / `H` | Clean scene / settings / help |
@@ -48,7 +48,11 @@ For persistent desktop favorites, add `--state build/local-state.bin`. Explicit 
 
 A favorite reproduces a session from its beginning with the same generation schema, parameters and bank. It does not restore the current playback position.
 
-Version 0.1.3-dev retains generation schema 3 (`lofi3-` favorite codes) from 0.1.2-dev, so its settings and favorites remain compatible. Earlier schema-1/2 favorites remain visible as `OLD` and removable, while settings remain usable. Replay those favorites with the earlier firmware; the richer arrangement changes the score generated from their seed.
+Open **S → BPM** to set tempo. Use `,` / `/` to adjust by 1 BPM, and Enter to switch between AUTO and manual tempo. AUTO follows the seed and mood; manual tempo stays selected across new sessions. Tempo changes take effect at the next bar while the current tune continues.
+
+Above 100%, volume adds up to 3× software gain before a soft limiter. It is a signal gain setting, not a claim of three times the acoustic loudness. Volume changes ramp over 10 ms; the native player and device share the same output stage, with the previous ADV volume curve preserved below 100%.
+
+Version 0.1.4-dev retains generation schema 3 (`lofi3-` favorite codes). Earlier settings and favorites migrate to save format 2; manual favorites remember their BPM and add it to the code. AUTO compositions retain the previous score. Schema-1/2 favorites remain visible as `OLD` and removable; use the earlier firmware for faithful replay of those scores. Older firmware cannot read the new save format.
 
 ## Compare the sound engines
 

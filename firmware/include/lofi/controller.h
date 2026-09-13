@@ -5,7 +5,12 @@
 
 namespace lofi {
 enum class ActionKind : std::uint8_t { None, Config, Pause, Next };
-struct Action { ActionKind kind=ActionKind::None; Config config{}; bool paused=false; };
+struct Action {
+    ActionKind kind=ActionKind::None;
+    Config config{};
+    bool paused=false;
+    bool restartSession=false; // Explicit favorite replay, even at the same seed.
+};
 class Controller {
 public:
     SavedState saved{};
