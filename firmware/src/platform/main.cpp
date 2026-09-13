@@ -22,9 +22,13 @@ Snapshot published;
 std::uint32_t worstRenderUs=0, queueEmptyObservations=0, submittedBlocks=0;
 std::atomic<int> saveResult{0};
 std::atomic<unsigned> outputVolume{35};
+std::atomic<std::uint16_t> outputSleepGain{32768};
 bool ready=false, sdMounted=false;
+bool timerPauseQueued=false;
+int appliedBrightness=-1;
 std::uint32_t lastDraw=0,lastBattery=0,lastSave=0,lastDiagnostic=0,lastKey=0,lastVolumeRepeat=0;
 std::uint64_t previousKeys=0, elapsedMs=0;
+std::uint64_t wakeKeys=0;
 std::uint32_t previousMs=0;
 constexpr char kBuildIdentity[]="cardputer-adv-lofi/application/" LOFI_VERSION;
 
@@ -89,6 +93,7 @@ void audioTask(void*) {
             }
         }
         gain.setVolume(outputVolume.load(std::memory_order_relaxed));
+        gain.setSleepGain(outputSleepGain.load(std::memory_order_relaxed));
         const auto queued=M5Cardputer.Speaker.isPlaying(0);
         if(queued>=2) {vTaskDelay(1);continue;}
         if(!pending) {
@@ -121,7 +126,20 @@ void sendKey(int key) {
         controller=previous;controller.notice("AUDIO BUSY - TRY AGAIN");return;
     }
     outputVolume.store(controller.saved.settings.volume,std::memory_order_relaxed);
-    M5Cardputer.Display.setBrightness(controller.saved.settings.brightness*255/100);
+}
+void applyComfort() {
+    // Input is processed first: a deliberate resume at the deadline wins.
+    if(!controller.sleepPausePending()) timerPauseQueued=false;
+    else if(!timerPauseQueued) {
+        Action pause;pause.kind=ActionKind::Pause;pause.paused=true;
+        timerPauseQueued=xQueueSend(commands,&pause,0)==pdTRUE;
+    }
+    outputSleepGain.store(controller.sleepGainQ15(),std::memory_order_relaxed);
+    const int brightness=controller.effectiveBrightness();
+    if(brightness!=appliedBrightness) {
+        M5Cardputer.Display.setBrightness(brightness*255/100);
+        appliedBrightness=brightness;
+    }
 }
 void drawFrame() {
     auto v=controller.view;
@@ -190,21 +208,28 @@ void loop() {
     const auto now=millis();elapsedMs+=std::uint32_t(now-previousMs);previousMs=now;
     Snapshot snap;portENTER_CRITICAL(&snapshotLock);snap=published;portEXIT_CRITICAL(&snapshotLock);
     controller.setSnapshot(snap);controller.tick(elapsedMs);
-    M5Cardputer.update();std::uint64_t keys=0;
+    M5Cardputer.update();std::uint64_t keys=0;bool wokeDuringScan=false;
     for(const auto& pos:M5Cardputer.Keyboard.keyList()) {
         if(pos.x<0 || pos.x>=14 || pos.y<0 || pos.y>=4) continue;
         const auto bit=std::uint64_t(1)<<(pos.y*14+pos.x);keys|=bit;
+        if((wakeKeys&bit) || wokeDuringScan) continue;
         const auto value=M5Cardputer.Keyboard.getKey(pos);
         const bool volumeKey=value=='-' || value=='=';
         if(!(previousKeys&bit) || (volumeKey && std::uint32_t(now-lastVolumeRepeat)>130)) {
+            const bool wasDimmed=controller.view.dimmed;
             if(value==KEY_ENTER) sendKey('\n');else if(value==KEY_BACKSPACE) sendKey(127);
             else if(value>=32 && value<127) sendKey(value);
+            else if(wasDimmed) sendKey(0); // Modifier keys can also wake the LCD.
+            wokeDuringScan=wasDimmed && !controller.view.dimmed;
             if(volumeKey) lastVolumeRepeat=now;
         }
     }
     previousKeys=keys;
+    // Holding the wake key must not become a volume adjustment on auto-repeat.
+    if(wokeDuringScan) wakeKeys=keys;else wakeKeys&=keys;
     // Go opens help. The physical reset/Home button remains hardware-managed.
-    if(M5Cardputer.BtnA.wasPressed()) sendKey('h');
+    if(M5Cardputer.BtnA.wasPressed() && !wokeDuringScan) sendKey('h');
+    applyComfort();
     const int result=saveResult.exchange(0,std::memory_order_acq_rel);
     if(result) {
         controller.storageResult(result>0);

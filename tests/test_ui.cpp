@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cassert>
+#include <cstdio>
 #include <cstring>
 
 int main() {
@@ -75,6 +76,21 @@ int main() {
     view.beatPhase = 0.9f;
     render(frame, view);
     assert(std::memcmp(before.packed(), frame.packed(), Frame::packedBytes) == 0);
+
+    // Ten-item settings use a scrolling eight-row viewport and the sleep
+    // state remains renderable at both ends of the menu.
+    view.screen = Screen::Settings;
+    view.itemCount = 10;
+    for (int i = 0; i < view.itemCount; ++i) {
+        std::snprintf(view.items[i], sizeof(view.items[i]), "SETTING %d", i + 1);
+    }
+    view.sleepTimerActive = true;
+    view.sleepSecondsRemaining = 1799;
+    view.selection = 0;
+    render(before, view);
+    view.selection = 9;
+    render(frame, view);
+    assert(std::memcmp(before.packed(), frame.packed(), Frame::packedBytes) != 0);
     view.playing = true;
     view.volume = 0;
     view.instrumentLevels[0] = 255;

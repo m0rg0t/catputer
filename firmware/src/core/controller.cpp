@@ -8,6 +8,39 @@
 namespace lofi {
 namespace {
 
+constexpr std::uint64_t kSleepFadeMs = 30000;
+constexpr std::uint16_t kUnityGainQ15 = 32768;
+
+std::uint64_t elapsedSince(std::uint64_t now, std::uint64_t then) {
+    return now >= then ? now - then : 0;
+}
+
+std::uint8_t cycleSleepMinutes(std::uint8_t current, int direction) {
+    constexpr std::uint8_t values[] = {0, 30, 60, 90};
+    int index = 0;
+    while (index < 4 && values[index] != current) {
+        ++index;
+    }
+    if (index == 4) {
+        index = 0;
+    }
+    index = (index + direction + 4) % 4;
+    return values[index];
+}
+
+std::uint8_t cycleAutoDimSeconds(std::uint8_t current, int direction) {
+    constexpr std::uint8_t values[] = {0, 30, 60, 120};
+    int index = 0;
+    while (index < 4 && values[index] != current) {
+        ++index;
+    }
+    if (index == 4) {
+        index = 0;
+    }
+    index = (index + direction + 4) % 4;
+    return values[index];
+}
+
 std::uint16_t audibleBpm(const Snapshot& snapshot) {
     const int value = static_cast<int>(snapshot.bpm);
     if (value < static_cast<int>(kMusicMinBpm) || value > static_cast<int>(kMusicMaxBpm)) {
@@ -50,7 +83,34 @@ void Controller::setSnapshot(const Snapshot& s) {
                        a.bassTone==b.bassTone;
     if(!s.changePending && (snapshot_.changePending || applied)) configRequested_=false;
     if(s.paused==desiredPaused_) pauseRequested_=false;
+    if(sleepExpired_ && s.paused) sleepPausePending_=false;
     snapshot_=s;
+}
+std::uint8_t Controller::effectiveBrightness() const {
+    return dimmed_ ? static_cast<std::uint8_t>(std::min<int>(saved.settings.brightness,10))
+                   : saved.settings.brightness;
+}
+void Controller::cancelSleepTimer() {
+    sleepMinutes_=0;
+    sleepDeadlineMs_=0;
+    sleepGainQ15_=kUnityGainQ15;
+    sleepExpired_=false;
+    sleepPausePending_=false;
+}
+void Controller::setSleepMinutes(std::uint8_t minutes) {
+    if(minutes==0) {
+        cancelSleepTimer();
+        notice("SLEEP TIMER OFF");
+        return;
+    }
+    sleepMinutes_=minutes;
+    sleepDeadlineMs_=view.timeMs+static_cast<std::uint64_t>(minutes)*60U*1000U;
+    sleepGainQ15_=kUnityGainQ15;
+    sleepExpired_=false;
+    sleepPausePending_=false;
+    char text[30];
+    std::snprintf(text,sizeof(text),"SLEEP IN %u MIN",static_cast<unsigned>(minutes));
+    notice(text);
 }
 void Controller::notice(const char* message,std::uint64_t duration) {
     std::snprintf(view.notice,sizeof(view.notice),"%s",message); noticeUntil_=view.timeMs+duration;
@@ -79,13 +139,34 @@ Favorite Controller::currentFavorite() const {
 void Controller::tick(std::uint64_t now) {
     view.timeMs=now;
     if(noticeUntil_ && now>=noticeUntil_) { view.notice[0]=0; noticeUntil_=0; }
-    view.clean=manualClean_ || (view.screen==Screen::Radio && now-lastInput_>8000 && !view.notice[0]);
+    if(sleepMinutes_!=0 && !sleepExpired_) {
+        if(now>=sleepDeadlineMs_) {
+            sleepGainQ15_=0;
+            sleepExpired_=true;
+            desiredPaused_=true;
+            pauseRequested_=!snapshot_.paused;
+            sleepPausePending_=!snapshot_.paused;
+            notice("SLEEP TIMER ENDED");
+        } else {
+            const std::uint64_t remaining=sleepDeadlineMs_-now;
+            sleepGainQ15_=remaining>=kSleepFadeMs?kUnityGainQ15:
+                static_cast<std::uint16_t>((remaining*kUnityGainQ15)/kSleepFadeMs);
+        }
+    }
+    const std::uint8_t dimSeconds=saved.settings.autoDimSeconds;
+    dimmed_=dimSeconds!=0 && elapsedSince(now,lastInput_)>=
+        static_cast<std::uint64_t>(dimSeconds)*1000U;
+    view.clean=manualClean_ || (view.screen==Screen::Radio && elapsedSince(now,lastInput_)>8000 && !view.notice[0]);
     populateView();
 }
 void Controller::populateView() {
     const auto& s=snapshot_;
     view.seed=s.config.seed; view.motion=saved.settings.motion; view.mood=static_cast<int>(s.config.mood); view.bpm=s.bpm;
     view.volume=saved.settings.volume; view.playing=!s.paused; view.pending=s.changePending || configRequested_;
+    view.dimmed=dimmed_; view.sleepTimerActive=sleepMinutes_!=0; view.sleepExpired=sleepExpired_;
+    view.sleepGainQ15=sleepGainQ15_;
+    view.sleepSecondsRemaining=sleepMinutes_!=0 && !sleepExpired_ && sleepDeadlineMs_>view.timeMs
+        ? static_cast<std::uint32_t>((sleepDeadlineMs_-view.timeMs+999U)/1000U) : 0;
     view.meter=s.config.meter; view.keysTone=s.config.keysTone; view.leadTone=s.config.leadTone;
     view.bassTone=s.config.bassTone;
     view.meterNumerator=s.meterNumerator == 0 ? 4 : s.meterNumerator;
@@ -95,10 +176,14 @@ void Controller::populateView() {
     view.stepsPerBeat=s.stepsPerBeat == 0 ? 4 : s.stepsPerBeat;
     view.beatPhase=static_cast<float>(s.barPhaseQ16)/65535.0f;
     view.level=(s.paused || saved.settings.volume == 0) ? 0.0f :
-               static_cast<float>(s.recentPeak)/32768.0f;
+               (static_cast<float>(s.recentPeak)/32768.0f)*
+               (static_cast<float>(sleepGainQ15_)/static_cast<float>(kUnityGainQ15));
     std::memset(view.instrumentLevels,0,sizeof(view.instrumentLevels));
     if(!s.paused && saved.settings.volume != 0) {
-        for(std::size_t i=0;i<kMusicInstrumentCount;++i) view.instrumentLevels[i]=s.instrumentLevels[i];
+        for(std::size_t i=0;i<kMusicInstrumentCount;++i) {
+            view.instrumentLevels[i]=static_cast<std::uint8_t>(
+                (static_cast<std::uint32_t>(s.instrumentLevels[i])*sleepGainQ15_)/kUnityGainQ15);
+        }
     }
     view.favorite=findFavorite(saved,currentFavorite())>=0;
     std::memset(view.items,0,sizeof(view.items)); view.itemCount=0;
@@ -121,7 +206,7 @@ void Controller::populateView() {
             }
         }
     } else if(view.screen==Screen::Settings) {
-        const auto& v=saved.settings; view.itemCount=8;
+        const auto& v=saved.settings; view.itemCount=10;
         std::snprintf(view.items[0],32,"VOLUME          %3u%%",static_cast<unsigned>(v.volume));
         if(v.bpm==0) {
             std::snprintf(view.items[1],32,"BPM             AUTO %3u",static_cast<unsigned>(s.bpm));
@@ -129,11 +214,18 @@ void Controller::populateView() {
             std::snprintf(view.items[1],32,"BPM             %3u",static_cast<unsigned>(v.bpm));
         }
         std::snprintf(view.items[2],32,"BRIGHTNESS      %3u",static_cast<unsigned>(v.brightness));
-        std::snprintf(view.items[3],32,"TEXTURE         %3u",static_cast<unsigned>(v.texture));
-        std::snprintf(view.items[4],32,"MOTION          %s",v.motion==0?"OFF":v.motion==1?"LOW":"FULL");
-        std::snprintf(view.items[5],32,"ENGINE          %s",v.engine?"HYBRID":"SYNTH");
-        std::snprintf(view.items[6],32,"DIAGNOSTICS");
-        std::snprintf(view.items[7],32,"RESET SETTINGS");
+        if(v.autoDimSeconds==0) std::snprintf(view.items[3],32,"AUTO DIM        OFF");
+        else std::snprintf(view.items[3],32,"AUTO DIM        %3u SEC",static_cast<unsigned>(v.autoDimSeconds));
+        if(sleepExpired_) std::snprintf(view.items[4],32,"SLEEP           EXPIRED");
+        else if(sleepMinutes_==0) std::snprintf(view.items[4],32,"SLEEP           OFF");
+        else std::snprintf(view.items[4],32,"SLEEP           %u:%02u",
+                           static_cast<unsigned>(view.sleepSecondsRemaining/60U),
+                           static_cast<unsigned>(view.sleepSecondsRemaining%60U));
+        std::snprintf(view.items[5],32,"TEXTURE         %3u",static_cast<unsigned>(v.texture));
+        std::snprintf(view.items[6],32,"MOTION          %s",v.motion==0?"OFF":v.motion==1?"LOW":"FULL");
+        std::snprintf(view.items[7],32,"ENGINE          %s",v.engine?"HYBRID":"SYNTH");
+        std::snprintf(view.items[8],32,"DIAGNOSTICS");
+        std::snprintf(view.items[9],32,"RESET SETTINGS");
     } else if(view.screen==Screen::Instruments) {
         const auto& settings = saved.settings;
         view.itemCount=4;
@@ -174,9 +266,23 @@ Action Controller::changedConfig() {
 }
 Action Controller::key(int ch) {
     lastInput_=view.timeMs;
+    if(dimmed_) {
+        dimmed_=false;
+        populateView();
+        return {};
+    }
     if(ch>=0 && ch<128) ch=std::tolower(static_cast<unsigned char>(ch));
     if(ch==27 || ch=='`') { view.screen=Screen::Radio; view.selection=0; return {}; }
-    if(ch==' ') { desiredPaused_=!(pauseRequested_?desiredPaused_:snapshot_.paused);pauseRequested_=true;notice(desiredPaused_?"PAUSED":"PLAYING");return {ActionKind::Pause,{},desiredPaused_}; }
+    if(ch==' ') {
+        desiredPaused_=!(pauseRequested_?desiredPaused_:snapshot_.paused);
+        pauseRequested_=true;
+        const bool clearSleep=!desiredPaused_ &&
+            (sleepExpired_ || sleepGainQ15_!=kUnityGainQ15);
+        if(clearSleep) cancelSleepTimer();
+        notice(desiredPaused_?"PAUSED":"PLAYING");
+        if(clearSleep) populateView();
+        return {ActionKind::Pause,{},desiredPaused_};
+    }
     if(ch=='-' || ch=='=' || ch=='+') {
         auto& v=saved.settings.volume;
         v=static_cast<std::uint16_t>(std::clamp(int(v)+(ch=='-'?-5:5),0,300)); dirty=true;
@@ -242,11 +348,26 @@ Action Controller::key(int ch) {
         switch(view.selection) {
             case 0: v.volume=static_cast<std::uint16_t>(std::clamp(int(v.volume)+direction*5,0,300)); break;
             case 2: v.brightness=std::clamp(int(v.brightness)+direction*10,10,100); break;
-            case 3: v.texture=std::clamp(int(v.texture)+direction*5,0,100); return changedConfig();
-            case 4: v.motion=std::clamp(int(v.motion)+direction,0,2); break;
-            case 5: v.engine^=1; return changedConfig();
-            case 6: view.screen=Screen::Diagnostics; view.selection=0; populateView(); return {};
-            case 7: v=Settings{}; return changedConfig();
+            case 3: v.autoDimSeconds=cycleAutoDimSeconds(v.autoDimSeconds,direction); break;
+            case 4: {
+                const bool cancelPendingPause=sleepPausePending_;
+                setSleepMinutes(cycleSleepMinutes(sleepMinutes_,direction));
+                populateView();
+                if(cancelPendingPause && !snapshot_.paused) {
+                    // A timer pause may already be queued off-thread. Send an
+                    // idempotent resume after it so cancelling at the deadline
+                    // leaves the transport in its current playing state.
+                    desiredPaused_=false;
+                    pauseRequested_=true;
+                    return {ActionKind::Pause,{},false};
+                }
+                return {};
+            }
+            case 5: v.texture=std::clamp(int(v.texture)+direction*5,0,100); return changedConfig();
+            case 6: v.motion=std::clamp(int(v.motion)+direction,0,2); break;
+            case 7: v.engine^=1; return changedConfig();
+            case 8: view.screen=Screen::Diagnostics; view.selection=0; populateView(); return {};
+            case 9: v=Settings{}; dimmed_=false; return changedConfig();
         }
         dirty=true; populateView(); return {};
     }

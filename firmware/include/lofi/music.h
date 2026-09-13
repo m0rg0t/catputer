@@ -9,7 +9,7 @@ namespace lofi {
 
 constexpr std::uint32_t kMusicSampleRate = 32000;
 constexpr std::uint8_t kMusicVoiceCapacity = 12;
-constexpr std::uint32_t kMusicSchemaVersion = 4;
+constexpr std::uint32_t kMusicSchemaVersion = 5;
 constexpr std::uint16_t kMusicMinBpm = 40;
 constexpr std::uint16_t kMusicMaxBpm = 180;
 constexpr std::size_t kMusicInstrumentCount = 7;
@@ -88,6 +88,9 @@ struct Snapshot {
     bool changePending = false;
     std::uint8_t activeVoices = 0;
     std::uint8_t voiceCapacity = kMusicVoiceCapacity;
+    // Q15 gain currently applied only to the keys bed. Lead notes pull it
+    // down smoothly to leave a little room, then it returns to unity.
+    std::uint16_t keysGainQ15 = 32767;
     // Peak contribution of each MusicInstrument in the recent audio with a roughly 104 ms peak decay.
     std::uint8_t instrumentLevels[kMusicInstrumentCount]{};
     std::uint16_t recentPeak = 0;
@@ -113,6 +116,7 @@ struct Diagnostics {
     };
     std::uint16_t absolutePeak = 0;
     std::uint8_t maxActiveVoices = 0;
+    std::uint16_t minimumKeysGainQ15 = 32767;
 };
 
 struct ScoreNote {
@@ -186,7 +190,7 @@ public:
     ScoreBar scoreBar() const noexcept;
 
     // Stable, allocation-free favorite representation:
-    // lofi4-<seed>-<mood>-<engine>-<volume>-<texture>-<bpm>-<meter>-<keys>-<lead>-<bass>
+    // lofi5-<seed>-<mood>-<engine>-<volume>-<texture>-<bpm>-<meter>-<keys>-<lead>-<bass>
     static constexpr std::size_t kFavoriteCodeCapacity = 80;
     std::size_t writeFavoriteCode(char* output, std::size_t capacity) const noexcept;
     static bool parseFavoriteCode(const char* text, Config& output) noexcept;

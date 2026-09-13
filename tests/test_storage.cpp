@@ -45,7 +45,8 @@ int main() {
     { std::ofstream file(legacyPath,std::ios::binary|std::ios::trunc);
       file.write(reinterpret_cast<const char*>(legacy.data()),legacy.size()); }
     assert(readState(legacyPath,loaded) && loaded.settings.volume==65 &&
-           loaded.settings.bpm==0 && loaded.settings.meter==MusicMeter::Auto);
+           loaded.settings.bpm==0 && loaded.settings.meter==MusicMeter::Auto &&
+           loaded.settings.autoDimSeconds==60);
     auto invalid=next;invalid.count=255;assert(!saveState(path,invalid));
     fs::remove_all(dir);
     std::cout<<"storage: validated writes, corrupt primary, backup and temp recovery passed\n";

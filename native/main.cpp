@@ -147,6 +147,7 @@ void exportAudio(const Options& o) {
          <<"  \"sample_rate\": "<<kMusicSampleRate<<",\n  \"frames\": "<<frames<<",\n  \"rms\": "<<std::sqrt(static_cast<double>(squares/frames))<<",\n"
          <<"  \"peak\": "<<outputPeak<<",\n  \"core_peak\": "<<d.absolutePeak<<",\n  \"clipped_samples\": "<<clips<<",\n  \"max_voices\": "<<int(d.maxActiveVoices)<<",\n"
          <<"  \"voice_capacity\": "<<int(kMusicVoiceCapacity)<<",\n  \"voice_steals\": "<<d.stolenVoices<<",\n  \"dropped_note_events\": "<<d.droppedNoteEvents<<",\n"
+         <<"  \"minimum_keys_gain_q15\": "<<d.minimumKeysGainQ15<<",\n"
          <<"  \"score_hash\": \""<<std::hex<<d.scoreEventHash<<std::dec<<"\",\n  \"score_events\": "<<d.scoreEventCount<<",\n"
          <<"  \"opening_seconds\": "<<double(std::min<std::uint64_t>(frames,10*kMusicSampleRate))/kMusicSampleRate<<",\n"
          <<"  \"opening_score_events\": "<<opening.scoreEventCount<<",\n  \"opening_voice_steals\": "<<opening.stolenVoices<<",\n  \"opening_dropped_notes\": "<<opening.droppedNoteEvents<<",\n";
@@ -201,11 +202,13 @@ void exportScore(const Options& o) {
     if(!out) throw std::runtime_error("Score write failed");
     std::cout<<o.score<<": "<<notes<<" scheduled notes; offline inspection of shared composer\n";
 }
-void ppm(const fs::path& path,const Frame& frame) {
+void ppm(const fs::path& path,const Frame& frame,unsigned brightness=255) {
     parent(path); std::ofstream f(path,std::ios::binary); if(!f) throw std::runtime_error("Cannot write screenshot");
     f<<"P6\n240 135\n255\n"; std::array<std::uint16_t,240> row{};
     for(int y=0;y<135;++y) { frame.rowRgb565(y,row.data()); for(auto c:row) {
-        f.put(char(((c>>11)&31)*255/31)); f.put(char(((c>>5)&63)*255/63)); f.put(char((c&31)*255/31));
+        f.put(char((((c>>11)&31)*255/31)*brightness/255));
+        f.put(char((((c>>5)&63)*255/63)*brightness/255));
+        f.put(char(((c&31)*255/31)*brightness/255));
     }}
     if(!f) throw std::runtime_error("Screenshot write failed");
 }
@@ -218,7 +221,11 @@ void exportScreens(const Options& o) {
     for(int i=0;i<500;++i) engine.render(buffer.data(),buffer.size());
     controller.setSnapshot(engine.snapshot()); controller.tick(3200); controller.view.batteryPercent=76;
     Frame frame;
-    auto shot=[&](const char* name){controller.populateView();render(frame,controller.view);ppm(o.shots/(std::string(name)+".ppm"),frame);};
+    auto shot=[&](const char* name){
+        controller.populateView();render(frame,controller.view);
+        ppm(o.shots/(std::string(name)+".ppm"),frame,
+            255u*controller.effectiveBrightness()/std::max(1u,unsigned(controller.saved.settings.brightness)));
+    };
     if(!o.shots.empty()) {
         fs::create_directories(o.shots);
         shot("01-playing"); controller.view.clean=true; shot("02-clean-scene"); controller.view.clean=false;
@@ -246,10 +253,31 @@ void exportScreens(const Options& o) {
             shot(meter==MusicMeter::FourFour?"22-music-4-4":meter==MusicMeter::ThreeFour?"23-music-3-4":"24-music-6-8");
         }
         controller.saved.settings.motion=0;shot("25-still-visualizer");controller.saved.settings.motion=2;
+        // Exercise the actual controller using a fake wall clock, without
+        // waiting half an hour or changing the musical transport for a photo.
+        controller=Controller(o.config.seed);engine.reset(o.config);
+        controller.setSnapshot(engine.snapshot());controller.view.batteryPercent=76;
+        controller.saved.settings.autoDimSeconds=0;
+        controller.tick(0);controller.key('s');controller.view.selection=4;controller.key('/');
+        shot("26-sleep-settings");controller.key(27);
+        controller.tick(1771000);shot("27-sleep-fading");
+        controller.tick(1785000);shot("28-sleep-half-fade");
+        controller.tick(1800000);
+        if(controller.sleepPausePending()) engine.pause(true);
+        for(int i=0;i<4;++i) engine.render(buffer.data(),buffer.size());
+        controller.setSnapshot(engine.snapshot());shot("29-sleep-ended");
+        controller.key(' '); // Deliberate resume clears the expired timer.
+        engine.pause(false);
+        for(int i=0;i<4;++i) engine.render(buffer.data(),buffer.size());
+        controller.setSnapshot(engine.snapshot());
+        controller.key('s');controller.view.selection=9;shot("30-settings-scroll");
+        controller.key(27);controller.saved.settings.autoDimSeconds=60;
+        controller.tick(1860000);shot("31-auto-dim-simulation");
+        controller.key(' ');shot("32-wake-without-pause");
     }
     if(!o.animation.empty()) {
         fs::create_directories(o.animation);
-        engine.reset(o.config);std::uint64_t produced=0;
+        engine.reset(o.config);controller=Controller(o.config.seed);std::uint64_t produced=0;
         controller.view.screen=Screen::Radio;controller.view.notice[0]=0;
         for(unsigned i=0;i<o.frames;++i) {
             // Capture actual rendered music activity, including the rhythmic
@@ -272,7 +300,7 @@ int interactive(const Options& o) {
 #ifdef LOFI_HAS_SDL
     if(SDL_Init(SDL_INIT_VIDEO|(o.noAudio?0:SDL_INIT_AUDIO))!=0) throw std::runtime_error(SDL_GetError());
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"0");
-    auto* window=SDL_CreateWindow("Pocket Lofi | SPACE play | M moods | S settings | I instruments | E engine | H help | Q quit",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,960,540,SDL_WINDOW_RESIZABLE);
+    auto* window=SDL_CreateWindow("Catputer | SPACE play | M moods | S settings | I instruments | E engine | H help | Q quit",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,960,540,SDL_WINDOW_RESIZABLE);
     if(!window) throw std::runtime_error(SDL_GetError());
     auto* renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
     if(!renderer) renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);
@@ -307,6 +335,7 @@ int interactive(const Options& o) {
     Engine engine(cfg); Frame frame; std::array<std::int16_t,512> pcm{}; std::array<std::uint16_t,240*135> pixels{};
     if(audio) SDL_PauseAudioDevice(audio,0);
     bool running=true;std::uint64_t lastDraw=0,lastSave=0,silentProduced=0;
+    SDL_Keycode wakeKey=SDLK_UNKNOWN;
     const auto start=SDL_GetTicks64();
     while(running) {
         const auto now=SDL_GetTicks64()-start;
@@ -314,19 +343,25 @@ int interactive(const Options& o) {
         SDL_Event event;
         while(SDL_PollEvent(&event)) {
             if(event.type==SDL_QUIT) running=false;
+            if(event.type==SDL_KEYUP && event.key.keysym.sym==wakeKey) wakeKey=SDLK_UNKNOWN;
             if(event.type==SDL_KEYDOWN) {
                 int key=event.key.keysym.sym;
+                if(key==wakeKey) continue;
                 if(event.key.repeat && key!=SDLK_MINUS && key!=SDLK_EQUALS) continue;
-                if(key==SDLK_q) {running=false;continue;}
+                if(key==SDLK_q && !controller.view.dimmed) {running=false;continue;}
+                const bool wasDimmed=controller.view.dimmed;
                 if(key==SDLK_RETURN) key='\n';else if(key==SDLK_ESCAPE) key=27;else if(key==SDLK_BACKSPACE) key=127;
                 else if(key==SDLK_UP) key=';';else if(key==SDLK_DOWN) key='.';else if(key==SDLK_LEFT) key=',';else if(key==SDLK_RIGHT) key='/';
                 action(engine,controller.key(key));
+                if(wasDimmed) wakeKey=event.key.keysym.sym;
             }
         }
+        if(controller.sleepPausePending()) engine.pause(true);
+        gain.setVolume(controller.saved.settings.volume);
+        gain.setSleepGain(controller.sleepGainQ15());
         unsigned produced=0;
         while(produced<6 && ((audio && SDL_GetQueuedAudioSize(audio)<6144) || (!audio && silentProduced<now*kMusicSampleRate/1000))) {
             engine.render(pcm.data(),pcm.size());
-            gain.setVolume(controller.saved.settings.volume);
             gain.process(pcm.data(),pcm.size());
             if(audio && SDL_QueueAudio(audio,pcm.data(),pcm.size()*2)!=0) throw std::runtime_error(SDL_GetError());
             silentProduced+=pcm.size();++produced;
@@ -347,6 +382,9 @@ int interactive(const Options& o) {
             controller.setSnapshot(snap);controller.tick(now);View v=controller.view;
             if(!controller.saved.settings.motion) v.timeMs=0;
             render(frame,v);for(int y=0;y<135;++y) frame.rowRgb565(y,pixels.data()+y*240);
+            // Simulate the LCD backlight relative to the normal preview palette.
+            const auto brightness=static_cast<std::uint8_t>(255u*controller.effectiveBrightness()/std::max(1u,unsigned(controller.saved.settings.brightness)));
+            SDL_SetTextureColorMod(texture,brightness,brightness,brightness);
             SDL_UpdateTexture(texture,nullptr,pixels.data(),240*2);SDL_RenderClear(renderer);SDL_RenderCopy(renderer,texture,nullptr,nullptr);SDL_RenderPresent(renderer);lastDraw=now;
         }
         if(controller.dirty && !o.state.empty() && now-lastSave>2000) {controller.dirty=false;controller.storageResult(saveState(o.state,controller.saved));lastSave=now;}

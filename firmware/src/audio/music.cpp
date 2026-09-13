@@ -377,7 +377,8 @@ struct Engine::Impl {
     float toneState = 0.0f;
     float dcInput = 0.0f;
     float dcOutput = 0.0f;
-    float duck = 1.0f;
+    float kickDuck = 1.0f;
+    float keysGain = 1.0f;
     float pauseGain = 1.0f;
     float transitionGain = 1.0f;
     std::uint32_t transitionFadeIn = 0;
@@ -421,6 +422,7 @@ struct Engine::Impl {
     std::uint16_t recentPeak = 0;
     float recentInstrumentPeaks[kMusicInstrumentCount]{};
     std::uint8_t maxActiveVoices = 0;
+    float minimumKeysGain = 1.0f;
 
     bool automaticTransitionDue() const noexcept {
         return barIndex + 1 >= sessionBars;
@@ -499,7 +501,8 @@ struct Engine::Impl {
         toneState = 0.0f;
         dcInput = 0.0f;
         dcOutput = 0.0f;
-        duck = 1.0f;
+        kickDuck = 1.0f;
+        keysGain = 1.0f;
     }
 
     void chooseProgression() noexcept {
@@ -809,6 +812,7 @@ struct Engine::Impl {
             absolutePeak = 0;
             recentPeak = 0;
             maxActiveVoices = 0;
+            minimumKeysGain = 1.0f;
             pauseGain = 1.0f;
             pauseTarget = false;
             pauseSettled = false;
@@ -1079,7 +1083,8 @@ struct Engine::Impl {
                      velocity + scoreRng.centered(5));
         };
         const auto addHook = [this, &addChordLead](std::uint8_t maximumNotes,
-                                                   int velocity) noexcept {
+                                                   int velocity,
+                                                   std::uint8_t delay = 0) noexcept {
             static constexpr std::uint8_t fourFourSteps[] = {0, 2, 4, 6, 8, 10, 12, 14};
             static constexpr std::uint8_t shortSteps[] = {0, 2, 4, 6, 8, 10};
             const std::uint8_t* hookSteps = meter == MusicMeter::FourFour ?
@@ -1090,7 +1095,11 @@ struct Engine::Impl {
                 if (motif[slot] < 0) {
                     continue;
                 }
-                const std::uint8_t step = hookSteps[slot];
+                const std::uint8_t step = static_cast<std::uint8_t>(
+                    hookSteps[slot] + delay);
+                if (step >= stepsPerBar) {
+                    continue;
+                }
                 const std::uint8_t duration = step % stepsPerBeat == 0u ? 2u : 1u;
                 addChordLead(step, static_cast<std::uint8_t>(motif[slot]), duration,
                              velocity + (added == 0 ? 3 : 0));
@@ -1117,20 +1126,21 @@ struct Engine::Impl {
             lastLeadNote = note;
         };
         const auto addResponse = [this, &addChordLead, &addCadence](
-                                     int velocity) noexcept {
+                                     int velocity,
+                                     std::uint8_t maximumNotes) noexcept {
             const std::uint8_t responseSteps[3] = {
-                1u,
                 static_cast<std::uint8_t>(stepsPerBeat + 1u),
                 static_cast<std::uint8_t>(stepsPerBar - 3u),
+                static_cast<std::uint8_t>(stepsPerBar - 1u),
             };
             std::uint8_t added = 0;
-            for (int slot = 7; slot >= 0 && added < 3; --slot) {
+            for (int slot = 7; slot >= 0 && added < maximumNotes; --slot) {
                 if (motif[slot] < 0) {
                     continue;
                 }
                 if (added == 2u) {
                     addCadence(responseSteps[added], (barIndex & 2u) != 0u,
-                               3, velocity - 4);
+                               1, velocity - 4);
                 } else {
                     addChordLead(responseSteps[added],
                                  static_cast<std::uint8_t>(motif[slot]), 2,
@@ -1192,7 +1202,7 @@ struct Engine::Impl {
                 addHook(8, section == ArrangementSection::Intro ? 40 : 45);
                 break;
             case 1:
-                addResponse(section == ArrangementSection::Intro ? 40 : 44);
+                addResponse(section == ArrangementSection::Intro ? 40 : 44, 3);
                 break;
             case 2:
                 addPassingResolution(meter == MusicMeter::SixEight ? 3u : 5u,
@@ -1203,10 +1213,13 @@ struct Engine::Impl {
                            (barIndex & 8u) != 0u, stepsPerBeat, 43);
                 break;
             case 4:
-                addHook(3, 41);
+                // The motif returns as a delayed echo after one clear beat.
+                // Its full, on-the-downbeat form comes back at the next
+                // eight-bar boundary.
+                addHook(3, 41, stepsPerBeat);
                 break;
             case 5:
-                addResponse(42);
+                addResponse(42, 2);
                 break;
             case 6:
                 addPassingResolution(meter == MusicMeter::SixEight ? 8u : 9u,
@@ -1453,7 +1466,7 @@ struct Engine::Impl {
             voice->release = 0.991f;
             voice->gain = 0.43f;
             voice->phaseIncrement = static_cast<std::uint32_t>(112.0f * kPhaseScale);
-            duck = std::min(duck, 0.91f);
+            kickDuck = std::min(kickDuck, 0.91f);
             break;
         case Instrument::Snare:
             voice->attackIncrement = 1.0f;
@@ -1723,6 +1736,8 @@ struct Engine::Impl {
         snap.changePending = pendingChange || automaticTransitionDue();
         snap.activeVoices = activeVoiceCount();
         snap.voiceCapacity = kMusicVoiceCapacity;
+        snap.keysGainQ15 = static_cast<std::uint16_t>(
+            std::max(0.0f, std::min(1.0f, keysGain)) * 32767.0f + 0.5f);
         for (std::size_t instrument = 0; instrument < kMusicInstrumentCount;
              ++instrument) {
             const float level = pauseSettled && pauseTarget ? 0.0f :
@@ -1749,6 +1764,8 @@ struct Engine::Impl {
                   diag.firstNoteSamples);
         diag.absolutePeak = absolutePeak;
         diag.maxActiveVoices = maxActiveVoices;
+        diag.minimumKeysGainQ15 = static_cast<std::uint16_t>(
+            std::max(0.0f, std::min(1.0f, minimumKeysGain)) * 32767.0f + 0.5f);
         publishedDiagnostics = diag;
         publishLock.clear(std::memory_order_release);
     }
@@ -1907,19 +1924,39 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         }
 
         state.dispatchEvents();
-        float mix = 0.0f;
         float instrumentMix[kMusicInstrumentCount]{};
+        bool leadActive = false;
         for (Voice& voice : state.voices) {
             const float voiceOutput = state.renderVoice(voice);
-            mix += voiceOutput;
             instrumentMix[static_cast<std::size_t>(voice.instrument)] += voiceOutput;
+            leadActive = leadActive ||
+                (voice.active && voice.instrument == Instrument::Lead &&
+                 voice.envelope > 0.025f);
+        }
+
+        // Give the lead a narrow pocket by turning down only the chord bed.
+        // The attack and release are intentionally smoothed to avoid pumping;
+        // bass, drums, texture and delay remain outside this attenuation.
+        constexpr float kLeadKeysGain = 0.88f;
+        constexpr float kKeysDuckAttack = 0.00155f;  // ~20 ms at 32 kHz.
+        constexpr float kKeysDuckRelease = 0.00026f; // ~120 ms at 32 kHz.
+        const float keysTarget = leadActive ? kLeadKeysGain : 1.0f;
+        const float keysSmoothing = leadActive ? kKeysDuckAttack : kKeysDuckRelease;
+        state.keysGain += (keysTarget - state.keysGain) * keysSmoothing;
+        state.keysGain = std::max(kLeadKeysGain, std::min(1.0f, state.keysGain));
+        state.minimumKeysGain = std::min(state.minimumKeysGain, state.keysGain);
+        instrumentMix[static_cast<std::size_t>(Instrument::Keys)] *= state.keysGain;
+
+        float mix = 0.0f;
+        for (float contribution : instrumentMix) {
+            mix += contribution;
         }
         mix += state.renderTexture();
 
         const std::uint8_t active = state.activeVoiceCount();
         state.maxActiveVoices = std::max(state.maxActiveVoices, active);
-        state.duck += (1.0f - state.duck) * 0.00042f;
-        mix *= state.duck;
+        state.kickDuck += (1.0f - state.kickDuck) * 0.00042f;
+        mix *= state.kickDuck;
 
         const float delayed = static_cast<float>(state.delay[state.delayIndex]) * kInvInt16;
         const float delayWrite = std::max(-0.98f, std::min(0.98f, mix + delayed * 0.16f));
@@ -1971,7 +2008,7 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         const float volume = static_cast<float>(state.current.volume) / 100.0f;
         const float master = volume * volume * 0.94f;
         const float instrumentScale = master * state.pauseGain *
-                                      state.transitionGain * state.duck * 1.32f;
+                                      state.transitionGain * state.kickDuck * 1.32f;
         for (std::size_t instrument = 0; instrument < kMusicInstrumentCount;
              ++instrument) {
             state.recentInstrumentPeaks[instrument] = std::max(
@@ -2094,7 +2131,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
     const Config saved = config();
     char local[kFavoriteCodeCapacity]{};
     char* cursor = local;
-    const char prefix[] = "lofi4-";
+    const char prefix[] = "lofi5-";
     for (char character : prefix) {
         if (character != '\0') {
             *cursor++ = character;
@@ -2132,7 +2169,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
 }
 
 bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
-    if (text == nullptr || std::strncmp(text, "lofi4-", 6) != 0) {
+    if (text == nullptr || std::strncmp(text, "lofi5-", 6) != 0) {
         return false;
     }
     const char* cursor = text + 6;

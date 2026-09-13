@@ -353,7 +353,7 @@ void testFavoriteRoundTrip() {
     const std::size_t length = engine.writeFavoriteCode(code, sizeof(code));
     CHECK(length > 0);
     CHECK(std::strcmp(code,
-                      "lofi4-fedcba9876543210-2-1-100-0-0-0-0-3-0") == 0);
+                      "lofi5-fedcba9876543210-2-1-100-0-0-0-0-3-0") == 0);
 
     Config parsed{};
     CHECK(Engine::parseFavoriteCode(code, parsed));
@@ -367,29 +367,31 @@ void testFavoriteRoundTrip() {
     Engine manual(source);
     CHECK(manual.writeFavoriteCode(code, sizeof(code)) > 0);
     CHECK(std::strcmp(code,
-                      "lofi4-fedcba9876543210-2-1-100-0-180-3-5-2-2") == 0);
+                      "lofi5-fedcba9876543210-2-1-100-0-180-3-5-2-2") == 0);
     CHECK(Engine::parseFavoriteCode(code, parsed));
     CHECK(sameConfig(source, parsed));
 
     CHECK(!Engine::parseFavoriteCode("lofi3-fedcba9876543210-2-1-100-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba987654321-2-1-100-0-0-0-0-3-0", parsed));
+        "lofi4-fedcba9876543210-2-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-3-1-100-0-0-0-0-3-0", parsed));
+        "lofi5-fedcba987654321-2-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-101-0-0-0-0-3-0", parsed));
+        "lofi5-fedcba9876543210-3-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-100-0-39-0-0-3-0", parsed));
+        "lofi5-fedcba9876543210-2-1-101-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-100-0-181-0-0-3-0", parsed));
+        "lofi5-fedcba9876543210-2-1-100-0-39-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-100-0-120-4-0-3-0", parsed));
+        "lofi5-fedcba9876543210-2-1-100-0-181-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-100-0-120-1-6-3-0", parsed));
+        "lofi5-fedcba9876543210-2-1-100-0-120-4-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-100-0-120-1-0-6-0", parsed));
+        "lofi5-fedcba9876543210-2-1-100-0-120-1-6-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi4-fedcba9876543210-2-1-100-0-120-1-0-3-3", parsed));
+        "lofi5-fedcba9876543210-2-1-100-0-120-1-0-6-0", parsed));
+    CHECK(!Engine::parseFavoriteCode(
+        "lofi5-fedcba9876543210-2-1-100-0-120-1-0-3-3", parsed));
 
     char tooSmall[8] = {'x'};
     CHECK(engine.writeFavoriteCode(tooSmall, sizeof(tooSmall)) == 0);
@@ -426,16 +428,23 @@ void testReplayAndBlockDeterminism() {
     CHECK(left.renderedFrames == frames);
     CHECK(left.scoreEventCount > 20);
     CHECK(energy(reference) > UINT64_C(10000000));
-    // Pin the schema-4 AUTO score and PCM stream, including its weighted meter
+    // Pin the schema-5 AUTO score and PCM stream, including its weighted meter
     // draw, so host and device builds cannot silently diverge.
     CHECK(smallBlocks.snapshot().bpm == 68);
     CHECK(smallBlocks.snapshot().meterNumerator == 4);
     CHECK(smallBlocks.snapshot().meterDenominator == 4);
-    CHECK(left.scoreEventCount == 82);
-    CHECK(left.scoreEventHash == UINT64_C(0xf0d5794f6cab7f00));
+    constexpr std::uint32_t expectedScoreEvents = 82;
+    constexpr std::uint64_t expectedScoreHash = UINT64_C(0x5292184dcc22641f);
+    if (left.scoreEventCount != expectedScoreEvents ||
+        left.scoreEventHash != expectedScoreHash) {
+        std::cerr << "reference score: events=" << left.scoreEventCount
+                  << " hash=0x" << std::hex << left.scoreEventHash << std::dec << '\n';
+    }
+    CHECK(left.scoreEventCount == expectedScoreEvents);
+    CHECK(left.scoreEventHash == expectedScoreHash);
     // The core disables FP contraction so this exact PCM stream stays portable
     // between ARM and x86 hosts and matches the firmware arithmetic policy.
-    constexpr std::uint64_t expectedPcmHash = UINT64_C(0xb52edd474ab7066c);
+    constexpr std::uint64_t expectedPcmHash = UINT64_C(0xbb767a4472919295);
     const std::uint64_t referencePcmHash = pcmHash(reference);
     if (referencePcmHash != expectedPcmHash) {
         std::cerr << "reference PCM hash: 0x" << std::hex << referencePcmHash
@@ -690,6 +699,126 @@ void testInstrumentLevelTelemetry() {
                       [](std::uint8_t level) { return level == 0; }));
 }
 
+void testLeadMakesBoundedKeysPocket() {
+    Config config{};
+    config.seed = UINT64_C(0x000000000ca7cafe);
+    config.mood = Mood::Cozy;
+    config.soundEngine = SoundEngine::Synth;
+    config.texture = 0;
+    config.bpm = 80;
+    config.meter = MusicMeter::FourFour;
+
+    Engine onset(config);
+    const lofi::ScoreBar opening = onset.scoreBar();
+    const lofi::ScoreNote* firstLead = nullptr;
+    for (std::size_t index = 0; index < opening.noteCount; ++index) {
+        if (opening.notes[index].instrument == lofi::MusicInstrument::Lead) {
+            firstLead = &opening.notes[index];
+            break;
+        }
+    }
+    CHECK(firstLead != nullptr);
+    CHECK(onset.snapshot().keysGainQ15 == 32767);
+    if (firstLead->startSample > 0) {
+        renderFrames(onset, static_cast<std::size_t>(firstLead->startSample), 257);
+        CHECK(onset.snapshot().keysGainQ15 == 32767);
+    }
+    std::int16_t onsetSamples[32]{};
+    onset.render(onsetSamples, std::size(onsetSamples));
+    const std::uint16_t firstLeadGain = onset.snapshot().keysGainQ15;
+    CHECK(firstLeadGain < 32767);
+    CHECK(firstLeadGain > 32000);
+    renderFrames(onset, 3200, 193);
+    CHECK(onset.snapshot().keysGainQ15 + 2500 < firstLeadGain);
+
+    constexpr std::size_t frames = lofi::kMusicSampleRate * 12u;
+    Engine smallBlocks(config);
+    Engine unevenBlocks(config);
+    const std::vector<std::int16_t> small = renderFrames(smallBlocks, frames, 64);
+    const std::vector<std::int16_t> uneven = renderFrames(unevenBlocks, frames, 997);
+    CHECK(small == uneven);
+    const lofi::Diagnostics smallDiagnostics = smallBlocks.diagnostics();
+    const lofi::Diagnostics unevenDiagnostics = unevenBlocks.diagnostics();
+    // 0.88 in Q15 is about 28835. The lower bound protects against
+    // heavy-handed attenuation; the upper bound proves the long opening
+    // notes establish an audible pocket.
+    CHECK(smallDiagnostics.minimumKeysGainQ15 >= 28830);
+    CHECK(smallDiagnostics.minimumKeysGainQ15 <= 29200);
+    CHECK(smallDiagnostics.minimumKeysGainQ15 ==
+          unevenDiagnostics.minimumKeysGainQ15);
+    CHECK(smallBlocks.snapshot().keysGainQ15 == unevenBlocks.snapshot().keysGainQ15);
+    CHECK(smallBlocks.diagnostics().scoreEventHash ==
+          unevenBlocks.diagnostics().scoreEventHash);
+}
+
+void testRecognizablePhraseShapeAcrossMeters() {
+    for (std::uint8_t meterValue = 1; meterValue <= 3; ++meterValue) {
+        Config config{};
+        config.seed = UINT64_C(0x000000000ca7cafe);
+        config.mood = Mood::Cozy;
+        config.soundEngine = SoundEngine::Synth;
+        config.texture = 0;
+        config.bpm = 120;
+        config.meter = static_cast<MusicMeter>(meterValue);
+        Engine engine(config);
+
+        std::uint8_t leadCounts[9]{};
+        std::uint8_t firstLeadSteps[9]{};
+        std::fill(std::begin(firstLeadSteps), std::end(firstLeadSteps), UINT8_MAX);
+        std::uint64_t openingRhythm = UINT64_C(14695981039346656037);
+        std::uint64_t returningRhythm = UINT64_C(14695981039346656037);
+
+        for (std::uint32_t expectedBar = 0; expectedBar < 9; ++expectedBar) {
+            const lofi::ScoreBar bar = engine.scoreBar();
+            CHECK(bar.bar == expectedBar);
+            const double stepSamples = static_cast<double>(lofi::kMusicSampleRate) *
+                60.0 / (static_cast<double>(bar.bpm) * bar.stepsPerBeat);
+            for (std::size_t index = 0; index < bar.noteCount; ++index) {
+                const lofi::ScoreNote& note = bar.notes[index];
+                if (note.instrument != lofi::MusicInstrument::Lead) {
+                    continue;
+                }
+                const auto step = static_cast<std::uint8_t>(std::llround(
+                    static_cast<double>(note.startSample - bar.barStartSample) /
+                    stepSamples));
+                const auto duration = static_cast<std::uint8_t>(std::max(
+                    1, static_cast<int>(std::llround(
+                        static_cast<double>(note.durationSamples) / stepSamples))));
+                if (firstLeadSteps[expectedBar] == UINT8_MAX) {
+                    firstLeadSteps[expectedBar] = step;
+                }
+                ++leadCounts[expectedBar];
+                if (expectedBar == 0u) {
+                    openingRhythm = signatureValue(openingRhythm,
+                        static_cast<std::uint64_t>(step) * 8u + duration);
+                } else if (expectedBar == 8u) {
+                    returningRhythm = signatureValue(returningRhythm,
+                        static_cast<std::uint64_t>(step) * 8u + duration);
+                }
+            }
+            if (expectedBar < 8u) {
+                renderToNextBar(engine, expectedBar);
+            }
+        }
+
+        const ExpectedMeter expected = expectedMeter(config.meter);
+        CHECK(leadCounts[0] >= 3);
+        CHECK(leadCounts[8] == leadCounts[0]);
+        CHECK(returningRhythm == openingRhythm);
+        CHECK(leadCounts[1] == 3);
+        CHECK(firstLeadSteps[1] >= expected.stepsPerBeat + 1u);
+        CHECK(leadCounts[2] == 2);
+        CHECK(leadCounts[3] == 1);
+        CHECK(firstLeadSteps[3] >= expected.steps / 2u);
+        CHECK(leadCounts[4] >= 1 && leadCounts[4] <= 3);
+        CHECK(firstLeadSteps[4] >= expected.stepsPerBeat);
+        CHECK(leadCounts[5] == 2);
+        CHECK(firstLeadSteps[5] >= expected.stepsPerBeat + 1u);
+        CHECK(leadCounts[6] == 2);
+        CHECK(leadCounts[7] == 2);
+    }
+}
+
 void testOpeningHasEveryLayerAndHeadroom() {
     constexpr std::uint64_t seeds[] = {
         UINT64_C(0x000000000ca7cafe),
@@ -763,7 +892,7 @@ void testOpeningHasEveryLayerAndHeadroom() {
     }
 
     CHECK(lofi::kMusicVoiceCapacity == 12);
-    CHECK(lofi::kMusicSchemaVersion == 4);
+    CHECK(lofi::kMusicSchemaVersion == 5);
 }
 
 void testFastTempoVoicePressure() {
@@ -808,8 +937,16 @@ void testFastTempoVoicePressure() {
     Engine regression(sampledTailRegression);
     renderFrames(regression, lofi::kMusicSampleRate * 30u, 401);
     const lofi::Diagnostics regressionDiagnostics = regression.diagnostics();
-    CHECK(regressionDiagnostics.scoreEventCount == 737);
-    CHECK(regressionDiagnostics.scoreEventHash == UINT64_C(0x5a32afd229110c9b));
+    constexpr std::uint32_t expectedRegressionEvents = 717;
+    constexpr std::uint64_t expectedRegressionHash = UINT64_C(0x7c773e98a9050640);
+    if (regressionDiagnostics.scoreEventCount != expectedRegressionEvents ||
+        regressionDiagnostics.scoreEventHash != expectedRegressionHash) {
+        std::cerr << "fast-tempo regression score: events="
+                  << regressionDiagnostics.scoreEventCount << " hash=0x" << std::hex
+                  << regressionDiagnostics.scoreEventHash << std::dec << '\n';
+    }
+    CHECK(regressionDiagnostics.scoreEventCount == expectedRegressionEvents);
+    CHECK(regressionDiagnostics.scoreEventHash == expectedRegressionHash);
     CHECK(regressionDiagnostics.droppedNoteEvents == 0);
     CHECK(regressionDiagnostics.maxActiveVoices <= lofi::kMusicVoiceCapacity);
 }
@@ -1443,6 +1580,8 @@ int main() {
     testMeterSchedulingAndBackendDeterminism();
     testToneSelectionDoesNotChangeScore();
     testInstrumentLevelTelemetry();
+    testLeadMakesBoundedKeysPocket();
+    testRecognizablePhraseShapeAcrossMeters();
     testOpeningHasEveryLayerAndHeadroom();
     testFastTempoVoicePressure();
     testScheduledHarmonyMovementAndPhraseVariety();

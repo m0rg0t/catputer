@@ -65,6 +65,12 @@ The melodic revision addresses overlapping melody gates and unstructured phrase 
 
 These rules improve structural coherence; they do not establish that every seed sounds pleasant. Seeded AUTO meter changes only with a new session. Schema 4 changes the old score; old favorites remain marked OLD rather than silently receiving a new melody.
 
+## Clearer mix and responses · schema 5
+
+Version 0.1.8-dev uses schema 5. Answering bars now leave a full beat of space before a shorter response; the midpoint echoes only part of the opening motif after a beat, and the full hook returns at the next eight-bar boundary. The richer first-bar arrangement, session meter, chord-tone endings and passing-note resolution rules remain in place. Synth and Hybrid still play the same score for matching parameters.
+
+While the lead envelope is active, only the chord bed eases down toward 88% gain, with approximately 20 ms attack and 120 ms release time constants. Bass and drums keep their level. This is separate from the existing subtle kick-triggered attenuation. It adds fixed scalar state, with no new voices or sample buffers. This revision intentionally changes the generated score and PCM; schema-4 favorites require earlier firmware for faithful replay.
+
 ## Selectable sound sources
 
 The `I` menu selects chord and melody tones independently: electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute. Bass choices are round, upright and sub. These are lightweight synthesized interpretations with distinct partials and envelopes, not high-fidelity acoustic sample libraries. They use the same fixed voice pool and compose entirely on the device. No network or additional SD resources are required.

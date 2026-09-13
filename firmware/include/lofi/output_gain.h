@@ -22,6 +22,8 @@ public:
     explicit OutputGain(unsigned percent = 100) noexcept { reset(percent); }
     void reset(unsigned percent) noexcept;
     void setVolume(unsigned percent) noexcept;
+    // Independent post-limiter sleep fade; 32768 is unity. User volume stays intact.
+    void setSleepGain(std::uint16_t q15) noexcept;
     void process(std::int16_t* samples, std::size_t frames) noexcept;
     unsigned volume() const noexcept { return percent_; }
     std::uint64_t limitedSamples() const noexcept { return limited_; }
@@ -30,6 +32,9 @@ private:
     static float gainFor(unsigned percent) noexcept;
     unsigned percent_ = 100, remaining_ = 0;
     float gain_ = 1.0f, target_ = 1.0f, step_ = 0.0f;
+    unsigned sleepRemaining_ = 0;
+    std::uint16_t sleepQ15_ = 32768;
+    float sleepGain_ = 1.0f, sleepTarget_ = 1.0f, sleepStep_ = 0.0f;
     std::uint64_t limited_ = 0;
 };
 

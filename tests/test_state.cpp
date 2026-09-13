@@ -60,7 +60,8 @@ bool sameState(const lofi::SavedState& left, const lofi::SavedState& right) {
         left.settings.meter != right.settings.meter ||
         left.settings.keysTone != right.settings.keysTone ||
         left.settings.leadTone != right.settings.leadTone ||
-        left.settings.bassTone != right.settings.bassTone) {
+        left.settings.bassTone != right.settings.bassTone ||
+        left.settings.autoDimSeconds != right.settings.autoDimSeconds) {
         return false;
     }
     for (unsigned i = 0; i < lofi::kMaxFavorites; ++i) {
@@ -80,6 +81,7 @@ int main() {
     state.settings.volume = 300;
     state.settings.bpm = 123;
     state.settings.mood = 2;
+    state.settings.autoDimSeconds = 120;
     state.settings.meter = MusicMeter::SixEight;
     state.settings.keysTone = Tone::FeltPiano;
     state.settings.leadTone = Tone::SoftFlute;
@@ -101,7 +103,8 @@ int main() {
     std::array<std::uint8_t, kStateBytes> data{};
     assert(encodeState(state, data));
     assert(data[4] == kStateFormatCurrent && data.size() == kStateBytes);
-    assert(data[5] == 192 && data[6] == 1 && data[8] == 44 && data[15] == 123);
+    assert(data[5] == 192 && data[6] == 1 && data[7] == 120 &&
+           data[8] == 44 && data[15] == 123);
     assert(data[144] == 123 && data[184] == static_cast<std::uint8_t>(MusicMeter::SixEight));
     assert(data[185] == static_cast<std::uint8_t>(Tone::FeltPiano));
     assert(data[186] == static_cast<std::uint8_t>(Tone::SoftFlute));
@@ -116,6 +119,28 @@ int main() {
     assert(decodeState(data.data(), data.size(), decoded));
     assert(sameState(state, decoded));
     assert(decoded.settings.volume == 300 && decoded.favorites[0].bpm == 123);
+
+    // Format 3 used the same 192-byte layout with byte 7 reserved. It migrates
+    // to the 60-second default and cannot claim a schema-5 favorite.
+    auto format3 = data;
+    format3[4] = kStateFormatInstruments;
+    format3[7] = 0;
+    format3[31] = 4;
+    put32(format3.data() + 188, crc32(format3.data(), 188));
+    SavedState format3Decoded;
+    assert(decodeState(format3.data(), format3.size(), format3Decoded));
+    assert(format3Decoded.settings.autoDimSeconds == 60 &&
+           format3Decoded.favorites[0].schema == 4);
+    auto format3ClaimingCurrentMusic = format3;
+    format3ClaimingCurrentMusic[31] = 5;
+    put32(format3ClaimingCurrentMusic.data() + 188,
+          crc32(format3ClaimingCurrentMusic.data(), 188));
+    assert(!decodeState(format3ClaimingCurrentMusic.data(),
+                        format3ClaimingCurrentMusic.size(), format3Decoded));
+    auto format3BadPadding = format3;
+    format3BadPadding[7] = 30;
+    put32(format3BadPadding.data() + 188, crc32(format3BadPadding.data(), 188));
+    assert(!decodeState(format3BadPadding.data(), format3BadPadding.size(), format3Decoded));
 
     // Manual tempo and instruments are part of favorite identity.
     Favorite variant = first;
@@ -135,6 +160,7 @@ int main() {
     const auto legacy = makeFormat1();
     assert(decodeState(legacy.data(), legacy.size(), legacyDecoded));
     assert(legacyDecoded.settings.volume == 65 && legacyDecoded.settings.bpm == 0);
+    assert(legacyDecoded.settings.autoDimSeconds == 60);
     assert(legacyDecoded.settings.meter == MusicMeter::Auto &&
            legacyDecoded.settings.keysTone == Tone::ElectricPiano);
     assert(legacyDecoded.favorites[0].seed == UINT64_C(0x123456789abcdef0));
@@ -153,6 +179,7 @@ int main() {
     finishLegacyCrc(format2);
     assert(decodeState(format2.data(), format2.size(), decoded));
     assert(decoded.settings.volume == 300 && decoded.settings.bpm == 123);
+    assert(decoded.settings.autoDimSeconds == 60);
     assert(decoded.favorites[0].bpm == 123);
     assert(decoded.settings.meter == MusicMeter::Auto &&
            decoded.favorites[0].bassTone == BassTone::Round);
@@ -175,6 +202,9 @@ int main() {
     state.settings.volume = 301;
     assert(!encodeState(state, data));
     state.settings.volume = 300;
+    state.settings.autoDimSeconds = 45;
+    assert(!encodeState(state, data));
+    state.settings.autoDimSeconds = 120;
     state.settings.bpm = static_cast<std::uint16_t>(kMusicMinBpm - 1);
     assert(!encodeState(state, data));
     state.settings.bpm = static_cast<std::uint16_t>(kMusicMaxBpm + 1);
@@ -191,6 +221,11 @@ int main() {
     const auto unchanged = decoded;
     auto corrupt = data;
     corrupt[12] = 0xff; // engine is outside its allowed range.
+    put32(corrupt.data() + 188, crc32(corrupt.data(), 188));
+    assert(!decodeState(corrupt.data(), corrupt.size(), decoded));
+    assert(sameState(decoded, unchanged));
+    corrupt = data;
+    corrupt[7] = 45;
     put32(corrupt.data() + 188, crc32(corrupt.data(), 188));
     assert(!decodeState(corrupt.data(), corrupt.size(), decoded));
     assert(sameState(decoded, unchanged));

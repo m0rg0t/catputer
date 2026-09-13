@@ -6,14 +6,16 @@
 
 namespace lofi {
 constexpr std::size_t kMaxFavorites = 8;
-// The first two formats are exactly 160 bytes.  Format 3 appends typed
+// The first two formats are exactly 160 bytes. Formats 3 and 4 append typed
 // instrument/meter settings while retaining the original favorite records.
+// Format 4 assigns the previously reserved header byte to auto-dim.
 // Keep the legacy size public so platform readers can accept both lengths.
 constexpr std::size_t kStateLegacyBytes = 160;
 constexpr std::size_t kStateBytes = 192;
 constexpr std::uint8_t kStateFormatLegacy = 1;
 constexpr std::uint8_t kStateFormatBpm = 2;
-constexpr std::uint8_t kStateFormatCurrent = 3;
+constexpr std::uint8_t kStateFormatInstruments = 3;
+constexpr std::uint8_t kStateFormatCurrent = 4;
 static_assert(kMusicMaxBpm <= 255, "Persisted BPM bytes must hold the full manual range");
 static_assert(kStateBytes <= 255, "Persisted state length must fit the header byte");
 static_assert(kMusicSchemaVersion <= 255, "Favorite schema must fit the saved format");
@@ -36,6 +38,8 @@ struct Settings {
     Tone keysTone = Tone::ElectricPiano;
     Tone leadTone = Tone::Vibraphone;
     BassTone bassTone = BassTone::Round;
+    // 0 disables idle dimming; the supported delays are 30, 60 and 120 seconds.
+    std::uint8_t autoDimSeconds = 60;
 };
 struct Favorite {
     std::uint64_t seed = 0;

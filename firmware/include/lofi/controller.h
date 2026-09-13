@@ -25,14 +25,23 @@ public:
     void storageResult(bool success);
     void populateView();
     const Snapshot& snapshot() const { return snapshot_; }
+    std::uint16_t sleepGainQ15() const { return sleepGainQ15_; }
+    bool sleepPausePending() const { return sleepPausePending_; }
+    std::uint8_t effectiveBrightness() const;
 private:
     std::uint64_t initialSeed_;
     Snapshot snapshot_{};
     Config requestedConfig_{};
     bool configRequested_=false, pauseRequested_=false, desiredPaused_=false;
     std::uint64_t noticeUntil_=0, lastInput_=0;
+    std::uint64_t sleepDeadlineMs_=0;
+    std::uint16_t sleepGainQ15_=32768;
+    std::uint8_t sleepMinutes_=0;
+    bool sleepExpired_=false, sleepPausePending_=false, dimmed_=false;
     bool manualClean_=false;
     Favorite currentFavorite() const;
     Action changedConfig();
+    void setSleepMinutes(std::uint8_t minutes);
+    void cancelSleepTimer();
 };
 }

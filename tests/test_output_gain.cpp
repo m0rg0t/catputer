@@ -85,4 +85,36 @@ int main() {
     assert(full[0]<=halfway && halfway-full[0]<=8);
     for(unsigned i=1;i<full.size();++i) assert(full[i]>=0 && full[i]<=full[i-1]);
     assert(full.back()==0);
+
+    // Sleep fade is independent of the user volume and follows the limiter.
+    OutputGain awake(300), sleepy(300);
+    std::int16_t loud = 30000;
+    awake.process(&loud, 1);
+    sleepy.setSleepGain(16384);
+    full.fill(30000); sleepy.process(full.data(), full.size());
+    assert(std::abs(int(full.back()) * 2 - int(loud)) <= 1);
+    assert(sleepy.volume() == 300);
+    for (unsigned i=1; i<full.size(); ++i) assert(full[i] <= full[i-1]);
+    sleepy.setSleepGain(0);
+    full.fill(30000); sleepy.process(full.data(), full.size());
+    assert(full.back() == 0 && sleepy.volume() == 300);
+    sleepy.setSleepGain(32768);
+    full.fill(30000); sleepy.process(full.data(), full.size());
+    for (unsigned i=1; i<full.size(); ++i) assert(full[i] >= full[i-1]);
+    assert(full.back() == loud);
+
+    a.reset(300); b.reset(300); a.setSleepGain(0); b.setSleepGain(0);
+    full.fill(30000); split.fill(30000);
+    a.process(full.data(), full.size());
+    for (unsigned offset=0; offset<split.size(); offset+=32) {
+        b.setSleepGain(0); b.process(split.data()+offset, 32);
+    }
+    assert(full == split && full.back() == 0);
+    a.reset(300); a.setSleepGain(0); full.fill(30000); a.process(full.data(), 128);
+    const int beforeWake = full[127];
+    a.setSleepGain(32768); full.fill(30000); a.process(full.data(), full.size());
+    assert(full[0] >= beforeWake && full[0]-beforeWake < 100);
+    assert(full.back() == loud && a.volume() == 300);
+    a.setSleepGain(0); a.reset(300); loud = 30000; a.process(&loud, 1);
+    assert(loud == full.back()); // Reset returns to awake, full output.
 }

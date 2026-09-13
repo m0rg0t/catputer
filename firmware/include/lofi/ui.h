@@ -43,6 +43,11 @@ struct View {
     bool sdReady = false;
     bool favorite = false;
     bool pending = false;
+    bool dimmed = false;
+    bool sleepTimerActive = false;
+    bool sleepExpired = false;
+    std::uint32_t sleepSecondsRemaining = 0;
+    std::uint16_t sleepGainQ15 = 32768;
     // 0 = still scene, 1 = reduced motion, 2 = full motion.
     std::uint8_t motion = 2;
     MusicMeter meter = MusicMeter::Auto;
@@ -60,7 +65,7 @@ struct View {
     float beatPhase = 0.0f;
     float level = 0.0f;
     char notice[40] = {};
-    char items[8][32] = {};
+    char items[10][32] = {};
 };
 
 // A fixed 8-bit indexed canvas.  Each byte is one palette index; the full

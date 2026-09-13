@@ -455,8 +455,19 @@ void drawMusicViz(Frame& frame, const View& view, int top) {
         frame.fillRect(155 + i * 9, top + 10, 5, 5, active ? Gold : Slate);
     }
     const bool audible = view.playing && view.volume > 0;
-    drawTinyText(frame, 229, top + 3, audible ? "ON" : "--",
-                 audible ? Leaf : Haze, 10);
+    if (view.sleepExpired) {
+        drawTinyText(frame, 205, top + 3, "SL END", Amber, 31);
+    } else if (view.sleepTimerActive) {
+        char sleep[9] = {};
+        std::snprintf(sleep, sizeof(sleep), "SL %u:%02u",
+                      static_cast<unsigned>(view.sleepSecondsRemaining / 60U),
+                      static_cast<unsigned>(view.sleepSecondsRemaining % 60U));
+        drawTinyText(frame, 205, top + 3, sleep,
+                     view.sleepGainQ15 < 32768 ? Gold : Haze, 31);
+    } else {
+        drawTinyText(frame, 229, top + 3, audible ? "ON" : "--",
+                     audible ? Leaf : Haze, 10);
+    }
 }
 
 void drawBattery(Frame& frame, int x, int y, int percent) {
@@ -524,15 +535,27 @@ void drawMenuFrame(Frame& frame, const char* title, const View& view) {
     drawText(frame, 34, 26, title, Cream, 164);
     frame.fillRect(34, 36, 170, 1, Brick);
     if (view.itemCount > 0) {
-        const int count = clampInt(view.itemCount, 0, 8);
-        for (int i = 0; i < count; ++i) {
-            const int y = 42 + i * 9;
-            const bool selected = i == clampInt(view.selection, 0, count - 1);
+        constexpr int visibleRows = 8;
+        const int itemCount = clampInt(view.itemCount, 0, 10);
+        const int selection = clampInt(view.selection, 0, itemCount - 1);
+        const int first = itemCount <= visibleRows ? 0 :
+            clampInt(selection - visibleRows + 1, 0, itemCount - visibleRows);
+        const int count = clampInt(itemCount - first, 0, visibleRows);
+        if (itemCount > visibleRows) {
+            char position[10] = {};
+            std::snprintf(position, sizeof(position), "%d-%d/%d",
+                          first + 1, first + count, itemCount);
+            drawTinyText(frame, 174, 28, position, Haze, 31);
+        }
+        for (int row = 0; row < count; ++row) {
+            const int index = first + row;
+            const int y = 42 + row * 9;
+            const bool selected = index == selection;
             if (selected) {
                 frame.fillRect(32, y - 2, 174, 9, Slate);
                 frame.fillRect(34, y, 2, 5, Gold);
             }
-            drawText(frame, 41, y, view.items[i], selected ? Cream : Moon, 158);
+            drawText(frame, 41, y, view.items[index], selected ? Cream : Moon, 158);
         }
     } else {
         drawCenteredText(frame, 34, 170, 54, "NO ITEMS YET", Haze);
@@ -752,6 +775,8 @@ void render(Frame& frame, const View& view) {
     drawText(frame, 4, 125,
              view.screen == Screen::Settings && view.selection == 1
              ? "ENTER AUTO/MANUAL  ,/ BPM  ESC BACK"
+             : view.screen == Screen::Settings && (view.selection == 3 || view.selection == 4)
+             ? "ENTER CYCLE  ,/ CHANGE  ESC BACK"
              : view.screen == Screen::Instruments
              ? "ENTER CYCLE  ,/ CHANGE  ESC BACK"
              : "ENTER OK   ESC BACK   ;/. MOVE", Cream, 232);

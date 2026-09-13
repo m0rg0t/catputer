@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.7-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.8-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -32,6 +32,12 @@ In **S → BPM**, use `,` / `/` for 1 BPM steps from 40 to 180. Enter toggles AU
 
 Volume runs from 0 to 300% in 5% steps. Above 100% it adds software gain, with a soft limiter before PCM output; actual loudness depends on the speaker or headphones. Volume changes ramp over 10 ms. The default remains 35%.
 
+In **S → SLEEP**, select Off / 30 / 60 / 90 minutes. It fades over the final 30 seconds, then pauses playback without powering down or changing your volume. The countdown continues while manually paused. Select Off to cancel; deliberately resuming with Space clears a fading or expired timer. Sleep starts Off on every boot.
+
+In **S → AUTO DIM**, select Off / 30 / 60 / 120 seconds (default 60). Inactivity dims the backlight to at most 10%. The first keypress wakes only; release it and press again to use the control. This preference persists on SD. On the desktop, dimming is simulated relative to the normal preview brightness.
+
+Reset Settings restores saved preferences and leaves the runtime sleep timer alone; use Sleep Off to cancel it.
+
 Mood/engine/instrument/meter/session changes take effect at the next bar with a fade. A BPM-only change takes effect at the next bar without restarting the current tune. A favorite restarts a seed at its beginning, not at the point where it was saved. Replay is tied to generation schema, parameters, tempo and the matching hybrid sample bank.
 
 Open **I** to select the chord tone, melody tone, bass tone and musical meter. Use `;` / `.` to move, `,` / `/` or Enter to change the selected value. AUTO chooses a meter once per session; manual choices are 4/4, 3/4 and 6/8. In 6/8, BPM counts dotted-quarter pulses (two per bar).
@@ -43,3 +49,5 @@ Version 0.1.5-dev retains the LCD RGB565 correction and larger text, and introdu
 Version 0.1.6-dev changes only the visualization backing and label contrast. Music schema 4, save format 3 and existing 0.1.5-dev favorites remain compatible.
 
 Version 0.1.7-dev fixes random-draw ordering so timing and velocity follow the intended schema-4 sequence across compilers, and pins floating-point multiply/add rounding. Save format 3 and existing schema-4 favorites remain readable. Earlier builds affected by compiler ordering can sound slightly different when replayed; the reference desktop note sequence is preserved.
+
+Version 0.1.8-dev introduces clearer melodic phrasing and generation schema 5. Save format 4 remains 192 bytes and adds the auto-dim preference. Valid formats 1/2/3 migrate with auto-dim set to 60 seconds; old favorites remain visible as `OLD` and removable. Replay of a schema-4 favorite requires 0.1.7-dev. Keep a backup of your earlier state before downgrading, because earlier firmware cannot read format 4. Sleep timers are never saved.

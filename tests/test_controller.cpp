@@ -63,13 +63,13 @@ int main() {
     for (int i = 0; i < 20; ++i) {
         c.key('.');
     }
-    assert(c.view.itemCount == 8 && c.view.selection == 7);
+    assert(c.view.itemCount == 10 && c.view.selection == 9);
     c.saved.settings.volume = 300;
     auto reset = c.key('\n');
     assert(reset.kind == ActionKind::Config && c.saved.settings.volume == 35 &&
            c.saved.settings.bpm == 0);
     c.tick(200);
-    assert(c.view.itemCount == 8);
+    assert(c.view.itemCount == 10);
     for (int i = 0; i < 20; ++i) {
         c.key(';');
     }
@@ -211,6 +211,117 @@ int main() {
     instruments.setSnapshot(levelSnapshot);
     instruments.populateView();
     assert(instruments.view.instrumentLevels[0] == 0 && instruments.view.level == 0.0f);
+
+    // Sleep is a runtime-only wall-clock timer. Each selection starts a fresh
+    // duration, including while playback is already paused.
+    Controller sleep(UINT64_C(0x88776655));
+    Snapshot sleepSnapshot = snapshotFor(sleep, 72);
+    sleep.saved.settings.autoDimSeconds = 0;
+    sleep.key('s');
+    for (int i = 0; i < 4; ++i) sleep.key('.');
+    assert(sleep.view.selection == 4);
+    sleep.key('\n');
+    assert(sleep.view.sleepTimerActive && sleep.view.sleepSecondsRemaining == 1800 &&
+           sleep.sleepGainQ15() == 32768 && !sleep.sleepPausePending());
+    sleep.key('/');
+    assert(sleep.view.sleepSecondsRemaining == 3600);
+    sleep.key('/');
+    assert(sleep.view.sleepSecondsRemaining == 5400);
+    sleep.key('/');
+    assert(!sleep.view.sleepTimerActive && sleep.sleepGainQ15() == 32768);
+
+    // The last 30 seconds fade linearly without changing the saved volume.
+    sleep.key('\n'); // 30 minutes from the current fake time (100 ms).
+    const std::uint64_t deadline = 100U + 30U * 60U * 1000U;
+    sleep.saved.settings.volume = 135;
+    sleep.tick(deadline - 30000U);
+    assert(sleep.sleepGainQ15() == 32768 && sleep.view.sleepSecondsRemaining == 30);
+    sleep.tick(deadline - 15000U);
+    assert(sleep.sleepGainQ15() == 16384 && sleep.view.sleepSecondsRemaining == 15 &&
+           sleep.saved.settings.volume == 135);
+    sleepSnapshot.instrumentLevels[0] = 100;
+    sleepSnapshot.recentPeak = 16384;
+    sleep.setSnapshot(sleepSnapshot);
+    sleep.populateView();
+    assert(sleep.view.instrumentLevels[0] == 50 && sleep.view.level > 0.249f &&
+           sleep.view.level < 0.251f);
+    sleep.tick(deadline);
+    assert(sleep.sleepGainQ15() == 0 && sleep.sleepPausePending() &&
+           sleep.view.sleepExpired && sleep.saved.settings.volume == 135);
+
+    // A fresh still-playing snapshot at the deadline cannot clear the desired
+    // pause. Space deliberately reverses that pending pause and cancels the
+    // expired timer, so a later stale paused snapshot cannot re-arm it.
+    sleep.setSnapshot(sleepSnapshot);
+    assert(sleep.sleepPausePending());
+    const auto raceResume = sleep.key(' ');
+    assert(raceResume.kind == ActionKind::Pause && !raceResume.paused &&
+           !sleep.sleepPausePending() && sleep.sleepGainQ15() == 32768);
+    sleepSnapshot.paused = true;
+    sleep.setSnapshot(sleepSnapshot);
+    sleep.tick(deadline + 1);
+    assert(!sleep.sleepPausePending() && !sleep.view.sleepTimerActive &&
+           !sleep.view.sleepExpired);
+
+    Controller cancelRace(UINT64_C(0x55667788));
+    Snapshot cancelSnapshot = snapshotFor(cancelRace, 72);
+    cancelRace.saved.settings.autoDimSeconds = 0;
+    cancelRace.key('s');
+    for (int i = 0; i < 4; ++i) cancelRace.key('.');
+    cancelRace.key('\n');
+    cancelRace.tick(deadline);
+    assert(cancelRace.sleepPausePending());
+    cancelRace.setSnapshot(cancelSnapshot); // Still-playing deadline snapshot.
+    const auto cancelAtDeadline = cancelRace.key(',');
+    assert(cancelAtDeadline.kind == ActionKind::Pause && !cancelAtDeadline.paused &&
+           !cancelRace.sleepPausePending() && !cancelRace.view.sleepTimerActive &&
+           cancelRace.sleepGainQ15() == 32768);
+
+    Controller pausedSleep(UINT64_C(0x12344321));
+    Snapshot pausedSnapshot = snapshotFor(pausedSleep, 72);
+    pausedSleep.saved.settings.autoDimSeconds = 0;
+    pausedSnapshot.paused = true;
+    pausedSleep.setSnapshot(pausedSnapshot);
+    pausedSleep.key('s');
+    for (int i = 0; i < 4; ++i) pausedSleep.key('.');
+    pausedSleep.key('\n');
+    pausedSleep.tick(100U + 15U * 60U * 1000U);
+    assert(pausedSleep.view.sleepSecondsRemaining == 900);
+    pausedSleep.tick(100U + 30U * 60U * 1000U);
+    assert(pausedSleep.view.sleepExpired && !pausedSleep.sleepPausePending());
+    const auto pausedResume = pausedSleep.key(' ');
+    assert(pausedResume.kind == ActionKind::Pause && !pausedResume.paused &&
+           !pausedSleep.view.sleepTimerActive);
+
+    // Default auto-dim occurs after 60 seconds. The first key only restores
+    // brightness; a repeated key performs the intended action.
+    Controller dim(UINT64_C(0x10203040));
+    snapshotFor(dim, 72);
+    assert(dim.saved.settings.autoDimSeconds == 60 && dim.effectiveBrightness() == 70);
+    dim.tick(60100);
+    assert(dim.view.dimmed && dim.effectiveBrightness() == 10);
+    const auto wakeOnly = dim.key(' ');
+    assert(wakeOnly.kind == ActionKind::None && !dim.view.dimmed &&
+           dim.effectiveBrightness() == 70);
+    const auto afterWake = dim.key(' ');
+    assert(afterWake.kind == ActionKind::Pause && afterWake.paused);
+
+    // Auto-dim cycles OFF/30/60/120 and does not mutate on the wake-only key.
+    Controller dimSettings(UINT64_C(0x99887766));
+    snapshotFor(dimSettings, 72);
+    dimSettings.key('s');
+    for (int i = 0; i < 3; ++i) dimSettings.key('.');
+    assert(dimSettings.view.selection == 3);
+    dimSettings.tick(60100);
+    assert(dimSettings.view.dimmed);
+    dimSettings.key('/');
+    assert(dimSettings.saved.settings.autoDimSeconds == 60);
+    dimSettings.key('/');
+    assert(dimSettings.saved.settings.autoDimSeconds == 120);
+    dimSettings.key('/');
+    assert(dimSettings.saved.settings.autoDimSeconds == 0);
+    dimSettings.tick(999999);
+    assert(!dimSettings.view.dimmed);
     levelSnapshot.paused = false;
     instruments.saved.settings.volume = 0;
     instruments.setSnapshot(levelSnapshot);

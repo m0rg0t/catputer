@@ -6,7 +6,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.7-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update fixes compiler-dependent ordering of random timing and velocity draws and aligns floating-point rounding between builds. The translucent music activity strip, selectable tones, meter-aware phrases, manual BPM, volume up to 300% and the LCD correction remain available. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.8-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update gives the melody more space in the mix, adds clearer answering phrases, and introduces a sleep timer and automatic screen dimming. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -18,6 +18,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 - A translucent bottom strip overlays the room and displays actual activity of the seven music parts and the current musical pulse.
 - An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
 - Pause, 0–300% output volume, AUTO or manual 40–180 BPM, mood selection, next session and up to eight favorites.
+- A 30/60/90-minute sleep timer with a final 30-second fade; automatic dimming after 30/60/120 seconds, with one keypress to wake. Both can be turned off.
 - Built-in music and artwork need **no SD, network, account or API key**. Optional SD stores settings and favorites; without it they remain in RAM until restart.
 - A native SDL preview, deterministic WAV exports, real-code screenshot exports, sample tools and a local site generator.
 
@@ -60,7 +61,11 @@ Above 100%, volume adds up to 3× software gain before a soft limiter. It is a s
 
 Open **I → CHORDS / MELODY / BASS / METER** and use `,` / `/` or Enter to select sounds and meter. Changes apply at a bar boundary. AUTO chooses a meter from the seed, favoring 4/4, and holds it for the whole session. In 6/8, BPM counts the two dotted-quarter pulses per bar. Start with 4/4 for the familiar lofi groove; 3/4 has a waltz pulse and 6/8 groups its six eighth notes into two pulses.
 
-Version 0.1.5-dev uses generation schema 4 (`lofi4-` favorite codes). New favorites retain tempo, meter and all three tone choices. Earlier settings migrate; schema-1/2/3 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. The new melodic rules intentionally change the music generated from an old seed. Older firmware cannot read the new save format.
+Open **S → SLEEP** to cycle Off / 30 / 60 / 90 minutes. The final 30 seconds fade smoothly, then playback pauses. The timer counts wall-clock time even while paused, starts Off after reboot, and never changes your volume setting. Select Off to cancel; deliberately resuming with Space clears a fading or expired timer.
+
+Open **S → AUTO DIM** for Off / 30 / 60 / 120 seconds. The default is 60 seconds, then the backlight dims to at most 10%. The first keypress only wakes the screen; press again to perform its action. The auto-dim preference is saved with SD settings.
+
+Version 0.1.8-dev uses generation schema 5 (`lofi5-` favorite codes) and save format 4. New favorites retain tempo, meter and all three tone choices. Earlier settings migrate; schema-1/2/3/4 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. The new melodic rules intentionally change the music generated from an old seed. Older firmware cannot read the new save format.
 
 ## Compare the sound engines
 

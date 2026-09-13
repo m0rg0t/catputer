@@ -16,6 +16,10 @@ void OutputGain::reset(unsigned percent) noexcept {
     remaining_ = 0;
     step_ = 0;
     limited_ = 0;
+    sleepQ15_ = 32768;
+    sleepGain_ = sleepTarget_ = 1.0f;
+    sleepStep_ = 0;
+    sleepRemaining_ = 0;
 }
 
 void OutputGain::setVolume(unsigned percent) noexcept {
@@ -25,6 +29,15 @@ void OutputGain::setVolume(unsigned percent) noexcept {
     target_ = gainFor(percent);
     remaining_ = kRampFrames;
     step_ = (target_ - gain_) / static_cast<float>(remaining_);
+}
+
+void OutputGain::setSleepGain(std::uint16_t q15) noexcept {
+    q15 = std::min<std::uint16_t>(q15, 32768);
+    if (q15 == sleepQ15_) return;
+    sleepQ15_ = q15;
+    sleepTarget_ = static_cast<float>(q15) / 32768.0f;
+    sleepRemaining_ = kRampFrames;
+    sleepStep_ = (sleepTarget_ - sleepGain_) / static_cast<float>(sleepRemaining_);
 }
 
 void OutputGain::process(std::int16_t* samples, std::size_t frames) noexcept {
@@ -43,6 +56,12 @@ void OutputGain::process(std::int16_t* samples, std::size_t frames) noexcept {
             magnitude = kLimiterKnee + room * (excess / (room + excess));
             ++limited_;
         }
+        if (sleepRemaining_) {
+            sleepGain_ += sleepStep_;
+            if (--sleepRemaining_ == 0) sleepGain_ = sleepTarget_;
+        }
+        // Attenuate after limiting so a high user volume cannot defeat the fade.
+        magnitude *= sleepGain_;
         samples[i] = static_cast<std::int16_t>(input < 0 ? -magnitude : magnitude);
     }
 }

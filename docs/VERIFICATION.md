@@ -1,6 +1,20 @@
 # Implementation and verification
 
-This is the development candidate for the accepted plan, version **0.1.7-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.8-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+
+## Mix, phrasing and comfort controls · 0.1.8-dev
+
+The lead now gently reduces only the chord bed toward 88% gain; the opening retains its layers. Answering bars leave a beat of space, the midpoint uses a delayed partial echo, and the full hook rhythm returns at the next eight-bar boundary. Schema 5 intentionally changes score and PCM. The pinned 14-second Rainy/Synth regression is 82 events, score hash `5292184dcc22641f`, PCM hash `bb767a4472919295`. Floating-point contraction remains disabled and timing/velocity random draws remain explicitly ordered.
+
+Sleep Off/30/60/90 minutes counts wall-clock time, fades during the final 30 seconds and pauses. Fake-clock tests cover the deadline, half fade, cancellation, deliberate resume, countdown while paused and a pause still queued at cancellation. The separate post-limiter fade leaves the user's 0–300% volume untouched; output tests cover smooth attenuation/recovery and block-size independence. Auto-dim Off/30/60/120 seconds defaults to 60 seconds, dims to at most 10%, and consumes the first wake key. Both adapters suppress auto-repeat from a held wake key. Save format 4 remains 192 bytes; valid formats 1/2/3 migrate with the new default, and earlier favorite schemas remain `OLD`.
+
+The integrated Mac build passes **8/8 native suites and 47 Python tests**, and the SDL preview completes a bounded run with dummy audio/video and state saving. Thirty-one current screen captures and 144 animation frames come from the shared renderer. Sleep countdown, paused expiry and scrolling settings were inspected; the auto-dim image simulates the native adapter's relative brightness, not measured LCD brightness.
+
+The [162-case music matrix](evidence/v018-music-matrix.json) renders 30 seconds per case across all moods/meters/engines, selected tones and 40/120/180 BPM, at 300% volume. Its 155,520,000 frames contain **zero clips, dropped note events or score-rule violations**. Maximum active voices remain 12, with at most 5 voice steals per case; output peaks range from 26,766 to 31,220. Every tested case reaches a keys gain of 28,836/32,767 (approximately 88%). Tone selection and Synth/Hybrid retain identical score hashes for matching musical parameters.
+
+All six refreshed three-minute demos have zero clips and dropped notes. Matching Synth/Hybrid score hashes are Cozy `c341a20f185dadfc`, Rainy `701cd7e315cb4a8f`, Night `ade7d0308dded898`. [Before/after numeric evidence](evidence/v018-audio-comparison.json) preserves the schema-4 baseline and MP3 hashes; prior WAV/MP3 files are retained locally in `build/comparison-v018/before`. These checks establish musical constraints and digital bounds; listening is still needed to judge the improvement.
+
+The local ADV application is **689,056 bytes**, leaving **621,664 bytes** under the compact profile, with **67,384 bytes** of linker static RAM. This is a build result, not runtime heap or device timing evidence. Installation and physical sleep/wake behavior remain to be checked on the ADV.
 
 ## Compiler consistency and Pages · 0.1.7-dev
 
@@ -77,9 +91,9 @@ Audio comparison measurements are recorded below. The completed firmware build i
 - Listen through the ADV speaker and jack; compare the two candidates, then select/tune the production sound.
 - Measure startup time, internal free heap/largest block, task stack margins, render deadlines and audible dropouts while animation/keys/SD saves are active. Serial `queue_empty` counts are source-queue observations, not verified DMA underruns.
 - Perform the planned two-hour **device** soak and battery/runtime measurements.
-- Recheck the 0.1.5-dev display, instrument choices, meters, visualization sync, manual tempo and boosted output on the ADV, verify Home/return behavior and neighboring applications, and exercise physical SD failure/recovery. The user ran 0.1.2-dev on the device and supplied a photo; that establishes startup, not complete installation or hardware acceptance.
+- Recheck the current display, instruments, meters, visualization sync, manual tempo, boosted output, sleep fade and wake behavior on the ADV; verify Home/return behavior and neighboring applications, and exercise physical SD failure/recovery. The user ran 0.1.2-dev on the device and supplied a photo; that establishes startup, not complete installation or hardware acceptance.
 - Implement external SD sample/scene packs later. The current optional SD feature is settings/favorites only.
-- Select the public project license and remote repository, then publish only when requested. The local Git repository and README are prepared; the site is local.
+- Select the public project license. The public repository and GitHub Pages deployment are active at `m0rg0t/catputer`.
 
 ## Practical behavior
 

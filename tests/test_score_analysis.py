@@ -10,7 +10,7 @@ from analyze_score import inspect
 
 class ScoreAuditTests(unittest.TestCase):
     def note(self, step, midi, duration=1):
-        return dict(schema=4, session=0, seed=42, bar=0, bpm=75, key_pc=0,
+        return dict(schema=5, session=0, seed=42, bar=0, bpm=75, key_pc=0,
                     minor=0, chord_root=0, chord_0=60, chord_1=64,
                     chord_2=67, chord_3=71, instrument="lead", midi=midi,
                     velocity=50, start_sample=step * 6400,

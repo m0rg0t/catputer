@@ -63,12 +63,13 @@ def main():
                         result = {field: data[field] for field in (
                             "engine", "mood", "meter", "bpm", "keys_tone", "lead_tone", "bass_tone",
                             "frames", "peak", "rms", "clipped_samples", "max_voices", "voice_steals",
-                            "dropped_note_events", "score_hash", "score_events", "limited_samples")}
+                            "dropped_note_events", "score_hash", "score_events", "limited_samples", "minimum_keys_gain_q15")}
                         result["score_audit"] = {key: value for key, value in score.items() if key not in ("file", "sha256")}
                         results.append(result)
                         pair.append((data["score_hash"], data["score_events"]))
                         if (data["clipped_samples"] or data["dropped_note_events"]
-                                or data["max_voices"] > profile["voice_capacity"] or score["rule_violations"]):
+                                or data["max_voices"] > profile["voice_capacity"] or score["rule_violations"]
+                                or not 28835 <= data["minimum_keys_gain_q15"] <= 32767):
                             failures.append({"case": len(results) - 1, "reason": "audio/score rule failure"})
                     if pair[0] != pair[1]:
                         failures.append({"case": len(results) - 2, "reason": "A/B scores differ"})

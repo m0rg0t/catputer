@@ -25,6 +25,9 @@ Planning session: 2026-09-12.
 | Music activity and sound selection | User requested a bottom visualization tied to music, more selectable instruments and more melodic/coherent generation |
 | Meter interpretation | User tentatively meant musical meter, describing an audible sense of wrongness; implement coherent phrasing first, with stable session meter and AUTO/manual choices for comparison |
 | Tempo and loudness controls | User requested manual BPM settings and volume up to 300%; keep AUTO tempo available |
+| 0.1.8-dev scope | User accepted clearer mix and phrasing, a sleep timer and automatic screen dimming; retain the fuller opening and both sound engines |
+| Sleep and dim defaults | Sleep Off/30/60/90 minutes, final 30-second fade to pause; auto-dim Off/30/60/120 seconds, default 60, first key wakes only |
+| Public identity and delivery | Catputer, `m0rg0t/catputer`; publish the project site on GitHub Pages and provide application-only builds |
 
 ## Under discussion
 

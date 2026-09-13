@@ -1,0 +1,305 @@
+{
+  "version": "0.1.8-dev",
+  "source": "native_shared_engine",
+  "hardware_verified": false,
+  "before_source_revision": "f740ff858c6ab9bc820945b32c1d039691891ce3",
+  "seed": "000000000ca7cafe",
+  "seconds_per_render": 180,
+  "note": "Same input seed and mood across schemas 4 and 5; changed composition intentionally changes hashes. Raw composer output before user master gain. Before WAV/MP3/metadata remain in the ignored build/comparison-v018/before folder for local listening. Numeric checks do not establish subjective quality.",
+  "renders": [
+    {
+      "sample": "cozy-synth",
+      "before": {
+        "version": "0.1.7-dev",
+        "generation_schema": 4,
+        "score_hash": "5f2c9abb529f6121",
+        "score_events": 1158,
+        "rms": 1152.7,
+        "peak": 9690,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 2,
+        "opening_score_events": 71,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00115625,
+          "lead": 0,
+          "kick": 3.125e-05,
+          "snare": 0.750375,
+          "hat": 0.412906,
+          "rim": 5.81275
+        },
+        "mp3_sha256": "29a3f976daaaf48c5ef0385503b97a1be1e3b42fb5ef8a192ffbff00003a5814"
+      },
+      "after": {
+        "version": "0.1.8-dev",
+        "generation_schema": 5,
+        "score_hash": "c341a20f185dadfc",
+        "score_events": 1439,
+        "rms": 1188.44,
+        "peak": 9204,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 0,
+        "opening_score_events": 82,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00234375,
+          "lead": 0.412031,
+          "kick": 0.00040625,
+          "snare": 0.723406,
+          "hat": 0.412313,
+          "rim": 4.15669
+        },
+        "mp3_sha256": "9a169e944cb99c88338686a7ce62d8e700e92ba29ba4935ecef7e781c6429777"
+      }
+    },
+    {
+      "sample": "cozy-hybrid",
+      "before": {
+        "version": "0.1.7-dev",
+        "generation_schema": 4,
+        "score_hash": "5f2c9abb529f6121",
+        "score_events": 1158,
+        "rms": 956.336,
+        "peak": 7515,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 2,
+        "opening_score_events": 71,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00115625,
+          "lead": 0,
+          "kick": 3.125e-05,
+          "snare": 0.750375,
+          "hat": 0.412906,
+          "rim": 5.81275
+        },
+        "mp3_sha256": "57d469a0593ddc423115f07065a3bb985978187479b7501601b533274968dc36"
+      },
+      "after": {
+        "version": "0.1.8-dev",
+        "generation_schema": 5,
+        "score_hash": "c341a20f185dadfc",
+        "score_events": 1439,
+        "rms": 1012.5,
+        "peak": 7388,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 0,
+        "opening_score_events": 82,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00234375,
+          "lead": 0.412031,
+          "kick": 0.00040625,
+          "snare": 0.723406,
+          "hat": 0.412313,
+          "rim": 4.15669
+        },
+        "mp3_sha256": "b6df8c7b117a74440f673d03dff77771aa6cca7e660c3d1099b2d8506b378bbd"
+      }
+    },
+    {
+      "sample": "rainy-synth",
+      "before": {
+        "version": "0.1.7-dev",
+        "generation_schema": 4,
+        "score_hash": "632141c81c7917a4",
+        "score_events": 1276,
+        "rms": 1187.83,
+        "peak": 9213,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 0,
+        "opening_score_events": 77,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00259375,
+          "lead": 0.468469,
+          "kick": 0,
+          "snare": 0.821875,
+          "hat": 0.468844,
+          "rim": 4.72597
+        },
+        "mp3_sha256": "6ddc4dd22c4517d6b7cd4774ba0407e9fb174a0103cf8104f48a2adcf3f52359"
+      },
+      "after": {
+        "version": "0.1.8-dev",
+        "generation_schema": 5,
+        "score_hash": "701cd7e315cb4a8f",
+        "score_events": 1038,
+        "rms": 1112.26,
+        "peak": 10651,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 1,
+        "opening_score_events": 68,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.0015625,
+          "lead": 0,
+          "kick": 0.0001875,
+          "snare": 0.822625,
+          "hat": 0.485187,
+          "rim": 6.36988
+        },
+        "mp3_sha256": "0dd3922cd33064166aa23bcad3695e5ee233b20f39974e4b31c25a774168b8bb"
+      }
+    },
+    {
+      "sample": "rainy-hybrid",
+      "before": {
+        "version": "0.1.7-dev",
+        "generation_schema": 4,
+        "score_hash": "632141c81c7917a4",
+        "score_events": 1276,
+        "rms": 979.12,
+        "peak": 7445,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 0,
+        "opening_score_events": 77,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00259375,
+          "lead": 0.468469,
+          "kick": 0,
+          "snare": 0.821875,
+          "hat": 0.468844,
+          "rim": 4.72597
+        },
+        "mp3_sha256": "dc92b23b0fe9ae91ebf6ab666e0307ed407580a440d105495203bb3679712a32"
+      },
+      "after": {
+        "version": "0.1.8-dev",
+        "generation_schema": 5,
+        "score_hash": "701cd7e315cb4a8f",
+        "score_events": 1038,
+        "rms": 935.606,
+        "peak": 7419,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 1,
+        "opening_score_events": 68,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.0015625,
+          "lead": 0,
+          "kick": 0.0001875,
+          "snare": 0.822625,
+          "hat": 0.485187,
+          "rim": 6.36988
+        },
+        "mp3_sha256": "a5aef985685545134d1bcc2d08d87fa78af51fddbc0b68a2d0234f1084ba09b8"
+      }
+    },
+    {
+      "sample": "night-synth",
+      "before": {
+        "version": "0.1.7-dev",
+        "generation_schema": 4,
+        "score_hash": "af29b50c1b238d12",
+        "score_events": 1329,
+        "rms": 1150.99,
+        "peak": 9632,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 0,
+        "opening_score_events": 79,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.0018125,
+          "lead": 0.434188,
+          "kick": 0,
+          "snare": 0.79,
+          "hat": 0.434344,
+          "rim": 4.53944
+        },
+        "mp3_sha256": "1b0e89bcd447f2ebedc16af0eaa665e7d4712531df947a719ab7d7f6ff306466"
+      },
+      "after": {
+        "version": "0.1.8-dev",
+        "generation_schema": 5,
+        "score_hash": "ade7d0308dded898",
+        "score_events": 1070,
+        "rms": 1093.54,
+        "peak": 9648,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 2,
+        "opening_score_events": 68,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00234375,
+          "lead": 0,
+          "kick": 6.25e-05,
+          "snare": 0.799906,
+          "hat": 0.455781,
+          "rim": 6.20028
+        },
+        "mp3_sha256": "f83913709215c52471355ce73b8d20922f2055935e477f024304612914c81204"
+      }
+    },
+    {
+      "sample": "night-hybrid",
+      "before": {
+        "version": "0.1.7-dev",
+        "generation_schema": 4,
+        "score_hash": "af29b50c1b238d12",
+        "score_events": 1329,
+        "rms": 983.193,
+        "peak": 7585,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 0,
+        "opening_score_events": 79,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.0018125,
+          "lead": 0.434188,
+          "kick": 0,
+          "snare": 0.79,
+          "hat": 0.434344,
+          "rim": 4.53944
+        },
+        "mp3_sha256": "3cd87008fd6d0b9e5e6931408affcae31f18e6b0d495c42b064d6d48781d9a30"
+      },
+      "after": {
+        "version": "0.1.8-dev",
+        "generation_schema": 5,
+        "score_hash": "ade7d0308dded898",
+        "score_events": 1070,
+        "rms": 942.197,
+        "peak": 7284,
+        "clipped_samples": 0,
+        "dropped_note_events": 0,
+        "voice_steals": 2,
+        "opening_score_events": 68,
+        "opening_voice_steals": 0,
+        "first_note_seconds": {
+          "keys": 0,
+          "bass": 0.00234375,
+          "lead": 0,
+          "kick": 6.25e-05,
+          "snare": 0.799906,
+          "hat": 0.455781,
+          "rim": 6.20028
+        },
+        "mp3_sha256": "99845d3c48fe14c0ea05d817225672b6e0b3d376a0dfd1d124039a99681a60d6"
+      }
+    }
+  ]
+}
