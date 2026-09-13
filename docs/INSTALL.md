@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.5-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.6-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -36,6 +36,8 @@ Mood/engine/instrument/meter/session changes take effect at the next bar with a 
 
 Open **I** to select the chord tone, melody tone, bass tone and musical meter. Use `;` / `.` to move, `,` / `/` or Enter to change the selected value. AUTO chooses a meter once per session; manual choices are 4/4, 3/4 and 6/8. In 6/8, BPM counts dotted-quarter pulses (two per bar).
 
-The bottom strip shows real instrument activity and musical pulses. Pause or mute silences its activity; motion OFF keeps a static meter display. The clean scene retains the unobtrusive strip.
+The bottom strip shows real instrument activity and musical pulses over the room, with a translucent dark backing. Pause or mute silences its activity; motion OFF keeps a static meter display. The clean scene retains the unobtrusive strip.
 
 Version 0.1.5-dev retains the LCD RGB565 correction and larger text, and introduces generation schema 4. It migrates earlier saved settings and retains old favorites, marked `OLD`; faithful replay needs the earlier firmware. New favorites include the selected tempo, meter and tones. Older firmware cannot read the new save format, so retain a copy of old state before a downgrade.
+
+Version 0.1.6-dev changes only the visualization backing and label contrast. Music schema 4, save format 3 and existing 0.1.5-dev favorites remain compatible.

@@ -4,7 +4,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.5-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds selectable instrument tones, meter-aware melodic phrases and a music-driven strip at the bottom of the screen, retaining manual BPM, volume up to 300% and the LCD correction. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.6-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. The music activity strip now overlays the room on a translucent dark panel, with brighter instrument labels. Selectable tones, meter-aware phrases, manual BPM, volume up to 300% and the LCD correction remain available. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -13,7 +13,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 - Six selectable chord/lead tones (electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute) plus round, upright and sub bass. These are compact synthesized interpretations.
 - AUTO, 4/4, 3/4 or 6/8 meter; each session keeps one meter, and melody gates fit its bars.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
-- A bottom strip displays actual activity of the seven music parts and the current musical pulse.
+- A translucent bottom strip overlays the room and displays actual activity of the seven music parts and the current musical pulse.
 - An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
 - Pause, 0–300% output volume, AUTO or manual 40–180 BPM, mood selection, next session and up to eight favorites.
 - Built-in music and artwork need **no SD, network, account or API key**. Optional SD stores settings and favorites; without it they remain in RAM until restart.

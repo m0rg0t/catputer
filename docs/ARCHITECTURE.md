@@ -118,6 +118,8 @@ Compile original pixel art into a bounded indexed format at build time. Optional
 
 The imagegen scene uses a 32,400-byte framebuffer and a 480-byte RGB565 transfer row. Its background, six 64 × 72 cat frames and palette are compiled as constant data in flash. The renderer copies indexed pixels and uses transparency index 255 for sprites; no image decoder or asset-loading allocation runs on the device. This replaces the initial 16-color packed-canvas proposal.
 
+The music visualization uses a translucent ink backing over the already drawn scene. A compile-time 64-byte palette lookup blends 55% ink with 45% scene, quantized to the existing RGB565 palette; it adds no framebuffer or per-frame color search. Labels are drawn afterward at full opacity.
+
 ## Content and persistence
 
 The confirmed no-SD baseline embeds one scene, presets and the selected minimal sound source. Optional `/LOFI` resources hold additional scenes/banks plus favorites/settings. Boot should tolerate absent or invalid optional content and show a small status message while preserving built-in playback.

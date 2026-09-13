@@ -1,8 +1,16 @@
 # Implementation and verification
 
-This is the local development candidate for the accepted plan, version **0.1.5-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the local development candidate for the accepted plan, version **0.1.6-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
 
-## Current update · 0.1.5-dev
+## Current update · 0.1.6-dev
+
+The music strip overlays the room with a 55%-opaque dark ink backing, quantized to the existing 64-color palette. A compile-time 64-byte lookup preserves the 32,400-byte framebuffer and avoids runtime color searches. The upper solid red rule was removed, and role labels use the brighter Moon color. The ordinary and clean views were visually reviewed at integer scale; screenshots remain desktop evidence.
+
+Eight native CTest suites pass, including UI and all-palette RGB565 conversion. The UI and RGB565 suites also pass under UBSAN; all 47 Python tests pass. The firmware builds with the pinned ESP32-S3 toolchain: **686,496 bytes**, **624,224 bytes** below the compact limit, with static RAM unchanged at 67,264 bytes. BIN SHA-256: `1d8010b5cd039e66e37da2220ac2f58d863f1907194648a2dc10e75100967e19`. The application-only package passes descriptor, identity, checksum, appended hash and archive validation.
+
+This update leaves the music engine, schema 4, save format 3 and favorites unchanged. The six refreshed three-minute demos retain the 0.1.5-dev score hashes and zero clips/dropped notes. Hardware appearance and render timing still need an ADV check; the SD transfer record below belongs to 0.1.5-dev.
+
+## Music and instrument update · 0.1.5-dev
 
 The bottom strip shows the real contributions of seven instrument roles, with an approximately 104 ms peak decay so brief percussion remains visible at 12 FPS. Beat markers use the resolved meter and the same transport as audio; queue-based latency correction remains an estimate on the device. Clean mode anchors the strip to the screen bottom. Pause, mute and motion OFF produce idle activity. Twenty-four native UI scenarios and 144 actual-engine animation frames were exported and visually reviewed, including the instrument menu and all three meters. Main labels and the meter use 5×7 glyphs.
 

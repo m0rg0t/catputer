@@ -1,5 +1,6 @@
 #include "lofi/ui.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -32,6 +33,37 @@ enum Colour : std::uint8_t {
 };
 
 const std::uint16_t* const kPalette = kGeneratedScenePalette;
+
+// Blend a 55%-opaque ink panel into the authored scene, then quantize back
+// to its fixed palette. The compiler builds this 64-byte lookup; drawing the
+// overlay needs neither per-pixel colour searches nor another framebuffer.
+constexpr std::array<std::uint8_t, kPaletteSize> makeMusicPanelShade() {
+    std::array<std::uint8_t, kPaletteSize> result{};
+    constexpr int shifts[] = {11, 5, 0};
+    constexpr int masks[] = {31, 63, 31};
+    constexpr int scales[] = {8, 4, 8};
+    for (int source = 0; source < kPaletteSize; ++source) {
+        int bestDistance = 3 * 256 * 256;
+        for (int candidate = 0; candidate < kPaletteSize; ++candidate) {
+            int distance = 0;
+            for (int channel = 0; channel < 3; ++channel) {
+                const int original = ((kGeneratedScenePalette[source] >> shifts[channel]) & masks[channel]) * scales[channel];
+                const int ink = ((kGeneratedScenePalette[Ink] >> shifts[channel]) & masks[channel]) * scales[channel];
+                const int target = (original * 45 + ink * 55 + 50) / 100;
+                const int value = ((kGeneratedScenePalette[candidate] >> shifts[channel]) & masks[channel]) * scales[channel];
+                const int delta = value - target;
+                distance += delta * delta;
+            }
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                result[source] = static_cast<std::uint8_t>(candidate);
+            }
+        }
+    }
+    return result;
+}
+
+constexpr auto kMusicPanelShade = makeMusicPanelShade();
 
 inline int clampInt(int value, int low, int high) {
     return value < low ? low : (value > high ? high : value);
@@ -372,8 +404,11 @@ void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
 void drawMusicViz(Frame& frame, const View& view, int top) {
     // A compact, always-present transport strip keeps the audio state visible
     // in clean mode without covering the cat's face or the header labels.
-    frame.fillRect(0, top, kScreenWidth, 17, Ink);
-    frame.fillRect(0, top, kScreenWidth, 1, Brick);
+    for (int y = top; y < top + 17; ++y) {
+        for (int x = 0; x < kScreenWidth; ++x) {
+            frame.set(x, y, kMusicPanelShade[frame.get(x, y)]);
+        }
+    }
 
     char meter[8] = {};
     std::snprintf(meter, sizeof(meter), "%u/%u",
@@ -392,7 +427,7 @@ void drawMusicViz(Frame& frame, const View& view, int top) {
     for (std::size_t i = 0; i < kMusicInstrumentCount; ++i) {
         const int x = 42 + static_cast<int>(i) * 13;
         static const char* const roleLabels[] = {"C", "B", "M", "K", "S", "H", "R"};
-        drawTinyText(frame, x + 2, top + 2, roleLabels[i], Haze, 4);
+        drawTinyText(frame, x + 2, top + 2, roleLabels[i], Moon, 4);
         const int raw = view.motion != 0 && view.playing && view.volume > 0
                             ? view.instrumentLevels[i]
                             : 0;
