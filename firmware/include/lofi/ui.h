@@ -72,8 +72,9 @@ public:
     void rect(int x, int y, int w, int h, std::uint8_t colour);
     void line(int x0, int y0, int x1, int y1, std::uint8_t colour);
 
-    // Convert one indexed row to the format expected by M5GFX/SDL.  `out`
-    // must point to at least `width` uint16_t values.
+    // Convert one indexed row to host-order RGB565 words (red = 0xf800).
+    // SDL RGB565 consumes these directly; M5GFX's uint16_t pushImage requires
+    // setSwapBytes(true). `out` must hold at least `width` uint16_t values.
     void rowRgb565(int y, std::uint16_t* out) const;
     const std::uint8_t* packed() const { return pixels_; }
 

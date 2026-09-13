@@ -36,3 +36,17 @@ foreach(NAME music state controller storage ui)
     add_test(NAME ${NAME} COMMAND test_${NAME})
   endif()
 endforeach()
+
+# Exercise the real pinned graphics conversion when its source is available.
+# Keep ordinary offline/native builds independent of Arduino dependencies.
+set(LOFI_M5GFX_SOURCE_DIR "" CACHE PATH "M5GFX source checkout for the LCD byte-order regression")
+if(LOFI_M5GFX_SOURCE_DIR)
+  if(NOT EXISTS "${LOFI_M5GFX_SOURCE_DIR}/src/lgfx/v1/misc/pixelcopy.hpp")
+    message(FATAL_ERROR "LOFI_M5GFX_SOURCE_DIR must point to an M5GFX checkout")
+  endif()
+  add_executable(test_display_rgb565 tests/test_display_rgb565.cpp)
+  target_link_libraries(test_display_rgb565 PRIVATE lofi_core)
+  target_include_directories(test_display_rgb565 SYSTEM PRIVATE "${LOFI_M5GFX_SOURCE_DIR}/src")
+  target_compile_options(test_display_rgb565 PRIVATE -UNDEBUG)
+  add_test(NAME display_rgb565 COMMAND test_display_rgb565)
+endif()

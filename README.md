@@ -4,7 +4,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.2-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. Desktop exports are available; physical audio quality, timing, SD behavior and M5Apps installation still need device testing. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.3-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. An initial device run exposed an LCD byte-order bug; this update corrects the transfer and enlarges the status, control and help text. The corrected display, physical audio quality, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -48,7 +48,7 @@ For persistent desktop favorites, add `--state build/local-state.bin`. Explicit 
 
 A favorite reproduces a session from its beginning with the same generation schema, parameters and bank. It does not restore the current playback position.
 
-Version 0.1.2-dev uses generation schema 3 (`lofi3-` favorite codes). Earlier saved favorites remain visible as `OLD` and removable, while settings remain usable. Replay those favorites with the earlier firmware; the richer arrangement changes the score generated from their seed.
+Version 0.1.3-dev retains generation schema 3 (`lofi3-` favorite codes) from 0.1.2-dev, so its settings and favorites remain compatible. Earlier schema-1/2 favorites remain visible as `OLD` and removable, while settings remain usable. Replay those favorites with the earlier firmware; the richer arrangement changes the score generated from their seed.
 
 ## Compare the sound engines
 

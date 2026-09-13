@@ -134,6 +134,9 @@ void setup() {
     Serial.begin(115200);
     auto config=M5.config();config.internal_mic=false;config.internal_spk=true;
     M5Cardputer.begin(config,true);M5Cardputer.Display.setRotation(1);M5Cardputer.Display.setBrightness(150);
+    // Frame::rowRgb565 emits host-order words. M5GFX 0.2.22 otherwise treats
+    // uint16_t image data as already swapped for the LCD, scrambling colors.
+    M5Cardputer.Display.setSwapBytes(true);
     if(M5.getBoard()!=m5::board_t::board_M5CardputerADV) {fail("Cardputer ADV required");return;}
     // No Wi-Fi/BLE or generic NVS initialization: built-in playback is offline.
     SPI.begin(40,39,14,12);sdMounted=SD.begin(12,SPI,10000000) && SD.cardType()!=CARD_NONE;

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 namespace lofi {
 
@@ -120,6 +121,7 @@ std::uint8_t glyph5Row(char c, int row) {
     case '_': return row == 6 ? 0x1f : 0;
     case '.': return row == 6 ? 0x04 : 0;
     case ',': return row == 5 ? 0x04 : (row == 6 ? 0x08 : 0);
+    case ';': return row == 2 || row == 5 ? 0x04 : (row == 6 ? 0x08 : 0);
     case ':': return (row == 2 || row == 5) ? 0x04 : 0;
     case '!': return (row < 5) ? 0x04 : (row == 6 ? 0x04 : 0);
     case '?': return row == 0 ? 0x0e : (row == 1 ? 0x11 :
@@ -394,37 +396,34 @@ void drawStatus(Frame& frame, const View& view, const char* title) {
     frame.fillRect(0, 0, 240, 14, Ink);
     frame.fillRect(0, 13, 240, 1, Brick);
     drawText(frame, 4, 3, title, Cream, 35);
-    drawTinyText(frame, 42, 4, moodName(view.mood), Rain, 34);
-    drawTinyNumber(frame, 82, 4, clampInt(view.bpm, 0, 999), Gold, 13);
-    drawTinyText(frame, 98, 4, "BPM", Haze, 20);
-    if (view.playing) {
-        drawTinyText(frame, 126, 4, "PLAY", Leaf, 24);
-        frame.fillRect(120, 4, 3, 6, Leaf);
-    } else {
-        drawTinyText(frame, 126, 4, "PAUSE", Amber, 28);
-        frame.fillRect(120, 4, 2, 6, Amber);
-        frame.fillRect(123, 4, 2, 6, Amber);
-    }
+    drawText(frame, 40, 3, moodName(view.mood), Cream, 29);
+    char bpm[4], volume[5];
+    std::snprintf(bpm, sizeof(bpm), "%d", clampInt(view.bpm, 0, 999));
+    std::snprintf(volume, sizeof(volume), "V%d", clampInt(view.volume, 0, 100));
+    drawText(frame, 76, 3, bpm, Gold, 17);
+    drawText(frame, 96, 3, "BPM", Moon, 17);
+    drawText(frame, 120, 3, view.playing ? "PLAY" : "PAUSE", Cream, 29);
     if (view.favorite) {
-        drawStar(frame, 153, 7, Gold);
+        drawStar(frame, 158, 7, Gold);
     }
-    drawTinyText(frame, 164, 4, "VOL", Haze, 18);
-    frame.fillRect(181, 5, clampInt(view.volume, 0, 100) / 10, 4, view.volume == 0 ? Brick : Gold);
+    drawText(frame, 176, 3, volume, view.volume == 0 ? Amber : Cream, 23);
     drawBattery(frame, 219, 3, view.batteryPercent);
 }
 
 void drawFooter(Frame& frame, const View& view) {
-    frame.fillRect(0, 118, 240, 17, Ink);
-    frame.fillRect(0, 118, 240, 1, Brick);
+    // Two seven-pixel rows, with solid backing and a two-pixel line gap.
+    // Keep the essentials here; the help screen carries the full key list.
+    frame.fillRect(0, 115, 240, 20, Ink);
+    frame.fillRect(0, 115, 240, 1, Brick);
     if (view.notice[0] != '\0') {
-        drawTinyText(frame, 4, 121, view.notice, Gold, 232);
-        drawTinyText(frame, 4, 128, "SPACE PLAY   -/= VOL   H HELP", Haze, 232);
+        drawText(frame, 4, 118, view.notice, Gold, 232);
+        drawText(frame, 4, 127, "SPACE PLAY   -/= VOL   H HELP", Cream, 232);
     } else if (view.pending) {
-        drawTinyText(frame, 4, 121, "NEXT SESSION QUEUED", Gold, 130);
-        drawTinyText(frame, 4, 128, "SPACE PLAY   -/= VOL   N NEXT", Haze, 232);
+        drawText(frame, 4, 118, "NEXT SESSION QUEUED", Gold, 232);
+        drawText(frame, 4, 127, "SPACE PLAY   -/= VOL   H HELP", Cream, 232);
     } else {
-        drawTinyText(frame, 4, 121, "SPACE PLAY   -/= VOL   N NEXT   M MOOD", Haze, 232);
-        drawTinyText(frame, 4, 128, "F FAVORITE   L LIST   V CLEAN   S SET   H HELP", Haze, 232);
+        drawText(frame, 4, 118, "SPACE PLAY   -/= VOL   M MOOD", Cream, 232);
+        drawText(frame, 4, 127, "N NEXT   F FAV   V CLEAN   H HELP", Cream, 232);
     }
 }
 
@@ -449,7 +448,7 @@ void drawMenuFrame(Frame& frame, const char* title, const View& view) {
         drawCenteredText(frame, 34, 170, 54, "NO ITEMS YET", Haze);
         drawCenteredText(frame, 34, 170, 66, "PRESS ESC TO RETURN", Haze);
     }
-    drawTinyText(frame, 34, 108, "ENTER SELECT   ESC BACK   ,/. MOVE", Rain, 168);
+    // Navigation hints live in the footer, outside the eight menu rows.
 }
 
 void drawHelp(Frame& frame, const View& view) {
@@ -458,16 +457,17 @@ void drawHelp(Frame& frame, const View& view) {
     frame.rect(13, 18, 214, 99, Brick);
     drawText(frame, 20, 22, "POCKET LOFI KEYS", Cream, 200);
     static const char* const lines[] = {
-        "SPACE PLAY / PAUSE", "- = VOLUME", "N NEXT SESSION", "M MOODS",
+        "SPACE PLAY/PAUSE", "- = VOLUME", "N NEXT SESSION", "M MOODS",
         "F FAVORITE", "L FAVORITES", "V CLEAN VIEW", "S SETTINGS",
-        "H HELP", "ENTER SELECT", "ESC BACK", ", /. MOVE",
+        "E SYNTH/HYBRID", "H HELP", "ENTER SELECT", "ESC BACK",
+        "; . UP/DOWN", ", / ADJUST",
     };
-    for (int i = 0; i < 12; ++i) {
-        const int x = (i & 1) == 0 ? 20 : 126;
+    for (int i = 0; i < 14; ++i) {
+        const int x = (i & 1) == 0 ? 20 : 128;
         const int y = 34 + (i / 2) * 11;
-        drawTinyText(frame, x, y + 1, lines[i], (i == 0 || i == 8) ? Gold : Moon, 96);
+        drawText(frame, x, y, lines[i], (i == 0 || i == 8) ? Gold : Cream, 101);
     }
-    drawTinyText(frame, 20, 108, view.notice[0] != '\0' ? view.notice : "SMALL KEYS KEEP THE ROOM QUIET", Rain, 198);
+    (void)view;
 }
 
 void drawDiagnostics(Frame& frame, const View& view) {
@@ -500,7 +500,7 @@ void drawDiagnostics(Frame& frame, const View& view) {
                      view.sdReady ? Leaf : Amber, 171);
         drawTinyText(frame, 34, 91, view.clean ? "CLEAN VIEW ON" : "OVERLAY VIEW ON", Rain, 171);
     }
-    drawTinyText(frame, 34, 108, "ESC BACK", Rain, 178);
+    drawText(frame, 34, 108, "ESC BACK", Moon, 178);
 }
 
 void drawOverlay(Frame& frame, const View& view) {
@@ -646,8 +646,8 @@ void render(Frame& frame, const View& view) {
             drawStatus(frame, view, "RADIO");
             drawFooter(frame, view);
         } else if (!view.playing || view.pending) {
-            frame.fillRect(4, 4, 68, 10, Ink);
-            drawTinyText(frame, 8, 6, view.playing ? "NEXT QUEUED" : "PAUSED", view.pending ? Gold : Amber, 60);
+            frame.fillRect(4, 4, 68, 12, Ink);
+            drawText(frame, 8, 6, view.playing ? "NEXT QUEUED" : "PAUSED", view.pending ? Gold : Cream, 60);
         }
         return;
     }
@@ -656,7 +656,7 @@ void render(Frame& frame, const View& view) {
     drawOverlay(frame, view);
     frame.fillRect(0, 120, 240, 15, Ink);
     frame.fillRect(0, 120, 240, 1, Brick);
-    drawTinyText(frame, 4, 125, "ENTER SELECT   ESC BACK   ,/. MOVE", Haze, 232);
+    drawText(frame, 4, 125, "ENTER OK   ESC BACK   ;/. MOVE", Cream, 232);
 }
 
 } // namespace lofi
