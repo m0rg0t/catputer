@@ -39,10 +39,12 @@ void quietAdvCodec() {
 }
 
 bool readStateFile(const char* path,SavedState& value) {
-    auto file=SD.open(path,FILE_READ);if(!file || file.isDirectory() || file.size()!=kStateBytes) return false;
+    auto file=SD.open(path,FILE_READ);if(!file || file.isDirectory()) return false;
+    const std::size_t size=file.size();
+    if(size!=kStateBytes && size!=kStateLegacyBytes) {file.close();return false;}
     std::array<std::uint8_t,kStateBytes> bytes{};
-    const bool good=file.read(bytes.data(),bytes.size())==bytes.size();file.close();
-    return good && decodeState(bytes.data(),bytes.size(),value);
+    const bool good=file.read(bytes.data(),size)==size;file.close();
+    return good && decodeState(bytes.data(),size,value);
 }
 bool writeStateFile(const SavedState& value) {
     std::array<std::uint8_t,kStateBytes> bytes{};
@@ -97,8 +99,10 @@ void audioTask(void*) {
             // Approximate audible position: queued source blocks plus configured
             // four x 256-frame DMA buffering. Exact hardware latency is unmeasured.
             const std::uint32_t latencyFrames=static_cast<std::uint32_t>(queued)*512+1024;
-            const std::uint32_t phaseOffset=static_cast<std::uint32_t>((std::uint64_t(latencyFrames)*snap.bpm*65536)/(kMusicSampleRate*240ull));
+            const std::uint32_t phaseOffset=static_cast<std::uint32_t>((std::uint64_t(latencyFrames)*snap.bpm*65536)/(std::uint64_t(kMusicSampleRate)*60u*snap.beatsPerBar));
             snap.barPhaseQ16=static_cast<std::uint16_t>(snap.barPhaseQ16-phaseOffset);
+            snap.sixteenth=static_cast<std::uint8_t>((std::uint32_t(snap.barPhaseQ16)*snap.stepsPerBar)/65536u);
+            snap.beat=static_cast<std::uint8_t>(snap.sixteenth/snap.stepsPerBeat);
             portENTER_CRITICAL(&snapshotLock);
             published=snap;if(duration>worstRenderUs) worstRenderUs=duration;
             if(started && queued==0) ++queueEmptyObservations;

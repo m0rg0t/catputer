@@ -1,6 +1,35 @@
 # Implementation and verification
 
-This is the local development candidate for the accepted plan, version **0.1.4-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the local development candidate for the accepted plan, version **0.1.5-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+
+## Current update · 0.1.5-dev
+
+The bottom strip shows the real contributions of seven instrument roles, with an approximately 104 ms peak decay so brief percussion remains visible at 12 FPS. Beat markers use the resolved meter and the same transport as audio; queue-based latency correction remains an estimate on the device. Clean mode anchors the strip to the screen bottom. Pause, mute and motion OFF produce idle activity. Twenty-four native UI scenarios and 144 actual-engine animation frames were exported and visually reviewed, including the instrument menu and all three meters. Main labels and the meter use 5×7 glyphs.
+
+The `I` menu selects chord/lead tones from electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute, with round/upright/sub bass. Choices, meter and tempo persist in format 3 (192 bytes); valid 160-byte format 1/2 states migrate and preserve old favorites as OLD. Legacy layouts cannot claim a post-schema-3 favorite. New favorites carry schema 4 and all selectors; quick changes coalesce while the menu immediately shows the pending selection.
+
+AUTO meter chooses 4/4 with 70%, 3/4 with 20%, or 6/8 with 10% probability and retains that meter for the session. Manual choices use the same grids: 16/12/12 sixteenth steps and 4/3/2 pulses. In 6/8 BPM counts dotted quarters. Melody and bass movement is bounded, returning hooks receive root/third cadences, passing notes resolve by step, and pitched gates stay inside the current harmony bar. Melody gates do not overlap. Tone selectors do not change the score RNG.
+
+The first stress matrix caught one dropped hat in Cozy/Hybrid 6/8 at 180 BPM with vibraphone chords and electric-piano lead. Released sampled voices were retaining slots even after their envelopes had faded below 0.00035. Releasing those slots reduced this case from 51 to 2 voice steals and from 1 dropped note to 0, while retaining its 737 events and score hash `5a32afd229110c9b`. Review also caught a sample-end tonal jump: Hybrid's synthesized component changed from 0.32 to 1.0 after the one-shot ended. It now keeps the original blend for the entire voice.
+
+Final verification:
+
+- Eight CTest suites pass in the optimized build and the same eight under UBSAN; 39 Python tests pass. A bounded dummy SDL run with 6/8, 180 BPM, 300%, pad/flute/sub also passes under UBSAN. Invalid CLI tone, meter, BPM and gain values are rejected.
+- [Meter/tone/gain matrix](evidence/meter-tone-check.json): 162 × 30 seconds, 155,520,000 output frames, all moods/meters/backends, all six tone choices at 180 BPM plus lower/middle tempo cases and a pad/pad/sub stress case. Zero clipped samples, dropped note events, score-rule failures, backend score mismatches or score changes caused by tone selection. Maximum 12 voices, 4 steals per 30-second case, peak 31,181 at 300%. Reproduce with `python3 tools/verify_music.py --seconds 30`.
+- [Longer score audit](evidence/meter-session-score-check.json): three representative meter/mood/seed cases in both engines, 6 × 480 seconds. Each includes automatic session changes (2–4 sessions) and 22–37 distinct complete four-bar lead phrases. Paired CSVs match byte-for-byte, with zero scale/chord/gate/passing-resolution violations. These are finite rule/variety checks, not a subjective pleasantness rating.
+- Schema 4 regression: Rainy/Synth, seed `0x0123456789abcdef`, texture 23, 14 seconds → 68 BPM, 4/4, 82 events, score `f0d5794f6cab7f00`, PCM16-LE FNV `dee9e5a94acbcedb`. Schema 3 hashes below are historical, not current expectations.
+
+The six refreshed three-minute AUTO demos use seed `0xCA7CAFE`, core volume 78 and texture 18, before the optional output-gain stage. Both engines have zero clips/drops and matching scores within each mood:
+
+| Mood | Meter / BPM | Synth RMS / peak | Hybrid RMS / peak | Events | Shared score hash |
+| --- | --- | ---: | ---: | ---: | --- |
+| Cozy | 4/4 / 80 | 1153 / 9689 | 956 / 7515 | 1158 | `5f2c9abb529f6121` |
+| Rainy | 3/4 / 73 | 1188 / 9213 | 979 / 7445 | 1276 | `632141c81c7917a4` |
+| Night | 3/4 / 76 | 1151 / 9632 | 983 / 7585 | 1329 | `af29b50c1b238d12` |
+
+Current application BIN: **686,384 bytes**, 624,336 bytes below the compact `0x140000` limit; linker static RAM 67,264/327,680 bytes. Engine inline storage remains 8,192 bytes and the voice limit remains 12. BIN SHA-256: `15b4ebf30afd478f2191385eb007946b661f96d195095ab2ee64dcc088a51c7d`. Device render timing, acoustic quality and physical synchronization still require testing on the ADV. The earlier measurements below remain versioned history.
+
+The 0.1.5-dev package and ZIP checksums pass. Its application BIN was copied to the connected CARDPUTER SD card, verified by reading back the complete file and matching SHA-256, and the card was safely ejected on 2026-09-13. This verifies transfer to the card, not installation on the device. The local site was refreshed to the new package, 24 screen states and six current audio demos; Cozy/Synth playback advanced in the browser and was then paused.
 
 ## Implemented
 
@@ -9,7 +38,7 @@ This is the local development candidate for the accepted plan, version **0.1.4-d
 - Offline 32 kHz mono PCM16 output. The ADV adapter rotates three 512-frame buffers through the pinned M5Unified speaker API; commands are copied to the audio task and SD work runs separately.
 - AUTO or manual 40–180 BPM, with tempo-only changes at bar boundaries. Shared 0–300% output gain, 10 ms volume ramps and a soft limiter before the normalized device output path.
 - Original imagegen room/cat artwork adapted for the shared 240 × 135 renderer. The 64-color indexed framebuffer uses 32,400 bytes plus a 480-byte output row. Background, six 64 × 72 cat frames and the RGB565 palette use 60,176 bytes of constant scene data in flash. Engine inline storage is 8,192 bytes.
-- Menus, help, settings, favorites, clean scene and motion levels. Fixed 160-byte versioned/CRC-checked optional SD state with valid backup/temp recovery. No-SD state lives in RAM.
+- Menus, help, settings, favorites, clean scene and motion levels. Fixed 192-byte versioned/CRC-checked optional SD state, with 160-byte legacy migration with valid backup/temp recovery. No-SD state lives in RAM.
 - Native SDL preview and WAV/PPM exports, deterministic sample tooling, a media exporter, allowlisted static site builder and app-only package builder.
 - Arduino generic NVS initialization is wrapped out; ELF symbol inspection confirmed the wrapper is linked. This app has no NVS clients.
 
@@ -21,7 +50,7 @@ The SDL preview completed a bounded run with dummy audio/video drivers and optio
 
 Python tests cover the selected bank, format/order/hash/loop/size rejection and application-image checksum/hash/target/bounds validation. AddressSanitizer's runtime stalls during initialization on this host; no ASAN pass is claimed.
 
-The imagegen asset update adds deterministic scene conversion tests for palette order, transparency, dimensions and sprite-sheet scanline order. The final native preview exports 15 UI states and 144 animation frames (12 seconds at 12 FPS). The room/cat composition and UI contact sheet were visually reviewed; sprites use real indexed transparency with no magenta colors remaining in the packed palette. The six poses share a fixed bench anchor. Source masters, prompts and hashes are retained with the assets. The new framebuffer adds 16,200 bytes of static RAM, so physical heap and timing checks remain necessary.
+The imagegen asset update adds deterministic scene conversion tests for palette order, transparency, dimensions and sprite-sheet scanline order. The artwork update originally exported 15 UI states and 144 animation frames (12 seconds at 12 FPS). The room/cat composition and UI contact sheet were visually reviewed; sprites use real indexed transparency with no magenta colors remaining in the packed palette. The six poses share a fixed bench anchor. Source masters, prompts and hashes are retained with the assets. The new framebuffer adds 16,200 bytes of static RAM, so physical heap and timing checks remain necessary.
 
 Audio comparison measurements are recorded below. The completed firmware build is below the compact profile; final image identity and checksums are in the distribution manifest. Desktop timings are not a device real-time guarantee; clipping/energy checks do not establish pleasant sound.
 
@@ -30,7 +59,7 @@ Audio comparison measurements are recorded below. The completed firmware build i
 - Listen through the ADV speaker and jack; compare the two candidates, then select/tune the production sound.
 - Measure startup time, internal free heap/largest block, task stack margins, render deadlines and audible dropouts while animation/keys/SD saves are active. Serial `queue_empty` counts are source-queue observations, not verified DMA underruns.
 - Perform the planned two-hour **device** soak and battery/runtime measurements.
-- Recheck the 0.1.4-dev display, manual tempo and boosted output on the ADV, verify Home/return behavior and neighboring applications, and exercise physical SD failure/recovery. The user ran 0.1.2-dev on the device and supplied a photo; that establishes startup, not complete installation or hardware acceptance.
+- Recheck the 0.1.5-dev display, instrument choices, meters, visualization sync, manual tempo and boosted output on the ADV, verify Home/return behavior and neighboring applications, and exercise physical SD failure/recovery. The user ran 0.1.2-dev on the device and supplied a photo; that establishes startup, not complete installation or hardware acceptance.
 - Implement external SD sample/scene packs later. The current optional SD feature is settings/favorites only.
 - Select the public project license and remote repository, then publish only when requested. The local Git repository and README are prepared; the site is local.
 
@@ -38,7 +67,7 @@ Audio comparison measurements are recorded below. The completed firmware build i
 
 Mood/engine/replay requests received within the last 20 ms of a bar may wait one extra bar, allowing a complete fade. Tempo-only changes take effect at the next bar without a restart. Favorites replay from the beginning and are version/bank dependent. Rapid changes are coalesced while preserving accepted musical parameters. SD write failures keep changes in RAM and stop saves until restart; hot-plug recovery is not implemented.
 
-## Manual BPM and output gain · 2026-09-13
+## Previous candidate: manual BPM and output gain · 0.1.4-dev
 
 Settings now has eight rows, including BPM and volume up to 300%. BPM uses AUTO or 40–180 in one-beat-per-minute steps; Enter on the BPM row toggles AUTO/manual. Settings and favorite records preserve the selected mode. Format 2 remains exactly 160 bytes: the original favorite record bytes are retained, volume's high byte occupies header byte 6, global BPM byte 15, and favorite BPM bytes 144–151. The decoder migrates valid format-1 files to AUTO and rejects their previously invalid volume values above 100. Format 2 validates the wider volume, BPM ranges, reserved bytes and CRC. No private SD state is included in test fixtures or packages.
 
@@ -58,9 +87,9 @@ Status labels, control hints, clean-view status and help now use 5 × 7 glyphs i
 
 The 0.1.3-dev LCD update left the composer, samples, schema and save format unchanged. Its six 180-second demos retained their previous score hashes and zero clipped samples. The older score-audit and two-hour soak records below retain their original version metadata and establish the AUTO-mode baseline.
 
-## Recorded comparison · 2026-09-13
+## Previous schema-3 comparison · 2026-09-13
 
-All current examples use generation schema 3, seed `0xCA7CAFE`, **180 seconds**, volume 78 in the core, texture 18 and the same score within each mood. Values are PCM16 units before the preview/device master volume. Every render has zero clipped samples, zero dropped note events and at most twelve active voices.
+These historical examples use generation schema 3, seed `0xCA7CAFE`, **180 seconds**, volume 78 in the core, texture 18 and the same score within each mood. Values are PCM16 units before the preview/device master volume. Every render has zero clipped samples, zero dropped note events and at most twelve active voices.
 
 | Mood | BPM | Synth RMS / peak | Hybrid RMS / peak | Events | Shared score hash |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -92,7 +121,7 @@ The local website layout and sample playback progress were verified in the brows
 
 The pinned M5GFX tag `0.2.22` was verified locally and used through an ignored local build config because the dependency download was unavailable. The public PlatformIO config retains the upstream tag URL and pinned dependency versions.
 
-## Final firmware artifact
+## Previous firmware artifact · 0.1.4-dev
 
 Application BIN: 681,168 bytes; 629,552 bytes below the `0x140000` compact limit. Linker static RAM: 67,208 bytes of the 327,680-byte linker budget; dynamic heap/DMA/task overhead still needs device measurements. The project/version marker and ESP application descriptor, image checksum and appended hash are validated. The package contains only the application, install guide, dependency notes, manifest and checksums.
 

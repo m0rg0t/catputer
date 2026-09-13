@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lofi/timbre.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -7,7 +9,7 @@ namespace lofi {
 
 constexpr std::uint32_t kMusicSampleRate = 32000;
 constexpr std::uint8_t kMusicVoiceCapacity = 12;
-constexpr std::uint32_t kMusicSchemaVersion = 3;
+constexpr std::uint32_t kMusicSchemaVersion = 4;
 constexpr std::uint16_t kMusicMinBpm = 40;
 constexpr std::uint16_t kMusicMaxBpm = 180;
 constexpr std::size_t kMusicInstrumentCount = 7;
@@ -23,6 +25,13 @@ enum class Mood : std::uint8_t {
 enum class SoundEngine : std::uint8_t {
     Synth = 0,
     Hybrid = 1,
+};
+
+enum class MusicMeter : std::uint8_t {
+    Auto = 0,
+    FourFour = 1,
+    ThreeFour = 2,
+    SixEight = 3,
 };
 
 // Stable indices for Diagnostics note arrays.
@@ -54,6 +63,10 @@ struct Config {
     std::uint8_t volume = 78;       // 0..100
     std::uint8_t texture = 18;      // 0..100
     std::uint16_t bpm = 0;          // 0=AUTO, otherwise 40..180
+    MusicMeter meter = MusicMeter::Auto;
+    Tone keysTone = Tone::ElectricPiano;
+    Tone leadTone = Tone::Vibraphone;
+    BassTone bassTone = BassTone::Round;
 };
 
 struct Snapshot {
@@ -62,6 +75,11 @@ struct Snapshot {
     std::uint64_t sessionSample = 0;
     std::uint32_t bar = 0;
     std::uint16_t bpm = 0;
+    std::uint8_t meterNumerator = 4;
+    std::uint8_t meterDenominator = 4;
+    std::uint8_t beatsPerBar = 4;
+    std::uint8_t stepsPerBar = 16;
+    std::uint8_t stepsPerBeat = 4;
     std::uint16_t barPhaseQ16 = 0;
     std::uint8_t beat = 0;
     std::uint8_t sixteenth = 0;
@@ -70,6 +88,8 @@ struct Snapshot {
     bool changePending = false;
     std::uint8_t activeVoices = 0;
     std::uint8_t voiceCapacity = kMusicVoiceCapacity;
+    // Peak contribution of each MusicInstrument in the recent audio with a roughly 104 ms peak decay.
+    std::uint8_t instrumentLevels[kMusicInstrumentCount]{};
     std::uint16_t recentPeak = 0;
     std::uint64_t scoreEventHash = 0;
     std::uint32_t scoreEventCount = 0;
@@ -107,6 +127,13 @@ struct ScoreBar {
     std::uint64_t seed = 0;
     std::uint32_t bar = 0;
     std::uint16_t bpm = 0;
+    std::uint8_t meterNumerator = 4;
+    std::uint8_t meterDenominator = 4;
+    std::uint8_t beatsPerBar = 4;
+    std::uint8_t stepsPerBar = 16;
+    std::uint8_t stepsPerBeat = 4;
+    std::uint64_t barStartSample = 0;
+    std::uint64_t barEndSample = 0;
     std::uint8_t keyPitchClass = 0;
     bool minor = false;
     std::uint8_t chordRoot = 0; // MIDI root in the compact bass register.
@@ -117,6 +144,8 @@ struct ScoreBar {
 
 const char* moodName(Mood mood) noexcept;
 const char* soundEngineName(SoundEngine engine) noexcept;
+const char* meterName(MusicMeter meter) noexcept;
+bool validMeter(MusicMeter meter) noexcept;
 bool validBpm(std::uint16_t bpm) noexcept;
 bool validConfig(const Config& config) noexcept;
 
@@ -157,8 +186,8 @@ public:
     ScoreBar scoreBar() const noexcept;
 
     // Stable, allocation-free favorite representation:
-    // lofi3-<16 hex seed>-<mood>-<engine>-<volume>-<texture>[-<manual bpm>]
-    static constexpr std::size_t kFavoriteCodeCapacity = 48;
+    // lofi4-<seed>-<mood>-<engine>-<volume>-<texture>-<bpm>-<meter>-<keys>-<lead>-<bass>
+    static constexpr std::size_t kFavoriteCodeCapacity = 80;
     std::size_t writeFavoriteCode(char* output, std::size_t capacity) const noexcept;
     static bool parseFavoriteCode(const char* text, Config& output) noexcept;
 

@@ -1,0 +1,254 @@
+{
+  "version": "0.1.5-dev",
+  "source": "native_shared_composer_csv",
+  "hardware_verified": false,
+  "scope": "Three representative eight-minute meter/mood/seed cases in both backends, including automatic session changes; finite structural checks, not a quality score.",
+  "reports": [
+    {
+      "sha256": "46755677a680c9d085a172a7c2e2e21055cf38b39f206d125b436a2eae8ee7c8",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 2,
+      "meters": [
+        "4/4"
+      ],
+      "bars": 162,
+      "scheduled_notes": 3105,
+      "max_notes_in_bar": 23,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          67
+        ],
+        "lead": [
+          64,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 7
+      },
+      "resolved_passing_notes": 35,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 25,
+      "rule_violations": [],
+      "mood": "cozy",
+      "engine": "synth",
+      "meter": "4/4",
+      "seed": "0xCA7CAFE",
+      "seconds": 480
+    },
+    {
+      "sha256": "46755677a680c9d085a172a7c2e2e21055cf38b39f206d125b436a2eae8ee7c8",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 2,
+      "meters": [
+        "4/4"
+      ],
+      "bars": 162,
+      "scheduled_notes": 3105,
+      "max_notes_in_bar": 23,
+      "pitch_ranges": {
+        "bass": [
+          33,
+          48
+        ],
+        "keys": [
+          53,
+          67
+        ],
+        "lead": [
+          64,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 7
+      },
+      "resolved_passing_notes": 35,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 25,
+      "rule_violations": [],
+      "mood": "cozy",
+      "engine": "hybrid",
+      "meter": "4/4",
+      "seed": "0xCA7CAFE",
+      "seconds": 480
+    },
+    {
+      "sha256": "2b928b8f6c89cab063cc675073fc58df021cad36e7273fc58cfd0a86b80a1e33",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 2,
+      "meters": [
+        "3/4"
+      ],
+      "bars": 183,
+      "scheduled_notes": 3178,
+      "max_notes_in_bar": 20,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          68
+        ],
+        "lead": [
+          67,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 7
+      },
+      "resolved_passing_notes": 40,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": [],
+      "mood": "rainy",
+      "engine": "synth",
+      "meter": "3/4",
+      "seed": "0x0123456789abcdef",
+      "seconds": 480
+    },
+    {
+      "sha256": "2b928b8f6c89cab063cc675073fc58df021cad36e7273fc58cfd0a86b80a1e33",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 2,
+      "meters": [
+        "3/4"
+      ],
+      "bars": 183,
+      "scheduled_notes": 3178,
+      "max_notes_in_bar": 20,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          68
+        ],
+        "lead": [
+          67,
+          82
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 7
+      },
+      "resolved_passing_notes": 40,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 22,
+      "rule_violations": [],
+      "mood": "rainy",
+      "engine": "hybrid",
+      "meter": "3/4",
+      "seed": "0x0123456789abcdef",
+      "seconds": 480
+    },
+    {
+      "sha256": "56637c733c464f95a72b63fec0beb0cb51ec36cd3f200222b5a5fedac0d08f12",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 4,
+      "meters": [
+        "6/8"
+      ],
+      "bars": 300,
+      "scheduled_notes": 4854,
+      "max_notes_in_bar": 19,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          71
+        ],
+        "lead": [
+          65,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 7
+      },
+      "resolved_passing_notes": 64,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 37,
+      "rule_violations": [],
+      "mood": "night",
+      "engine": "synth",
+      "meter": "6/8",
+      "seed": "0xBADC0FFEE0DDF00D",
+      "seconds": 480
+    },
+    {
+      "sha256": "56637c733c464f95a72b63fec0beb0cb51ec36cd3f200222b5a5fedac0d08f12",
+      "generation_schemas": [
+        4
+      ],
+      "sessions": 4,
+      "meters": [
+        "6/8"
+      ],
+      "bars": 300,
+      "scheduled_notes": 4854,
+      "max_notes_in_bar": 19,
+      "pitch_ranges": {
+        "bass": [
+          32,
+          48
+        ],
+        "keys": [
+          53,
+          71
+        ],
+        "lead": [
+          65,
+          83
+        ]
+      },
+      "max_consecutive_semitones": {
+        "bass": 7,
+        "lead": 7
+      },
+      "resolved_passing_notes": 64,
+      "passing_notes_at_export_cutoff": 0,
+      "distinct_four_bar_progressions": 5,
+      "distinct_four_bar_lead_phrases": 37,
+      "rule_violations": [],
+      "mood": "night",
+      "engine": "hybrid",
+      "meter": "6/8",
+      "seed": "0xBADC0FFEE0DDF00D",
+      "seconds": 480
+    }
+  ]
+}

@@ -5,6 +5,9 @@
 namespace lofi {
 namespace {
 
+// Both historical 160-byte formats were last emitted by music schema 3.
+constexpr std::uint8_t kLegacyMaxMusicSchema = 3;
+
 void put32(std::uint8_t* out, std::uint32_t value) {
     for (unsigned i = 0; i < 4; ++i) {
         out[i] = static_cast<std::uint8_t>(value >> (8u * i));
@@ -23,19 +26,32 @@ bool validStoredBpm(std::uint16_t bpm) {
     return bpm == 0 || validBpm(bpm);
 }
 
+bool validSettingsValues(const Settings& settings) {
+    return settings.volume <= 300 && validStoredBpm(settings.bpm) &&
+           settings.brightness >= 10 && settings.brightness <= 100 &&
+           settings.texture <= 100 && settings.motion <= 2 && settings.engine < 2 &&
+           settings.mood < 3 && validMeter(settings.meter) &&
+           validTone(settings.keysTone) && validTone(settings.leadTone) &&
+           validBassTone(settings.bassTone);
+}
+
 // Preserve known older favorite records when loading settings. The controller
 // marks them unavailable rather than silently replaying a different score.
 bool validFavorite(const Favorite& favorite) {
     return favorite.mood < 3 && favorite.engine < 2 && favorite.texture <= 100 &&
            favorite.schema >= 1 && favorite.schema <= kSessionSchema &&
-           validStoredBpm(favorite.bpm);
+           validStoredBpm(favorite.bpm) && validMeter(favorite.meter) &&
+           validTone(favorite.keysTone) && validTone(favorite.leadTone) &&
+           validBassTone(favorite.bassTone);
 }
 
 bool sameFavorite(const Favorite& left, const Favorite& right) {
     return left.seed == right.seed && left.bankFingerprint == right.bankFingerprint &&
            left.mood == right.mood && left.engine == right.engine &&
            left.texture == right.texture && left.schema == right.schema &&
-           left.bpm == right.bpm;
+           left.bpm == right.bpm && left.meter == right.meter &&
+           left.keysTone == right.keysTone && left.leadTone == right.leadTone &&
+           left.bassTone == right.bassTone;
 }
 
 bool hasDuplicateFavorite(const SavedState& state, unsigned index) {
@@ -47,20 +63,75 @@ bool hasDuplicateFavorite(const SavedState& state, unsigned index) {
     return false;
 }
 
+std::size_t crcOffsetFor(std::uint8_t format) {
+    return format == kStateFormatCurrent ? kStateBytes - 4 : kStateLegacyBytes - 4;
+}
+
 bool validHeaderAndCrc(const std::uint8_t* data, std::size_t size) {
-    return data != nullptr && size == kStateBytes &&
-           std::memcmp(data, "LOFI", 4) == 0 && data[5] == kStateBytes &&
-           (data[4] == kStateFormatLegacy || data[4] == kStateFormatCurrent) &&
-           get32(data + 156) == crc32(data, 156);
+    if (data == nullptr || size < 6 || std::memcmp(data, "LOFI", 4) != 0) {
+        return false;
+    }
+    const std::uint8_t format = data[4];
+    const bool legacy = format == kStateFormatLegacy || format == kStateFormatBpm;
+    const bool current = format == kStateFormatCurrent;
+    const std::size_t expected = current ? kStateBytes : kStateLegacyBytes;
+    if ((!legacy && !current) || size != expected || data[5] != expected) {
+        return false;
+    }
+    const std::size_t crcOffset = crcOffsetFor(format);
+    return get32(data + crcOffset) == crc32(data, crcOffset);
+}
+
+void readFavoriteBase(const std::uint8_t* data, unsigned index, Favorite& favorite) {
+    const std::uint8_t* record = data + 16 + index * 16;
+    favorite.seed = static_cast<std::uint64_t>(get32(record)) |
+                    (static_cast<std::uint64_t>(get32(record + 4)) << 32u);
+    favorite.bankFingerprint = get32(record + 8);
+    favorite.mood = record[12];
+    favorite.engine = record[13];
+    favorite.texture = record[14];
+    favorite.schema = record[15];
+}
+
+void writeFavoriteBase(std::uint8_t* data, unsigned index, const Favorite& favorite) {
+    std::uint8_t* record = data + 16 + index * 16;
+    put32(record, static_cast<std::uint32_t>(favorite.seed));
+    put32(record + 4, static_cast<std::uint32_t>(favorite.seed >> 32u));
+    put32(record + 8, favorite.bankFingerprint);
+    record[12] = favorite.mood;
+    record[13] = favorite.engine;
+    record[14] = favorite.texture;
+    record[15] = favorite.schema;
+}
+
+void setNewDefaults(Settings& settings) {
+    settings.meter = MusicMeter::Auto;
+    settings.keysTone = Tone::ElectricPiano;
+    settings.leadTone = Tone::Vibraphone;
+    settings.bassTone = BassTone::Round;
+}
+
+void setNewDefaults(Favorite& favorite) {
+    favorite.meter = MusicMeter::Auto;
+    favorite.keysTone = Tone::ElectricPiano;
+    favorite.leadTone = Tone::Vibraphone;
+    favorite.bassTone = BassTone::Round;
+}
+
+bool unusedRecordsAreZero(const std::uint8_t* data, std::uint8_t count) {
+    const std::size_t used = 16 + static_cast<std::size_t>(count) * 16;
+    for (std::size_t i = used; i < 144; ++i) {
+        if (data[i] != 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace
 
 bool validSettings(const Settings& settings) {
-    return settings.volume <= 300 && validStoredBpm(settings.bpm) &&
-           settings.brightness >= 10 && settings.brightness <= 100 &&
-           settings.texture <= 100 && settings.motion <= 2 && settings.engine < 2 &&
-           settings.mood < 3;
+    return validSettingsValues(settings);
 }
 
 std::uint32_t crc32(const std::uint8_t* data, std::size_t size) {
@@ -86,7 +157,7 @@ std::uint32_t fingerprint(const char* text) {
 }
 
 bool encodeState(const SavedState& state, std::array<std::uint8_t, kStateBytes>& output) {
-    if (!validSettings(state.settings) || state.count > kMaxFavorites) {
+    if (!validSettingsValues(state.settings) || state.count > kMaxFavorites) {
         return false;
     }
     for (unsigned i = 0; i < state.count; ++i) {
@@ -95,13 +166,11 @@ bool encodeState(const SavedState& state, std::array<std::uint8_t, kStateBytes>&
         }
     }
 
-    // Format 2 keeps the exact 160-byte file footprint and every legacy
-    // favorite record byte-for-byte. The header bytes are:
-    //  0..3 magic, 4 format, 5 length, 6 volume high byte, 7 reserved,
-    //  8 volume low byte, 9 brightness, 10 texture, 11 motion, 12 engine,
-    //  13 mood, 14 count, 15 global BPM byte. Bytes 144..151 hold one BPM
-    // byte for each favorite, 152..155 remain reserved, and the CRC covers
-    // bytes 0..155 at 156..159.
+    // Format 3 retains every legacy 16-byte favorite record exactly. The
+    // trailing area adds one BPM byte and four typed bytes per favorite, then
+    // four global typed bytes:
+    //   144..151 favorite BPM, 152..183 favorite meter/tones,
+    //   184..187 global meter/tones, 188..191 CRC.
     output.fill(0);
     std::memcpy(output.data(), "LOFI", 4);
     output[4] = kStateFormatCurrent;
@@ -117,20 +186,22 @@ bool encodeState(const SavedState& state, std::array<std::uint8_t, kStateBytes>&
     output[13] = settings.mood;
     output[14] = state.count;
     output[15] = static_cast<std::uint8_t>(settings.bpm);
+    output[184] = static_cast<std::uint8_t>(settings.meter);
+    output[185] = static_cast<std::uint8_t>(settings.keysTone);
+    output[186] = static_cast<std::uint8_t>(settings.leadTone);
+    output[187] = static_cast<std::uint8_t>(settings.bassTone);
 
     for (unsigned i = 0; i < state.count; ++i) {
-        std::uint8_t* record = output.data() + 16 + i * 16;
         const Favorite& favorite = state.favorites[i];
-        put32(record, static_cast<std::uint32_t>(favorite.seed));
-        put32(record + 4, static_cast<std::uint32_t>(favorite.seed >> 32u));
-        put32(record + 8, favorite.bankFingerprint);
-        record[12] = favorite.mood;
-        record[13] = favorite.engine;
-        record[14] = favorite.texture;
-        record[15] = favorite.schema;
+        writeFavoriteBase(output.data(), i, favorite);
         output[144 + i] = static_cast<std::uint8_t>(favorite.bpm);
+        const std::size_t extra = 152 + static_cast<std::size_t>(i) * 4;
+        output[extra] = static_cast<std::uint8_t>(favorite.meter);
+        output[extra + 1] = static_cast<std::uint8_t>(favorite.keysTone);
+        output[extra + 2] = static_cast<std::uint8_t>(favorite.leadTone);
+        output[extra + 3] = static_cast<std::uint8_t>(favorite.bassTone);
     }
-    put32(output.data() + 156, crc32(output.data(), 156));
+    put32(output.data() + 188, crc32(output.data(), 188));
     return true;
 }
 
@@ -141,76 +212,88 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
 
     SavedState decoded;
     const std::uint8_t format = data[4];
+    setNewDefaults(decoded.settings);
+    decoded.settings.volume = data[8];
+    decoded.settings.brightness = data[9];
+    decoded.settings.texture = data[10];
+    decoded.settings.motion = data[11];
+    decoded.settings.engine = data[12];
+    decoded.settings.mood = data[13];
+    decoded.count = data[14];
+    if (decoded.count > kMaxFavorites) {
+        return false;
+    }
+
     if (format == kStateFormatLegacy) {
-        // Format 1 used one byte per setting and four bytes for the trailing
-        // favorite attributes. It has no persisted manual tempo, so migration
-        // deliberately initializes both settings and favorite BPM to AUTO.
-        if (data[6] != 0 || data[7] != 0 || data[15] != 0) {
+        // Format 1 only had a byte-wide volume and no tempo or typed fields.
+        if (data[6] != 0 || data[7] != 0 || data[15] != 0 || data[8] > 100 ||
+            !unusedRecordsAreZero(data, decoded.count)) {
             return false;
         }
+        decoded.settings.bpm = 0;
         for (std::size_t i = 144; i < 156; ++i) {
             if (data[i] != 0) {
                 return false;
             }
         }
-        decoded.settings.volume = data[8];
-        decoded.settings.bpm = 0;
-        decoded.settings.brightness = data[9];
-        decoded.settings.texture = data[10];
-        decoded.settings.motion = data[11];
-        decoded.settings.engine = data[12];
-        decoded.settings.mood = data[13];
-        decoded.count = data[14];
-        // Format 1 could only represent the original 0..100 setting range;
-        // values 101..255 are malformed legacy records, not wide volumes.
-        if (decoded.settings.volume > 100 || !validSettings(decoded.settings) ||
-            decoded.count > kMaxFavorites) {
-            return false;
-        }
         for (unsigned i = 0; i < decoded.count; ++i) {
-            const std::uint8_t* record = data + 16 + i * 16;
             Favorite& favorite = decoded.favorites[i];
-            favorite.seed = static_cast<std::uint64_t>(get32(record)) |
-                            (static_cast<std::uint64_t>(get32(record + 4)) << 32u);
-            favorite.bankFingerprint = get32(record + 8);
-            favorite.mood = record[12];
-            favorite.engine = record[13];
-            favorite.texture = record[14];
-            favorite.schema = record[15];
+            readFavoriteBase(data, i, favorite);
             favorite.bpm = 0;
-            if (!validFavorite(favorite) || hasDuplicateFavorite(decoded, i)) {
+            setNewDefaults(favorite);
+            if (!validFavorite(favorite) || favorite.schema > kLegacyMaxMusicSchema ||
+                hasDuplicateFavorite(decoded, i)) {
                 return false;
             }
         }
     } else {
-        if (data[7] != 0) {
+        if (data[7] != 0 || !unusedRecordsAreZero(data, decoded.count)) {
             return false;
         }
         decoded.settings.volume = static_cast<std::uint16_t>(
             static_cast<std::uint16_t>(data[8]) |
             static_cast<std::uint16_t>(static_cast<std::uint16_t>(data[6]) << 8u));
         decoded.settings.bpm = data[15];
-        decoded.settings.brightness = data[9];
-        decoded.settings.texture = data[10];
-        decoded.settings.motion = data[11];
-        decoded.settings.engine = data[12];
-        decoded.settings.mood = data[13];
-        decoded.count = data[14];
-        if (!validSettings(decoded.settings) || decoded.count > kMaxFavorites) {
+        if (format == kStateFormatBpm) {
+            // Format 2 added only wide volume and manual BPM. Typed values
+            // remain the documented defaults and its old reserved tail must
+            // stay zero.
+            for (std::size_t i = 152; i < 156; ++i) {
+                if (data[i] != 0) {
+                    return false;
+                }
+            }
+        } else {
+            decoded.settings.meter = static_cast<MusicMeter>(data[184]);
+            decoded.settings.keysTone = static_cast<Tone>(data[185]);
+            decoded.settings.leadTone = static_cast<Tone>(data[186]);
+            decoded.settings.bassTone = static_cast<BassTone>(data[187]);
+            if (data[185] > static_cast<std::uint8_t>(Tone::SoftFlute) ||
+                data[186] > static_cast<std::uint8_t>(Tone::SoftFlute) ||
+                data[187] > static_cast<std::uint8_t>(BassTone::Sub) ||
+                data[184] > static_cast<std::uint8_t>(MusicMeter::SixEight)) {
+                return false;
+            }
+        }
+        if (!validSettingsValues(decoded.settings)) {
             return false;
         }
         for (unsigned i = 0; i < decoded.count; ++i) {
-            const std::uint8_t* record = data + 16 + i * 16;
             Favorite& favorite = decoded.favorites[i];
-            favorite.seed = static_cast<std::uint64_t>(get32(record)) |
-                            (static_cast<std::uint64_t>(get32(record + 4)) << 32u);
-            favorite.bankFingerprint = get32(record + 8);
-            favorite.mood = record[12];
-            favorite.engine = record[13];
-            favorite.texture = record[14];
-            favorite.schema = record[15];
+            readFavoriteBase(data, i, favorite);
             favorite.bpm = data[144 + i];
-            if (!validFavorite(favorite) || hasDuplicateFavorite(decoded, i)) {
+            if (format == kStateFormatCurrent) {
+                const std::size_t extra = 152 + static_cast<std::size_t>(i) * 4;
+                favorite.meter = static_cast<MusicMeter>(data[extra]);
+                favorite.keysTone = static_cast<Tone>(data[extra + 1]);
+                favorite.leadTone = static_cast<Tone>(data[extra + 2]);
+                favorite.bassTone = static_cast<BassTone>(data[extra + 3]);
+            } else {
+                setNewDefaults(favorite);
+            }
+            if (!validFavorite(favorite) ||
+                (format == kStateFormatBpm && favorite.schema > kLegacyMaxMusicSchema) ||
+                hasDuplicateFavorite(decoded, i)) {
                 return false;
             }
         }
@@ -218,20 +301,20 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
             if (data[144 + i] != 0) {
                 return false;
             }
-        }
-        for (std::size_t i = 152; i < 156; ++i) {
-            if (data[i] != 0) {
-                return false;
-            }
-        }
-        const std::size_t usedRecords = 16 + static_cast<std::size_t>(decoded.count) * 16;
-        for (std::size_t i = usedRecords; i < 144; ++i) {
-            if (data[i] != 0) {
-                return false;
+            if (format == kStateFormatCurrent) {
+                const std::size_t extra = 152 + static_cast<std::size_t>(i) * 4;
+                for (std::size_t j = 0; j < 4; ++j) {
+                    if (data[extra + j] != 0) {
+                        return false;
+                    }
+                }
             }
         }
     }
 
+    if (!validSettingsValues(decoded.settings)) {
+        return false;
+    }
     if (format == kStateFormatLegacy) {
         const std::size_t used = 16 + static_cast<std::size_t>(decoded.count) * 16;
         for (std::size_t i = used; i < 156; ++i) {

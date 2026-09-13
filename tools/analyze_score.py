@@ -55,9 +55,17 @@ def inspect(path):
         offset = row["transport_start_sample"] - row["start_sample"]
         if offset < 0 or offsets.setdefault(row["session"], offset) != offset:
             raise ValueError("Inconsistent automatic-session transport offset")
-        step_q32 = (SAMPLE_RATE * 60 << 32) // (row["bpm"] * 4)
-        if not ((step_q32 * row["bar"] * 16) >> 32) <= row["start_sample"] < (
-                (step_q32 * (row["bar"] + 1) * 16) >> 32):
+        meter = (row["meter_numerator"], row["meter_denominator"])
+        expected_grid = {(4, 4): (4, 16, 4), (3, 4): (3, 12, 4), (6, 8): (2, 12, 6)}
+        grid = (row["beats_per_bar"], row["steps_per_bar"], row["steps_per_beat"])
+        if meter not in expected_grid or grid != expected_grid[meter]:
+            raise ValueError("Invalid meter or pulse subdivision")
+        start, end = row["bar_start_sample"], row["bar_end_sample"]
+        step_q32 = (SAMPLE_RATE * 60 << 32) // (row["bpm"] * row["steps_per_beat"])
+        expected_length = (step_q32 * row["steps_per_bar"]) >> 32
+        if start < 0 or abs(end - start - expected_length) > 1:
+            raise ValueError("Invalid score bar duration")
+        if not start <= row["start_sample"] < end:
             raise ValueError("Note outside declared score bar")
         if row["transport_start_sample"] < last_time:
             raise ValueError("Score notes are not in transport order")
@@ -74,18 +82,20 @@ def inspect(path):
             low, high = (32, 48) if instrument == "bass" else (64, 83)
             if not low <= note <= high:
                 violations.append([*identity, instrument, note, "outside instrument register"])
-        step_samples = SAMPLE_RATE * 60 / (row["bpm"] * 4)
-        step = round(row["start_sample"] / step_samples - row["bar"] * 16)
+        step_samples = SAMPLE_RATE * 60 / (row["bpm"] * row["steps_per_beat"])
+        step = round((row["start_sample"] - row["bar_start_sample"]) / step_samples)
+        if row["start_sample"] + row["duration_samples"] > row["bar_end_sample"]:
+            violations.append([*identity, instrument, note, "held note crosses harmony boundary"])
         if note % 12 not in scale:
             violations.append([*identity, instrument, note, "outside session scale"])
         if instrument == "keys" and note % 12 not in chord:
             violations.append([*identity, instrument, note, "outside current chord"])
-        if instrument == "bass" and step % 4 == 0 and note % 12 not in chord:
+        if instrument == "bass" and step % row["steps_per_beat"] == 0 and note % 12 not in chord:
             violations.append([*identity, instrument, note, "strong bass outside chord"])
         if instrument == "lead":
             if note % 12 not in chord:
                 passing += 1
-                if step % 4 == 0 or row["duration_samples"] >= 3 * step_samples - 1:
+                if step % row["steps_per_beat"] == 0 or row["duration_samples"] >= 3 * step_samples - 1:
                     violations.append([*identity, instrument, note, "strong/long nonchord note"])
             # Ignore velocity/microtiming so a new signature needs an actual
             # pitch, rhythm or articulation change, not random humanization.
@@ -107,7 +117,9 @@ def inspect(path):
             raise ValueError("Missing or reordered score bar")
     last_bar = max(bars)
     harmony_fields = ("seed", "bpm", "key_pc", "minor", "chord_root",
-                      "chord_0", "chord_1", "chord_2", "chord_3")
+                      "chord_0", "chord_1", "chord_2", "chord_3",
+                      "meter_numerator", "meter_denominator", "beats_per_bar",
+                      "steps_per_bar", "steps_per_beat", "bar_start_sample", "bar_end_sample")
     for identity, events in bars.items():
         if len(events) > 48:
             raise ValueError("Scheduled bar exceeds note capacity")
@@ -118,6 +130,17 @@ def inspect(path):
         if any(row[f"chord_{i}"] % 12 not in scale for i in range(4)):
             violations.append([*identity, "harmony", row["chord_root"], "chord outside session scale"])
         lead = [row for row in events if row["instrument"] == "lead"]
+        if identity[1] == 0 and row["bar_start_sample"] != 0:
+            raise ValueError("Session does not start at sample zero")
+        if identity[1] > 0:
+            preceding = bars[(identity[0], identity[1] - 1)][0]
+            if preceding["bar_end_sample"] != row["bar_start_sample"]:
+                raise ValueError("Gap or overlap between score bars")
+            if (preceding["meter_numerator"], preceding["meter_denominator"]) != (row["meter_numerator"], row["meter_denominator"]):
+                raise ValueError("Meter changes inside session")
+        for previous_note, following_note in zip(lead, lead[1:]):
+            if previous_note["start_sample"] + previous_note["duration_samples"] > following_note["start_sample"]:
+                violations.append([*identity, "lead", previous_note["midi"], "overlapping melody gates"])
         for i, row in enumerate(lead):
             chord = {row[f"chord_{j}"] % 12 for j in range(4)}
             if row["midi"] % 12 in chord:
@@ -131,7 +154,7 @@ def inspect(path):
             if (following is None or following["midi"] % 12 not in chord
                     or abs(following["midi"] - row["midi"]) not in (1, 2)
                     or following["start_sample"] - row["start_sample"] >
-                       3 * SAMPLE_RATE * 60 / (row["bpm"] * 4) + 96):
+                       3 * SAMPLE_RATE * 60 / (row["bpm"] * row["steps_per_beat"]) + 96):
                 violations.append([*identity, "lead", row["midi"], "passing note does not resolve"])
     progressions = defaultdict(list)
     for (session, bar), events in bars.items():
@@ -145,9 +168,7 @@ def inspect(path):
         final_bar = phrase * 4 + 3
         if (session, final_bar) not in bars:
             continue
-        bpm = bars[(session, final_bar)][0]["bpm"]
-        step_q32 = (SAMPLE_RATE * 60 << 32) // (bpm * 4)
-        end_sample = (step_q32 * (final_bar + 1) * 16) >> 32
+        end_sample = bars[(session, final_bar)][0]["bar_end_sample"]
         if offsets[session] + end_sample <= export_frames:
             complete.add((session, phrase))
     complete_progressions = {tuple(chords) for identity, chords in progressions.items()
@@ -157,6 +178,7 @@ def inspect(path):
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "generation_schemas": sorted({row["schema"] for row in rows}),
         "sessions": len({row["session"] for row in rows}),
+        "meters": sorted({f'{row["meter_numerator"]}/{row["meter_denominator"]}' for row in rows}),
         "bars": len(bars), "scheduled_notes": len(rows),
         "max_notes_in_bar": max(map(len, bars.values())),
         "pitch_ranges": {name: [min(notes), max(notes)] if notes else None
@@ -178,7 +200,7 @@ def main():
     args = parser.parse_args()
     reports = [inspect(path) for path in args.scores]
     result = {"source": "native_shared_composer_csv", "hardware_verified": False,
-              "scope": "Natural-scale membership, chord anchors, passing-note resolution, register and structural variety; no subjective quality rating.",
+              "scope": "Natural-scale membership, chord anchors, passing-note resolution, register, meter bounds, non-overlapping melody gates and structural variety; no subjective quality rating.",
               "scores": reports}
     text = json.dumps(result, indent=2) + "\n"
     if args.output:

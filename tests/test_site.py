@@ -16,6 +16,13 @@ class SiteBoundaries(unittest.TestCase):
         for suffix in ('-0', '-39', '-181', '-65536', '-120-1', '-abc'):
             self.assertIsNone(build_site.parse_favorite_seed({'favorite_code':base+suffix}))
 
+    def test_current_favorite_tones_and_meter(self):
+        base='lofi4-000000000ca7cafe-2-1-78-18'
+        for suffix in ('-0-0-0-3-0', '-40-1-5-0-2', '-180-3-2-1-1'):
+            self.assertEqual(build_site.parse_favorite_seed({'favorite_code':base+suffix}), '000000000CA7CAFE')
+        for suffix in ('', '-0', '-39-0-0-3-0', '-0-4-0-3-0', '-0-0-6-3-0', '-0-0-0-6-0', '-0-0-0-3-3'):
+            self.assertIsNone(build_site.parse_favorite_seed({'favorite_code':base+suffix}))
+
     def test_cannot_replace_source_or_arbitrary_existing_folder(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);source=root/'firmware';source.mkdir();sentinel=source/'keep.cpp';sentinel.write_text('keep')

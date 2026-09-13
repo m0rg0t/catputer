@@ -57,6 +57,36 @@ Generation schema 3 develops the harmony inside one natural major/minor key. Rel
 
 Prepare the next phrase in advance. Generate into fixed-size event storage with a known upper bound; do not allocate an entire endless score. A 64-bit musical sample position avoids long-running clock overflow. Fractional scheduling must carry remainder so tempo does not drift from repeated integer rounding.
 
+## Meter and melodic phrasing · schema 4
+
+The session chooses and retains one meter. AUTO favors 4/4; manual 4/4, 3/4 and 6/8 make listening comparisons explicit. The scheduler uses 16 sixteenth steps and four quarter-note pulses in 4/4, 12 steps and three quarter-note pulses in 3/4, and 12 steps grouped into two dotted-quarter pulses in 6/8. BPM always counts the displayed pulse, including the dotted quarter in 6/8. The UI reads this same musical clock.
+
+The melodic revision addresses overlapping melody gates and unstructured phrase endings. Each meter has its own rhythm, a returning contour, shorter answering phrases and chord-tone endings. Pitched gates end within their harmony bar, and a melody gate ends before its next note. Release tails remain bounded voices. Short scale passing tones resolve by step to chord tones; generated notes stay inside the session key. The score exporter carries explicit bar start/end samples and meter subdivisions so the independent audit can check these rules without assuming 4/4.
+
+These rules improve structural coherence; they do not establish that every seed sounds pleasant. Seeded AUTO meter changes only with a new session. Schema 4 changes the old score; old favorites remain marked OLD rather than silently receiving a new melody.
+
+## Selectable sound sources
+
+The `I` menu selects chord and melody tones independently: electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute. Bass choices are round, upright and sub. These are lightweight synthesized interpretations with distinct partials and envelopes, not high-fidelity acoustic sample libraries. They use the same fixed voice pool and compose entirely on the device. No network or additional SD resources are required.
+
+Released sampled voices free their slot once the common envelope becomes negligible. The hybrid electric-piano oscillator bed keeps a fixed blend after sample exhaustion, preventing a sudden gain jump.
+
+For a fair composer comparison, tone selectors do not enter the score RNG. The hybrid engine keeps the existing electric-piano key samples and drum one-shots; other selected pitched tones use their procedural voice in both engines. This preserves audible differences between selected instruments instead of layering the same electric-piano sample over every sound. The synth-versus-hybrid production decision remains open.
+
+### Instrument implementation comparison
+
+| Approach | Benefit for this update | Cost / decision |
+| --- | --- | --- |
+| Small additive oscillator plus envelope profiles | Independent sounds for chords, lead and bass; no extra PCM bank or SD dependency | Selected for the new tones; approximate instrument character, 2–4 polynomial oscillators and at most one age division per active voice/sample |
+| Additional pitched one-shots | Potentially richer attack detail after good recording/generation and sample preparation | Still available as a future hybrid experiment; needs licensed sources, root-note coverage, trimming and measured flash/voice budgets |
+| Physical instrument models | More detailed pluck/blow/strike behavior | More state and tuning work; deferred until device render headroom is measured |
+
+The research basis is the [Web Audio specification's Fourier-wave representation](https://webaudio.github.io/web-audio-api/#PeriodicWave), [JUCE's oscillator design](https://docs.juce.com/master/classjuce_1_1dsp_1_1Oscillator.html) and [sample-rate-aware ADSR](https://docs.juce.com/master/classjuce_1_1ADSR.html). The [FAUST physical-model library](https://github.com/grame-cncm/faustlibraries/blob/master/physmodels.lib) illustrates the additional waveguide and resonator machinery used by more detailed instrument models. These references informed the comparison; their code is not linked into the firmware. Host object size and oscillator-call counts are not device deadline measurements.
+
+## Music visualization
+
+The compact bottom strip receives seven instrument activity levels with roughly 104 ms peak decay and pulse/meter data from the shared engine snapshot. It is an instrument activity display, not an FFT spectrum. No UI randomness drives it and no FFT or audio buffer copy is added to the display task. Pause/mute makes the strip idle, and motion OFF disables the moving bars. Device playback position remains a queue-latency estimate and needs physical sync verification.
+
 ## Voices and signal chain
 
 Start at 32,000 Hz, mono, signed 16-bit output. This is a proposed quality/performance point; test codec configuration and output on the pinned library. Compare 22,050 Hz only if measured constraints justify it, and record any backend resampling separately.

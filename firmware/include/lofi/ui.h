@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lofi/music.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -21,6 +23,7 @@ enum class Screen : std::uint8_t {
     Moods,
     Favorites,
     Settings,
+    Instruments,
     Help,
     Diagnostics,
 };
@@ -42,6 +45,18 @@ struct View {
     bool pending = false;
     // 0 = still scene, 1 = reduced motion, 2 = full motion.
     std::uint8_t motion = 2;
+    MusicMeter meter = MusicMeter::Auto;
+    Tone keysTone = Tone::ElectricPiano;
+    Tone leadTone = Tone::Vibraphone;
+    BassTone bassTone = BassTone::Round;
+    std::uint8_t instrumentLevels[kMusicInstrumentCount]{};
+    // Transport geometry comes from the actual music snapshot. The renderer
+    // uses it for the beat dots instead of assuming 4/4.
+    std::uint8_t meterNumerator = 4;
+    std::uint8_t meterDenominator = 4;
+    std::uint8_t beatsPerBar = 4;
+    std::uint8_t stepsPerBar = 16;
+    std::uint8_t stepsPerBeat = 4;
     float beatPhase = 0.0f;
     float level = 0.0f;
     char notice[40] = {};

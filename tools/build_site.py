@@ -40,6 +40,7 @@ PUBLIC_DOCS = (
     "docs/EXPERIENCE.md",
     "docs/DELIVERY.md",
     "docs/ARCHITECTURE.md",
+    "docs/MUSIC_ENGINE.md",
 )
 AUDIO_SPECS = (
     ("cozy", "Cozy"),
@@ -180,15 +181,14 @@ def find_field(value: Any, keys: tuple[str, ...]) -> str | None:
 def parse_favorite_seed(value: Any) -> str | None:
     if isinstance(value, dict):
         favorite_code = value.get("favorite_code")
-        if isinstance(favorite_code, str) and re.fullmatch(r"lofi[1-9][0-9]*-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}(?:-[0-9]{1,3})?", favorite_code):
-            parts = favorite_code.split("-")
-            if (int(parts[4]) <= 100 and int(parts[5]) <= 100
-                    and (len(parts) == 6 or 40 <= int(parts[6]) <= 180)):
-                try:
-                    int(parts[1], 16)
-                except ValueError:
-                    pass
-                else:
+        if isinstance(favorite_code, str):
+            legacy = re.fullmatch(r"lofi[1-3]-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}(?:-[0-9]{1,3})?", favorite_code)
+            current = re.fullmatch(r"lofi4-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-3]-[0-5]-[0-5]-[0-2]", favorite_code)
+            if legacy or current:
+                parts = favorite_code.split("-")
+                tempo_ok = (len(parts) == 6 or 40 <= int(parts[6]) <= 180
+                            or (current and int(parts[6]) == 0))
+                if int(parts[4]) <= 100 and int(parts[5]) <= 100 and tempo_ok:
                     return parts[1].upper()
         for child in value.values():
             found = parse_favorite_seed(child)
@@ -255,6 +255,7 @@ def copy_audio(root: Path, output_root: Path) -> list[dict[str, Any]]:
                     or metadata.get("generation_schema") != current_schema
                     or metadata.get("mood", "").lower() != mood
                     or metadata.get("engine", "").lower() != engine
+                    or parse_favorite_seed(metadata) is None
                     or not str(metadata.get("favorite_code", "")).startswith(f"lofi{current_schema}-")
                     or metadata.get("sample_rate") != 32000
                     or type(metadata.get("frames")) is not int or metadata["frames"] <= 0
@@ -264,6 +265,8 @@ def copy_audio(root: Path, output_root: Path) -> list[dict[str, Any]]:
             entry["favorite_code"] = find_field(metadata, ("favorite_code",)) if metadata is not None else None
             entry["score_hash"] = find_field(metadata, ("score_hash",)) if metadata is not None else None
             entry["generation_schema"] = find_field(metadata, ("generation_schema",)) if metadata is not None else None
+            for field in ("meter", "meter_mode", "keys_tone", "lead_tone", "bass_tone"):
+                entry[field] = metadata.get(field) if metadata is not None else None
             entry["frames"] = metadata.get("frames") if metadata is not None else None
             entry["sample_rate"] = metadata.get("sample_rate") if metadata is not None else None
             if source.is_file():
@@ -439,7 +442,9 @@ def render_audio(audio_pairs: list[dict[str, Any]]) -> str:
                 path = html.escape(engine["path"])
                 duration = engine["frames"] / engine["sample_rate"]
                 duration_label = f'{int(duration) // 60}:{int(duration) % 60:02d}'
-                control = f'<audio class="audio-hidden" preload="none" src="{path}" data-duration="{duration}"></audio><button class="button play-audio" type="button" aria-label="Play {html.escape(pair["label"])} {label}">Play</button> <span class="audio-time" aria-live="off">0:00 / {duration_label}</span><p><a href="{path}" download>Download MP3</a> · host render</p>'
+                details = " · ".join(str(engine[field]) for field in ("meter", "keys_tone", "lead_tone", "bass_tone") if engine.get(field))
+                control = f'<p class="muted">{html.escape(details)}</p>'
+                control += f'<audio class="audio-hidden" preload="none" src="{path}" data-duration="{duration}"></audio><button class="button play-audio" type="button" aria-label="Play {html.escape(pair["label"])} {label}">Play</button> <span class="audio-time" aria-live="off">0:00 / {duration_label}</span><p><a href="{path}" download>Download MP3</a> · host render</p>'
             else:
                 control = '<span class="missing">Optional MP3 not present in this checkout</span>'
             cards.append(
@@ -591,7 +596,7 @@ def render_index(
     </div></section>
     <section id="audio"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Matched listening tests</div><h2>Two engines, one mood.</h2></div><p>Hear the same composition through two instrument engines. Choose a mood, play a sample, then compare its warmth and rhythm with the other version.</p></div>{audio_html}</div></section>
     <section id="controls"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Keyboard map</div><h2>Quiet controls stay close.</h2></div><p>Essential actions are one key away, with menus using Enter/Esc and comma, period, slash navigation.</p></div><div class="controls">
-      <div class="control"><kbd>SPACE</kbd><span>Play or pause with a short fade.</span></div><div class="control"><kbd>- / =</kbd><span>Volume 0–300%; soft limiting above the normal range.</span></div><div class="control"><kbd>N</kbd><span>Request the next session at the next musical boundary.</span></div><div class="control"><kbd>M</kbd><span>Choose a mood.</span></div><div class="control"><kbd>F</kbd><span>Toggle the current session favorite.</span></div><div class="control"><kbd>L</kbd><span>Open favorite sessions.</span></div><div class="control"><kbd>V</kbd><span>Toggle the clean scene view.</span></div><div class="control"><kbd>S</kbd><span>Set BPM (AUTO or 40–180), volume, brightness and motion.</span></div><div class="control"><kbd>E</kbd><span>Compare synth and hybrid instruments.</span></div><div class="control"><kbd>H</kbd><span>Open the on-device key guide.</span></div><div class="control"><kbd>ENTER / ESC</kbd><span>Confirm a menu choice or go back.</span></div>
+      <div class="control"><kbd>SPACE</kbd><span>Play or pause with a short fade.</span></div><div class="control"><kbd>- / =</kbd><span>Volume 0–300%; soft limiting above the normal range.</span></div><div class="control"><kbd>N</kbd><span>Request the next session at the next musical boundary.</span></div><div class="control"><kbd>M</kbd><span>Choose a mood.</span></div><div class="control"><kbd>F</kbd><span>Toggle the current session favorite.</span></div><div class="control"><kbd>L</kbd><span>Open favorite sessions.</span></div><div class="control"><kbd>V</kbd><span>Toggle the clean scene view.</span></div><div class="control"><kbd>S</kbd><span>Set BPM (AUTO or 40–180), volume, brightness and motion.</span></div><div class="control"><kbd>I</kbd><span>Choose chord, melody and bass sounds; AUTO, 4/4, 3/4 or 6/8 meter.</span></div><div class="control"><kbd>E</kbd><span>Compare synth and hybrid engines.</span></div><div class="control"><kbd>H</kbd><span>Open the on-device key guide.</span></div><div class="control"><kbd>ENTER / ESC</kbd><span>Confirm a menu choice or go back.</span></div>
     </div></div></section>
     <section id="install"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Build and install</div><h2>Build a little radio.</h2></div><p>The preview can be inspected on a desktop today. Physical audio, LCD, battery, key and install behavior still need an ADV run.</p></div><div class="columns"><article class="panel"><h3>Build the preview</h3><ol><li>Build the C++17 native target using the README commands.</li><li>Run the native renderer to create <code>build/screens/*.ppm</code> and <code>build/animation/*.ppm</code>.</li><li>Run <code>python tools/export_media.py</code> with Pillow to create the public PNG/GIF evidence.</li><li>Run <code>python tools/build_site.py</code> to regenerate this offline page.</li></ol><p>Source revision: <code>{revision}</code><br>Media evidence generated: <code>{generated}</code></p></article><article class="panel"><h3>Install path</h3><p>The planned device route is M5Apps → Installer → SD. The baseline application is intended to keep playing after the installation card is removed; this behavior is a physical verification item.</p><p>Optional audio MP3s are host listening evidence only. The development download below includes installation instructions and checksums. Physical verification is still pending.</p><div class="downloads">{release_html}</div></article></div></div></section>
     <section><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Source notes</div><h2>Made to be explored.</h2></div><p>Original room and cat artwork was created with imagegen, then adapted to the LCD palette. Every scene shown here is captured from the shared renderer. This showcase uses local assets without external fonts or tracking scripts.</p></div><div class="panel"><p>Selected project documents: {docs_html or '<span class="muted">none copied</span>'}</p><p class="muted">The native captures are not a hardware certification. Current results and remaining device checks are in VERIFICATION.md.</p></div></div></section>

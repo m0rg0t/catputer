@@ -1,6 +1,5 @@
 #include "lofi/state.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -8,46 +7,22 @@
 
 namespace {
 
-bool sameFavorite(const lofi::Favorite& left, const lofi::Favorite& right) {
-    return left.seed == right.seed && left.bankFingerprint == right.bankFingerprint &&
-           left.mood == right.mood && left.engine == right.engine &&
-           left.texture == right.texture && left.schema == right.schema &&
-           left.bpm == right.bpm;
-}
-
-bool sameState(const lofi::SavedState& left, const lofi::SavedState& right) {
-    if (left.count != right.count || left.settings.volume != right.settings.volume ||
-        left.settings.bpm != right.settings.bpm ||
-        left.settings.brightness != right.settings.brightness ||
-        left.settings.texture != right.settings.texture ||
-        left.settings.motion != right.settings.motion ||
-        left.settings.engine != right.settings.engine || left.settings.mood != right.settings.mood) {
-        return false;
-    }
-    for (unsigned i = 0; i < lofi::kMaxFavorites; ++i) {
-        if (!sameFavorite(left.favorites[i], right.favorites[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
 void put32(std::uint8_t* output, std::uint32_t value) {
     for (unsigned i = 0; i < 4; ++i) {
         output[i] = static_cast<std::uint8_t>(value >> (8u * i));
     }
 }
 
-void finishCrc(std::array<std::uint8_t, lofi::kStateBytes>& data) {
+void finishLegacyCrc(std::array<std::uint8_t, lofi::kStateLegacyBytes>& data) {
     put32(data.data() + 156, lofi::crc32(data.data(), 156));
 }
 
-std::array<std::uint8_t, lofi::kStateBytes> makeLegacyState() {
-    std::array<std::uint8_t, lofi::kStateBytes> data{};
+std::array<std::uint8_t, lofi::kStateLegacyBytes> makeFormat1() {
+    std::array<std::uint8_t, lofi::kStateLegacyBytes> data{};
     std::memcpy(data.data(), "LOFI", 4);
     data[4] = lofi::kStateFormatLegacy;
-    data[5] = static_cast<std::uint8_t>(lofi::kStateBytes);
-    data[8] = 65;  // Format 1 volume is one byte and migrates losslessly.
+    data[5] = static_cast<std::uint8_t>(lofi::kStateLegacyBytes);
+    data[8] = 65;
     data[9] = 70;
     data[10] = 15;
     data[11] = 2;
@@ -61,9 +36,39 @@ std::array<std::uint8_t, lofi::kStateBytes> makeLegacyState() {
     data[28] = 2;
     data[29] = 1;
     data[30] = 15;
-    data[31] = 1;
-    finishCrc(data);
+    data[31] = 3; // A pre-schema-4 favorite remains visible as OLD.
+    finishLegacyCrc(data);
     return data;
+}
+
+bool sameFavorite(const lofi::Favorite& left, const lofi::Favorite& right) {
+    return left.seed == right.seed && left.bankFingerprint == right.bankFingerprint &&
+           left.mood == right.mood && left.engine == right.engine &&
+           left.texture == right.texture && left.schema == right.schema &&
+           left.bpm == right.bpm && left.meter == right.meter &&
+           left.keysTone == right.keysTone && left.leadTone == right.leadTone &&
+           left.bassTone == right.bassTone;
+}
+
+bool sameState(const lofi::SavedState& left, const lofi::SavedState& right) {
+    if (left.count != right.count || left.settings.volume != right.settings.volume ||
+        left.settings.bpm != right.settings.bpm ||
+        left.settings.brightness != right.settings.brightness ||
+        left.settings.texture != right.settings.texture ||
+        left.settings.motion != right.settings.motion ||
+        left.settings.engine != right.settings.engine || left.settings.mood != right.settings.mood ||
+        left.settings.meter != right.settings.meter ||
+        left.settings.keysTone != right.settings.keysTone ||
+        left.settings.leadTone != right.settings.leadTone ||
+        left.settings.bassTone != right.settings.bassTone) {
+        return false;
+    }
+    for (unsigned i = 0; i < lofi::kMaxFavorites; ++i) {
+        if (!sameFavorite(left.favorites[i], right.favorites[i])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace
@@ -75,6 +80,10 @@ int main() {
     state.settings.volume = 300;
     state.settings.bpm = 123;
     state.settings.mood = 2;
+    state.settings.meter = MusicMeter::SixEight;
+    state.settings.keysTone = Tone::FeltPiano;
+    state.settings.leadTone = Tone::SoftFlute;
+    state.settings.bassTone = BassTone::Upright;
     Favorite first;
     first.seed = UINT64_C(0x0123456789abcdef);
     first.bankFingerprint = 42;
@@ -83,12 +92,24 @@ int main() {
     first.texture = 15;
     first.schema = kSessionSchema;
     first.bpm = 123;
+    first.meter = MusicMeter::ThreeFour;
+    first.keysTone = Tone::NylonGuitar;
+    first.leadTone = Tone::WarmPad;
+    first.bassTone = BassTone::Sub;
     assert(addFavorite(state, first));
 
     std::array<std::uint8_t, kStateBytes> data{};
     assert(encodeState(state, data));
     assert(data[4] == kStateFormatCurrent && data.size() == kStateBytes);
-    assert(data[6] == 1 && data[8] == 44 && data[15] == 123 && data[144] == 123);
+    assert(data[5] == 192 && data[6] == 1 && data[8] == 44 && data[15] == 123);
+    assert(data[144] == 123 && data[184] == static_cast<std::uint8_t>(MusicMeter::SixEight));
+    assert(data[185] == static_cast<std::uint8_t>(Tone::FeltPiano));
+    assert(data[186] == static_cast<std::uint8_t>(Tone::SoftFlute));
+    assert(data[187] == static_cast<std::uint8_t>(BassTone::Upright));
+    assert(data[152] == static_cast<std::uint8_t>(MusicMeter::ThreeFour));
+    assert(data[153] == static_cast<std::uint8_t>(Tone::NylonGuitar));
+    assert(data[154] == static_cast<std::uint8_t>(Tone::WarmPad));
+    assert(data[155] == static_cast<std::uint8_t>(BassTone::Sub));
     assert(data[28] == first.mood && data[29] == first.engine &&
            data[30] == first.texture && data[31] == first.schema);
     SavedState decoded;
@@ -96,31 +117,61 @@ int main() {
     assert(sameState(state, decoded));
     assert(decoded.settings.volume == 300 && decoded.favorites[0].bpm == 123);
 
-    // Manual tempo is part of favorite identity; a different tempo is a
-    // distinct replay, while an exact duplicate is rejected.
-    Favorite tempoVariant = first;
-    tempoVariant.bpm = 124;
-    assert(findFavorite(state, tempoVariant) < 0);
-    assert(addFavorite(state, tempoVariant));
-    assert(!addFavorite(state, tempoVariant));
+    // Manual tempo and instruments are part of favorite identity.
+    Favorite variant = first;
+    variant.bpm = 124;
+    assert(findFavorite(state, variant) < 0);
+    assert(addFavorite(state, variant));
+    assert(!addFavorite(state, variant));
     assert(encodeState(state, data));
     assert(decodeState(data.data(), data.size(), decoded));
     assert(decoded.favorites[1].bpm == 124);
+    variant = first;
+    variant.keysTone = Tone::ElectricPiano;
+    assert(findFavorite(state, variant) < 0);
 
+    // Real format-1 bytes migrate with AUTO/default instrument fields.
     SavedState legacyDecoded;
-    const auto legacy = makeLegacyState();
+    const auto legacy = makeFormat1();
     assert(decodeState(legacy.data(), legacy.size(), legacyDecoded));
     assert(legacyDecoded.settings.volume == 65 && legacyDecoded.settings.bpm == 0);
+    assert(legacyDecoded.settings.meter == MusicMeter::Auto &&
+           legacyDecoded.settings.keysTone == Tone::ElectricPiano);
     assert(legacyDecoded.favorites[0].seed == UINT64_C(0x123456789abcdef0));
-    assert(legacyDecoded.favorites[0].bpm == 0);
-    assert(encodeState(legacyDecoded, data)); // Legacy input upgrades to format 2.
-    assert(data[4] == kStateFormatCurrent);
+    assert(legacyDecoded.favorites[0].bpm == 0 &&
+           legacyDecoded.favorites[0].schema == 3);
+    assert(encodeState(legacyDecoded, data));
+    assert(data[4] == kStateFormatCurrent && data[5] == kStateBytes);
+
+    // Format 2 is the previous wide-volume/BPM layout and still migrates.
+    auto format2 = legacy;
+    format2[4] = kStateFormatBpm;
+    format2[6] = 1;
+    format2[8] = 44; // 300 percent
+    format2[15] = 123;
+    format2[144] = 123;
+    finishLegacyCrc(format2);
+    assert(decodeState(format2.data(), format2.size(), decoded));
+    assert(decoded.settings.volume == 300 && decoded.settings.bpm == 123);
+    assert(decoded.favorites[0].bpm == 123);
+    assert(decoded.settings.meter == MusicMeter::Auto &&
+           decoded.favorites[0].bassTone == BassTone::Round);
+    auto futureFavoriteInLegacy = format2;
+    futureFavoriteInLegacy[31] = kSessionSchema;
+    finishLegacyCrc(futureFavoriteInLegacy);
+    assert(!decodeState(futureFavoriteInLegacy.data(), futureFavoriteInLegacy.size(), decoded));
+
     auto malformedLegacyVolume = legacy;
     malformedLegacyVolume[8] = 101;
-    finishCrc(malformedLegacyVolume);
+    finishLegacyCrc(malformedLegacyVolume);
     assert(!decodeState(malformedLegacyVolume.data(), malformedLegacyVolume.size(), decoded));
+    auto futureFavoriteInFormat1 = legacy;
+    futureFavoriteInFormat1[31] = kSessionSchema;
+    finishLegacyCrc(futureFavoriteInFormat1);
+    assert(!decodeState(futureFavoriteInFormat1.data(), futureFavoriteInFormat1.size(), decoded));
 
-    // Invalid wide values and tempos are rejected before serialization.
+    // Invalid wide values, typed values, and tempos are rejected before
+    // serialization or after a repaired CRC.
     state.settings.volume = 301;
     assert(!encodeState(state, data));
     state.settings.volume = 300;
@@ -129,27 +180,28 @@ int main() {
     state.settings.bpm = static_cast<std::uint16_t>(kMusicMaxBpm + 1);
     assert(!encodeState(state, data));
     state.settings.bpm = 123;
+    state.settings.meter = static_cast<MusicMeter>(255);
+    assert(!encodeState(state, data));
+    state.settings.meter = MusicMeter::SixEight;
     state.favorites[0].bpm = static_cast<std::uint16_t>(kMusicMaxBpm + 1);
     assert(!encodeState(state, data));
     state.favorites[0].bpm = 123;
     assert(encodeState(state, data));
 
-    // A failed decode leaves its destination unchanged, including malformed
-    // format-2 metadata with a repaired CRC.
     const auto unchanged = decoded;
     auto corrupt = data;
-    corrupt[12] = 0xff; // motion is outside its allowed range.
-    finishCrc(corrupt);
+    corrupt[12] = 0xff; // engine is outside its allowed range.
+    put32(corrupt.data() + 188, crc32(corrupt.data(), 188));
     assert(!decodeState(corrupt.data(), corrupt.size(), decoded));
     assert(sameState(decoded, unchanged));
     corrupt = data;
     corrupt[144] = static_cast<std::uint8_t>(kMusicMaxBpm + 1);
-    finishCrc(corrupt);
+    put32(corrupt.data() + 188, crc32(corrupt.data(), 188));
     assert(!decodeState(corrupt.data(), corrupt.size(), decoded));
     assert(sameState(decoded, unchanged));
     corrupt = data;
-    corrupt[152] = 1; // Reserved tail must remain zero in format 2.
-    finishCrc(corrupt);
+    corrupt[152 + 4 * 2] = 1; // Inactive favorite extension must remain zero.
+    put32(corrupt.data() + 188, crc32(corrupt.data(), 188));
     assert(!decodeState(corrupt.data(), corrupt.size(), decoded));
     assert(sameState(decoded, unchanged));
 
@@ -168,5 +220,5 @@ int main() {
     assert(bounded.count == 7);
     assert(!removeFavorite(bounded, 8));
 
-    std::cout << "state: format1 migration, format2 wide volume/BPM, identity, corruption and bounds passed\n";
+    std::cout << "state: format1/2 migration, format3 instruments, identity, corruption and bounds passed\n";
 }

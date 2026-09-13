@@ -363,10 +363,65 @@ void drawGeneratedScene(Frame& frame, const View& view, bool /*muted*/) {
     }
 
     // Keep the room alive on a beat without washing the authored palette out.
-    if (view.motion != 0U && view.playing && view.level > 0.65f) {
+    if (view.motion != 0U && view.playing && view.volume > 0 && view.level > 0.65f) {
         frame.set(106, 56, Gold);
         frame.set(109, 57, Amber);
     }
+}
+
+void drawMusicViz(Frame& frame, const View& view, int top) {
+    // A compact, always-present transport strip keeps the audio state visible
+    // in clean mode without covering the cat's face or the header labels.
+    frame.fillRect(0, top, kScreenWidth, 17, Ink);
+    frame.fillRect(0, top, kScreenWidth, 1, Brick);
+
+    char meter[8] = {};
+    std::snprintf(meter, sizeof(meter), "%u/%u",
+                  static_cast<unsigned>(view.meterNumerator),
+                  static_cast<unsigned>(view.meterDenominator));
+    if (view.meter == MusicMeter::Auto) {
+        drawTinyText(frame, 4, top + 2, "AUTO", Haze, 34);
+        drawText(frame, 4, top + 9, meter, Moon, 34);
+    } else {
+        drawText(frame, 4, top + 6, meter, Moon, 34);
+    }
+
+    static const std::uint8_t barColours[kMusicInstrumentCount] = {
+        Gold, Amber, CatLight, Brick, Rain, Haze, Glow,
+    };
+    for (std::size_t i = 0; i < kMusicInstrumentCount; ++i) {
+        const int x = 42 + static_cast<int>(i) * 13;
+        static const char* const roleLabels[] = {"C", "B", "M", "K", "S", "H", "R"};
+        drawTinyText(frame, x + 2, top + 2, roleLabels[i], Haze, 4);
+        const int raw = view.motion != 0 && view.playing && view.volume > 0
+                            ? view.instrumentLevels[i]
+                            : 0;
+        // Engine role peaks are intentionally conservative (often 5..40),
+        // so use a bounded activity gain rather than a calibrated dB meter.
+        const int height = raw == 0 ? 0 : 1 + clampInt((raw * 8) / 48, 0, 7);
+        if (height > 0) {
+            frame.fillRect(x, top + 16 - height, 8, height, barColours[i]);
+        } else {
+            frame.fillRect(x, top + 8, 8, 1, Slate);
+        }
+    }
+
+    const int beats = clampInt(view.beatsPerBar, 1, 8);
+    float phase = view.beatPhase;
+    if (phase < 0.0f) {
+        phase = 0.0f;
+    }
+    if (phase >= 1.0f) {
+        phase = 0.9999f;
+    }
+    const int activeBeat = clampInt(static_cast<int>(phase * static_cast<float>(beats)), 0, beats - 1);
+    for (int i = 0; i < beats; ++i) {
+        const bool active = view.playing && view.volume > 0 && view.motion != 0 && i == activeBeat;
+        frame.fillRect(155 + i * 9, top + 10, 5, 5, active ? Gold : Slate);
+    }
+    const bool audible = view.playing && view.volume > 0;
+    drawTinyText(frame, 229, top + 3, audible ? "ON" : "--",
+                 audible ? Leaf : Haze, 10);
 }
 
 void drawBattery(Frame& frame, int x, int y, int percent) {
@@ -423,7 +478,7 @@ void drawFooter(Frame& frame, const View& view) {
         drawText(frame, 4, 127, "SPACE PLAY   -/= VOL   H HELP", Cream, 232);
     } else {
         drawText(frame, 4, 118, "SPACE PLAY   -/= VOL   M MOOD", Cream, 232);
-        drawText(frame, 4, 127, "N NEXT   S SET   V CLEAN   H HELP", Cream, 232);
+        drawText(frame, 4, 127, "N NEXT S SET I SOUND V CLEAN H HELP", Cream, 232);
     }
 }
 
@@ -459,10 +514,10 @@ void drawHelp(Frame& frame, const View& view) {
     static const char* const lines[] = {
         "SPACE PLAY/PAUSE", "- = VOLUME", "N NEXT SESSION", "M MOODS",
         "F FAVORITE", "L FAVORITES", "V CLEAN VIEW", "S SETTINGS",
-        "E SYNTH/HYBRID", "H HELP", "ENTER SELECT", "ESC BACK",
-        "; . UP/DOWN", ", / ADJUST",
+        "I INSTRUMENTS", "E SYNTH/HYBRID", "H HELP", "ENTER SELECT",
+        "ESC BACK", "; . UP/DOWN", ", / ADJUST", "",
     };
-    for (int i = 0; i < 14; ++i) {
+    for (int i = 0; i < 16; ++i) {
         const int x = (i & 1) == 0 ? 20 : 128;
         const int y = 34 + (i / 2) * 11;
         drawText(frame, x, y, lines[i], (i == 0 || i == 8) ? Gold : Cream, 101);
@@ -508,6 +563,7 @@ void drawOverlay(Frame& frame, const View& view) {
     case Screen::Moods: drawMenuFrame(frame, "CHOOSE A MOOD", view); break;
     case Screen::Favorites: drawMenuFrame(frame, "FAVORITE SESSIONS", view); break;
     case Screen::Settings: drawMenuFrame(frame, "SETTINGS", view); break;
+    case Screen::Instruments: drawMenuFrame(frame, "INSTRUMENTS", view); break;
     case Screen::Help: drawHelp(frame, view); break;
     case Screen::Diagnostics: drawDiagnostics(frame, view); break;
     case Screen::Radio: break;
@@ -642,6 +698,7 @@ void render(Frame& frame, const View& view) {
     const bool showOverlay = view.screen != Screen::Radio;
     drawGeneratedScene(frame, view, showOverlay);
     if (view.screen == Screen::Radio) {
+        drawMusicViz(frame, view, view.clean ? 118 : 98);
         if (!view.clean) {
             drawStatus(frame, view, "RADIO");
             drawFooter(frame, view);
@@ -652,12 +709,16 @@ void render(Frame& frame, const View& view) {
         return;
     }
     drawStatus(frame, view, view.screen == Screen::Help ? "HELP" :
-                            view.screen == Screen::Diagnostics ? "INFO" : "MENU");
+                            view.screen == Screen::Diagnostics ? "INFO" :
+                            view.screen == Screen::Instruments ? "SOUND" : "MENU");
     drawOverlay(frame, view);
     frame.fillRect(0, 120, 240, 15, Ink);
     frame.fillRect(0, 120, 240, 1, Brick);
-    drawText(frame, 4, 125, view.screen == Screen::Settings && view.selection == 1
+    drawText(frame, 4, 125,
+             view.screen == Screen::Settings && view.selection == 1
              ? "ENTER AUTO/MANUAL  ,/ BPM  ESC BACK"
+             : view.screen == Screen::Instruments
+             ? "ENTER CYCLE  ,/ CHANGE  ESC BACK"
              : "ENTER OK   ESC BACK   ;/. MOVE", Cream, 232);
 }
 

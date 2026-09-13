@@ -92,22 +92,33 @@ Config sanitized(Config config) noexcept {
         config.bpm = std::max<std::uint16_t>(
             kMusicMinBpm, std::min<std::uint16_t>(config.bpm, kMusicMaxBpm));
     }
+    if (static_cast<std::uint8_t>(config.meter) >
+        static_cast<std::uint8_t>(MusicMeter::SixEight)) {
+        config.meter = MusicMeter::Auto;
+    }
+    if (static_cast<std::uint8_t>(config.keysTone) >
+        static_cast<std::uint8_t>(Tone::SoftFlute)) {
+        config.keysTone = Tone::ElectricPiano;
+    }
+    if (static_cast<std::uint8_t>(config.leadTone) >
+        static_cast<std::uint8_t>(Tone::SoftFlute)) {
+        config.leadTone = Tone::Vibraphone;
+    }
+    if (static_cast<std::uint8_t>(config.bassTone) >
+        static_cast<std::uint8_t>(BassTone::Sub)) {
+        config.bassTone = BassTone::Round;
+    }
     return config;
 }
 
 bool sameExceptBpm(const Config& left, const Config& right) noexcept {
     return left.seed == right.seed && left.mood == right.mood &&
            left.soundEngine == right.soundEngine && left.volume == right.volume &&
-           left.texture == right.texture;
+           left.texture == right.texture && left.meter == right.meter &&
+           left.keysTone == right.keysTone && left.leadTone == right.leadTone &&
+           left.bassTone == right.bassTone;
 }
 
-float fastSin(std::uint32_t phase) noexcept {
-    const float x = static_cast<float>(static_cast<std::int32_t>(phase)) /
-                    2147483648.0f;
-    float y = 4.0f * x * (1.0f - std::fabs(x));
-    y += 0.225f * (y * std::fabs(y) - y);
-    return y;
-}
 
 float pitchRatio(int semitones) noexcept {
     constexpr float kSemitone = 1.0594630943592953f;
@@ -303,6 +314,27 @@ struct Harmony {
     ChordShape shape;
 };
 
+struct MeterSpec {
+    std::uint8_t numerator;
+    std::uint8_t denominator;
+    std::uint8_t beatsPerBar;
+    std::uint8_t stepsPerBar;
+    std::uint8_t stepsPerBeat;
+};
+
+constexpr MeterSpec meterSpec(MusicMeter meter) noexcept {
+    switch (meter) {
+    case MusicMeter::ThreeFour:
+        return MeterSpec{3, 4, 3, 12, 4};
+    case MusicMeter::SixEight:
+        return MeterSpec{6, 8, 2, 12, 6};
+    case MusicMeter::Auto:
+    case MusicMeter::FourFour:
+        return MeterSpec{4, 4, 4, 16, 4};
+    }
+    return MeterSpec{4, 4, 4, 16, 4};
+}
+
 } // namespace
 
 struct Engine::Impl {
@@ -362,6 +394,12 @@ struct Engine::Impl {
     std::uint32_t sessionBars = 64;
     std::uint16_t bpm = 76;
     std::uint16_t autoBpm = 76;
+    MusicMeter meter = MusicMeter::FourFour;
+    std::uint8_t meterNumerator = 4;
+    std::uint8_t meterDenominator = 4;
+    std::uint8_t beatsPerBar = 4;
+    std::uint8_t stepsPerBar = 16;
+    std::uint8_t stepsPerBeat = 4;
     std::uint8_t swingPercent = 56;
     std::uint8_t keyPitchClass = 0;
     bool minorSession = false;
@@ -381,6 +419,7 @@ struct Engine::Impl {
     std::uint64_t firstNoteSamples[kMusicInstrumentCount]{};
     std::uint16_t absolutePeak = 0;
     std::uint16_t recentPeak = 0;
+    float recentInstrumentPeaks[kMusicInstrumentCount]{};
     std::uint8_t maxActiveVoices = 0;
 
     bool automaticTransitionDue() const noexcept {
@@ -411,7 +450,7 @@ struct Engine::Impl {
 
     std::uint64_t stepSample(std::uint8_t step) const noexcept {
         std::uint64_t valueQ32 = barStartQ32 + stepQ32 * step;
-        if ((step & 3u) == 2u) {
+        if (meter != MusicMeter::SixEight && (step & 3u) == 2u) {
             const std::uint64_t delayQ32 = stepQ32 *
                 static_cast<std::uint64_t>((swingPercent - 50u) * 4u) / 100u;
             valueQ32 += delayQ32;
@@ -427,7 +466,17 @@ struct Engine::Impl {
     void updateEffectiveTempo() noexcept {
         bpm = current.bpm == 0 ? autoBpm : current.bpm;
         stepQ32 = (static_cast<std::uint64_t>(kMusicSampleRate) * 60u << 32) /
-                  (static_cast<std::uint64_t>(bpm) * 4u);
+                  (static_cast<std::uint64_t>(bpm) * stepsPerBeat);
+    }
+
+    void setMeter(MusicMeter selected) noexcept {
+        meter = selected;
+        const MeterSpec spec = meterSpec(selected);
+        meterNumerator = spec.numerator;
+        meterDenominator = spec.denominator;
+        beatsPerBar = spec.beatsPerBar;
+        stepsPerBar = spec.stepsPerBar;
+        stepsPerBeat = spec.stepsPerBeat;
     }
 
     float harmonicRelease(float automaticCoefficient) const noexcept {
@@ -579,7 +628,7 @@ struct Engine::Impl {
                                        int reference) const noexcept {
         const std::uint8_t pitchClass = chordNotes[voice & 3u] % 12u;
         std::uint8_t note = nearestPitch(pitchClass, reference, 64, 83);
-        if (std::abs(static_cast<int>(note) - reference) > 8) {
+        if (std::abs(static_cast<int>(note) - reference) > 5) {
             int bestDistance = std::numeric_limits<int>::max();
             for (const std::uint8_t chordNote : chordNotes) {
                 const std::uint8_t alternative = nearestPitch(
@@ -622,23 +671,21 @@ struct Engine::Impl {
         return best;
     }
 
-    std::uint8_t scaleNeighborToward(std::uint8_t target, int reference,
-                                     int minimum, int maximum) const noexcept {
+    std::uint8_t scaleBridgeToward(std::uint8_t target, int reference,
+                                   int minimum, int maximum) const noexcept {
         int best = target;
-        int bestDistance = std::numeric_limits<int>::max();
-        for (int direction = -1; direction <= 1; direction += 2) {
-            for (int distance = 1; distance <= 2; ++distance) {
-                const int candidate = static_cast<int>(target) + direction * distance;
-                if (candidate < minimum || candidate > maximum ||
-                    !scaleContains(candidate)) {
-                    continue;
-                }
-                const int movement = std::abs(candidate - reference);
-                if (movement < bestDistance) {
-                    best = candidate;
-                    bestDistance = movement;
-                }
-                break;
+        int bestScore = std::numeric_limits<int>::max();
+        for (int candidate = minimum; candidate <= maximum; ++candidate) {
+            if (!scaleContains(candidate) || candidate == target) {
+                continue;
+            }
+            const int movement = std::abs(candidate - reference);
+            const int resolution = std::abs(static_cast<int>(target) - candidate);
+            const int score = std::max(movement, resolution) * 32 +
+                              movement + resolution;
+            if (score < bestScore) {
+                best = candidate;
+                bestScore = score;
             }
         }
         return static_cast<std::uint8_t>(best);
@@ -708,6 +755,10 @@ struct Engine::Impl {
             autoBpm = static_cast<std::uint16_t>(72 + scoreRng.bounded(9));
             break;
         }
+        const std::uint32_t meterDraw = scoreRng.bounded(10);
+        const MusicMeter automaticMeter = meterDraw < 7u ? MusicMeter::FourFour :
+            meterDraw < 9u ? MusicMeter::ThreeFour : MusicMeter::SixEight;
+        setMeter(current.meter == MusicMeter::Auto ? automaticMeter : current.meter);
         swingPercent = static_cast<std::uint8_t>(55 + scoreRng.bounded(5));
         static constexpr std::uint8_t cozyKeys[] = {0, 2, 5, 7, 9};
         static constexpr std::uint8_t darkKeys[] = {0, 2, 3, 5, 7, 9, 10};
@@ -729,7 +780,7 @@ struct Engine::Impl {
         sessionSample = 0;
         barIndex = 0;
         barStartQ32 = 0;
-        barEndQ32 = stepQ32 * 16u;
+        barEndQ32 = stepQ32 * stepsPerBar;
         eventCount = 0;
         nextEvent = 0;
         pendingChange = false;
@@ -739,6 +790,8 @@ struct Engine::Impl {
         transitionFadeIn = resetCounters ? 0 : kFadeFrames;
         voiceSerial = 0;
         clearAudioState();
+        std::fill(std::begin(recentInstrumentPeaks),
+                  std::end(recentInstrumentPeaks), 0.0f);
         generateBar();
 
         if (resetCounters) {
@@ -778,6 +831,12 @@ struct Engine::Impl {
 
     void addEvent(std::uint8_t step, int timingOffset, std::uint8_t durationSteps,
                   Instrument instrument, int note, int velocity) noexcept {
+        if (step >= stepsPerBar) {
+            return;
+        }
+        durationSteps = std::max<std::uint8_t>(
+            1, std::min<std::uint8_t>(durationSteps,
+                                      static_cast<std::uint8_t>(stepsPerBar - step)));
         const std::uint64_t start = stepSample(step);
         const std::uint64_t minimum = barStartSample();
         const std::uint64_t maximum = barEndSample() > minimum ? barEndSample() - 1 : minimum;
@@ -791,7 +850,9 @@ struct Engine::Impl {
         }
         Event event{};
         event.start = adjusted;
-        event.duration = durationSamples(durationSteps);
+        const std::uint64_t available = std::max<std::uint64_t>(1, barEndSample() - adjusted);
+        event.duration = static_cast<std::uint32_t>(std::min<std::uint64_t>(
+            durationSamples(durationSteps), available));
         event.instrument = instrument;
         event.note = static_cast<std::uint8_t>(std::max(0, std::min(127, note)));
         event.velocity = static_cast<std::uint8_t>(std::max(1, std::min(127, velocity)));
@@ -812,32 +873,53 @@ struct Engine::Impl {
         const int chordVelocity = section == ArrangementSection::Breakdown ? 58 :
                                   section == ArrangementSection::Intro ?
                                       62 + static_cast<int>(barIndex) * 2 : 72;
-        const std::uint8_t chordLength = section == ArrangementSection::Intro ? 13 : 14;
         for (int voice = 0; voice < 4; ++voice) {
             const int source = pattern == 1u ? 3 - voice : voice;
-            const std::uint8_t step = pattern == 2u && source >= 2 ? 2 :
-                                      pattern == 3u && source == 3 ? 6 : 0;
-            const int strumRank = voice;
-            const int strum = strumRank * static_cast<int>(18 + scoreRng.bounded(19));
-            const std::uint8_t shortened = step == 6u ? 6u : step == 2u ? 2u : 0u;
-            addEvent(step, strum,
-                     static_cast<std::uint8_t>(chordLength - shortened),
-                     Instrument::Keys, chordNotes[source],
+            std::uint8_t onset = 0;
+            if (pattern == 2u && source >= 2) {
+                onset = static_cast<std::uint8_t>(stepsPerBeat);
+            } else if (pattern == 3u && source == 3) {
+                onset = meter == MusicMeter::FourFour ? 12u :
+                        meter == MusicMeter::ThreeFour ? 8u : 6u;
+            }
+            const int strum = voice * static_cast<int>(18 + scoreRng.bounded(19));
+            const std::uint8_t tailSpace =
+                section == ArrangementSection::Intro ? 3u : 2u;
+            const std::uint8_t remaining = static_cast<std::uint8_t>(stepsPerBar - onset);
+            const std::uint8_t gate = remaining > tailSpace ?
+                static_cast<std::uint8_t>(remaining - tailSpace) : 1u;
+            addEvent(onset, strum, gate, Instrument::Keys, chordNotes[source],
                      chordVelocity + scoreRng.centered(5));
         }
 
+        std::uint8_t secondBassStep = 0;
+        if (meter == MusicMeter::FourFour) {
+            static constexpr std::uint8_t steps[] = {8, 10, 8, 6};
+            secondBassStep = steps[pattern];
+        } else if (meter == MusicMeter::ThreeFour) {
+            static constexpr std::uint8_t steps[] = {6, 8, 6, 4};
+            secondBassStep = steps[pattern];
+        } else {
+            static constexpr std::uint8_t steps[] = {6, 8, 6, 4};
+            secondBassStep = steps[pattern];
+        }
+        const std::uint8_t approachStep = static_cast<std::uint8_t>(stepsPerBar - 2u);
         const int bassRoot = currentBassRoot;
-        addEvent(0, 52 + scoreRng.centered(timingRadius), 6, Instrument::Bass,
-                 bassRoot,
+        const std::uint8_t rootGate = std::max<std::uint8_t>(
+            1, std::min<std::uint8_t>(static_cast<std::uint8_t>(secondBassStep - 1u),
+                                      stepsPerBeat + 2u));
+        addEvent(0, 52 + scoreRng.centered(timingRadius), rootGate,
+                 Instrument::Bass, bassRoot,
                  (section == ArrangementSection::Intro ? 68 : 74) +
                      scoreRng.centered(5));
         lastBassNote = currentBassRoot;
+
         const bool flowingBass = section == ArrangementSection::Intro ||
             section == ArrangementSection::Groove ||
             section == ArrangementSection::Melody ||
             section == ArrangementSection::Return;
+        const Harmony nextHarmony = harmonyForBar(barIndex + 1u);
         if (flowingBass) {
-            static constexpr std::uint8_t secondSteps[] = {8, 10, 8, 6};
             const std::uint8_t chordInterval = pattern == 0u ? 0u :
                 pattern == 2u ? harmony.shape.third : 7u;
             int second = bassPitchForDegree(
@@ -849,37 +931,43 @@ struct Engine::Impl {
             if (std::abs(second - bassRoot) > 7) {
                 second = bassRoot;
             }
-            const Harmony nextHarmony = harmonyForBar(barIndex + 1u);
             const std::uint8_t nextRootFromSecond = bassPitchForDegree(
                 nextHarmony.degree, second);
-            if (std::abs(static_cast<int>(nextRootFromSecond) - second) > 7) {
+            const bool needsBridge =
+                std::abs(static_cast<int>(nextRootFromSecond) - second) > 7;
+            if (needsBridge) {
                 second = bassRoot;
             }
-            addEvent(secondSteps[pattern], 34 + scoreRng.centered(timingRadius),
-                     pattern == 3u ? 4 : 5, Instrument::Bass,
+            const bool approach = (barIndex & 3u) == 3u ||
+                (section != ArrangementSection::Intro && pattern == 2u) ||
+                needsBridge;
+            const std::uint8_t secondGap = approach ?
+                static_cast<std::uint8_t>(approachStep - secondBassStep) :
+                static_cast<std::uint8_t>(stepsPerBar - secondBassStep);
+            const std::uint8_t secondGate = std::max<std::uint8_t>(
+                1, static_cast<std::uint8_t>(secondGap - 1u));
+            addEvent(secondBassStep, 34 + scoreRng.centered(timingRadius),
+                     secondGate, Instrument::Bass,
                      second,
                      (section == ArrangementSection::Intro ? 57 : 65) +
                          scoreRng.centered(5));
             lastBassNote = static_cast<std::uint8_t>(second);
-            const bool approach = (barIndex & 3u) == 3u ||
-                (section != ArrangementSection::Intro && pattern == 2u);
             if (approach) {
                 const std::uint8_t target = bassPitchForDegree(nextHarmony.degree,
                                                                 lastBassNote);
-                const std::uint8_t approachNote = scaleNeighborToward(
+                const std::uint8_t approachNote = scaleBridgeToward(
                     target, lastBassNote, kBassLow, kBassHigh);
-                addEvent(14, scoreRng.centered(28), 2, Instrument::Bass,
+                addEvent(approachStep, scoreRng.centered(24), 2, Instrument::Bass,
                          approachNote, 48 + scoreRng.centered(4));
                 lastBassNote = approachNote;
             }
         } else {
-            const Harmony nextHarmony = harmonyForBar(barIndex + 1u);
             const std::uint8_t target = bassPitchForDegree(nextHarmony.degree,
                                                             lastBassNote);
             if (std::abs(static_cast<int>(target) - bassRoot) > 7) {
-                const std::uint8_t approachNote = scaleNeighborToward(
+                const std::uint8_t approachNote = scaleBridgeToward(
                     target, bassRoot, kBassLow, kBassHigh);
-                addEvent(14, scoreRng.centered(22), 2, Instrument::Bass,
+                addEvent(approachStep, scoreRng.centered(22), 2, Instrument::Bass,
                          approachNote, 43 + scoreRng.centered(3));
                 lastBassNote = approachNote;
             }
@@ -888,152 +976,235 @@ struct Engine::Impl {
         const bool fullDrums = section == ArrangementSection::Groove ||
                                section == ArrangementSection::Melody ||
                                section == ArrangementSection::Return;
-        if (section == ArrangementSection::Intro) {
-            // The opening is already a complete, quiet pocket. Later sections
-            // add weight and subdivisions instead of waiting to reveal the beat.
-            addEvent(0, scoreRng.centered(14), 3, Instrument::Kick, 36,
-                     69 + scoreRng.centered(4));
-            addEvent(8, scoreRng.centered(18), 2, Instrument::Kick, 36,
-                     55 + scoreRng.centered(5));
-            if (barIndex >= 2) {
-                addEvent((barIndex & 1u) == 0u ? 10 : 6, scoreRng.centered(18), 2,
-                         Instrument::Kick, 36, 43 + scoreRng.centered(4));
-            }
-            addEvent(4, scoreRng.centered(22), 2, Instrument::Snare, 38,
-                     49 + scoreRng.centered(5));
-            addEvent(12, scoreRng.centered(24), 2, Instrument::Snare, 38,
-                     53 + scoreRng.centered(5));
-            for (std::uint8_t step = 2; step < 16; step += 4) {
-                addEvent(step, scoreRng.centered(16), 1, Instrument::Hat, 42,
-                         ((step & 7u) == 2u ? 31 : 37) + scoreRng.centered(4));
-            }
-            if ((barIndex & 1u) != 0u) {
-                addEvent(15, scoreRng.centered(10), 1, Instrument::Rim, 37,
-                         35 + scoreRng.centered(4));
-            }
-        } else if (fullDrums) {
-            static constexpr std::uint8_t secondKickSteps[] = {8, 10, 8, 7};
-            addEvent(0, scoreRng.centered(18), 3, Instrument::Kick, 36,
-                     91 + scoreRng.centered(5));
-            addEvent(secondKickSteps[pattern], scoreRng.centered(22), 3,
-                     Instrument::Kick, 36,
-                     77 + scoreRng.centered(6));
-            if (pattern == 2u || (phraseBar == 7u && pattern != 0u)) {
-                addEvent(pattern == 2u ? 11 : 6, scoreRng.centered(24), 2,
-                         Instrument::Kick, 36, 52 + scoreRng.centered(5));
-            }
-            addEvent(4, scoreRng.centered(26), 3, Instrument::Snare, 38,
-                     73 + scoreRng.centered(7));
-            addEvent(12, scoreRng.centered(28), 3, Instrument::Snare, 38,
-                     79 + scoreRng.centered(7));
-            for (std::uint8_t step = 0; step < 16; step += 2) {
-                const bool rest = (pattern == 0u && (step == 0u || step == 8u)) ||
-                    (pattern == 1u && step == 6u) ||
-                    (pattern == 3u && (step == 2u || step == 10u));
-                if (rest) {
-                    continue;
+        if (meter == MusicMeter::FourFour) {
+            if (section == ArrangementSection::Intro || fullDrums) {
+                const int kick = section == ArrangementSection::Intro ? 69 : 89;
+                const int snare = section == ArrangementSection::Intro ? 50 : 75;
+                addEvent(0, scoreRng.centered(16), 3, Instrument::Kick, 36,
+                         kick + scoreRng.centered(5));
+                static constexpr std::uint8_t secondKicks[] = {8, 10, 8, 7};
+                addEvent(secondKicks[pattern], scoreRng.centered(22), 2,
+                         Instrument::Kick, 36, kick - 12 + scoreRng.centered(5));
+                addEvent(4, scoreRng.centered(24), 2, Instrument::Snare, 38,
+                         snare + scoreRng.centered(6));
+                addEvent(12, scoreRng.centered(24), 2, Instrument::Snare, 38,
+                         snare + 3 + scoreRng.centered(6));
+                for (std::uint8_t step = 2; step < 16; step += 2) {
+                    const bool rest = fullDrums && pattern == 1u && step == 6u;
+                    if (!rest) {
+                        addEvent(step, scoreRng.centered(18), 1, Instrument::Hat, 42,
+                                 ((step & 3u) == 0u ? 37 : 44) +
+                                     scoreRng.centered(4));
+                    }
                 }
-                addEvent(step, scoreRng.centered(22), 1, Instrument::Hat, 42,
-                         (step & 3u) == 0u ? 39 + scoreRng.centered(5) :
-                                            48 + scoreRng.centered(5));
+                if ((barIndex & 1u) != 0u) {
+                    addEvent(15, scoreRng.centered(10), 1, Instrument::Rim, 37,
+                             38 + scoreRng.centered(4));
+                }
+            } else if (section == ArrangementSection::Breakdown) {
+                addEvent(4, scoreRng.centered(18), 2, Instrument::Rim, 37, 42);
+                addEvent(12, scoreRng.centered(18), 2, Instrument::Rim, 37, 45);
+                for (std::uint8_t step = 2; step < 16; step += 4) {
+                    addEvent(step, scoreRng.centered(16), 1, Instrument::Hat, 42,
+                             31 + scoreRng.centered(3));
+                }
+            } else {
+                addEvent(4, scoreRng.centered(18), 2, Instrument::Rim, 37, 37);
+                addEvent(12, scoreRng.centered(18), 2, Instrument::Rim, 37, 34);
             }
-            if ((barIndex & 3u) == 3u) {
-                addEvent(15, scoreRng.centered(12), 1, Instrument::Rim, 37,
-                         50 + scoreRng.centered(5));
+        } else if (meter == MusicMeter::ThreeFour) {
+            if (section == ArrangementSection::Intro || fullDrums) {
+                const int kick = section == ArrangementSection::Intro ? 66 : 86;
+                const int snare = section == ArrangementSection::Intro ? 48 : 70;
+                addEvent(0, scoreRng.centered(16), 3, Instrument::Kick, 36,
+                         kick + scoreRng.centered(4));
+                if (pattern != 0u || fullDrums) {
+                    addEvent(pattern == 3u ? 6u : 8u, scoreRng.centered(18), 2,
+                             Instrument::Kick, 36, kick - 18 + scoreRng.centered(4));
+                }
+                addEvent(4, scoreRng.centered(20), 2, Instrument::Snare, 38,
+                         snare + scoreRng.centered(5));
+                addEvent(8, scoreRng.centered(20), 2, Instrument::Snare, 38,
+                         snare - 3 + scoreRng.centered(5));
+                for (std::uint8_t step = 2; step < 12; step += 2) {
+                    addEvent(step, scoreRng.centered(16), 1, Instrument::Hat, 42,
+                             (step == 2u ? 35 : 42) + scoreRng.centered(4));
+                }
+                if ((barIndex & 1u) != 0u) {
+                    addEvent(11, scoreRng.centered(9), 1, Instrument::Rim, 37,
+                             36 + scoreRng.centered(3));
+                }
+            } else if (section == ArrangementSection::Breakdown) {
+                addEvent(4, scoreRng.centered(18), 2, Instrument::Rim, 37, 41);
+                addEvent(8, scoreRng.centered(18), 2, Instrument::Rim, 37, 44);
+                for (std::uint8_t step = 2; step < 12; step += 4) {
+                    addEvent(step, scoreRng.centered(14), 1, Instrument::Hat, 42, 31);
+                }
+            } else {
+                addEvent(4, scoreRng.centered(16), 2, Instrument::Rim, 37, 36);
+                addEvent(8, scoreRng.centered(16), 2, Instrument::Rim, 37, 33);
             }
-        } else if (section == ArrangementSection::Breakdown) {
-            addEvent(4, scoreRng.centered(22), 2, Instrument::Rim, 37,
-                     42 + scoreRng.centered(4));
-            addEvent(12, scoreRng.centered(22), 2, Instrument::Rim, 37,
-                     46 + scoreRng.centered(4));
-            for (std::uint8_t step = 2; step < 16; step += 4) {
-                addEvent(step, scoreRng.centered(18), 1, Instrument::Hat, 42,
-                         31 + scoreRng.centered(4));
+        } else {
+            if (section == ArrangementSection::Intro || fullDrums) {
+                const int kick = section == ArrangementSection::Intro ? 67 : 88;
+                const int snare = section == ArrangementSection::Intro ? 50 : 73;
+                addEvent(0, scoreRng.centered(14), 3, Instrument::Kick, 36,
+                         kick + scoreRng.centered(4));
+                if (pattern != 0u || fullDrums) {
+                    addEvent(pattern == 3u ? 9u : 8u, scoreRng.centered(16), 2,
+                             Instrument::Kick, 36, kick - 15 + scoreRng.centered(4));
+                }
+                addEvent(6, scoreRng.centered(20), 2, Instrument::Snare, 38,
+                         snare + scoreRng.centered(5));
+                for (std::uint8_t step = 2; step < 12; step += 2) {
+                    addEvent(step, scoreRng.centered(14), 1, Instrument::Hat, 42,
+                             (step == 2u || step == 8u ? 36 : 43) +
+                                 scoreRng.centered(4));
+                }
+                if ((barIndex & 1u) != 0u) {
+                    addEvent(11, scoreRng.centered(8), 1, Instrument::Rim, 37,
+                             38 + scoreRng.centered(3));
+                }
+            } else if (section == ArrangementSection::Breakdown) {
+                addEvent(6, scoreRng.centered(16), 2, Instrument::Rim, 37, 43);
+                for (std::uint8_t step : {2u, 4u, 8u, 10u}) {
+                    addEvent(step, scoreRng.centered(12), 1, Instrument::Hat, 42, 31);
+                }
+            } else {
+                addEvent(6, scoreRng.centered(16), 2, Instrument::Rim, 37, 36);
             }
-        } else if (section == ArrangementSection::Outro) {
-            addEvent(4, scoreRng.centered(20), 2, Instrument::Rim, 37,
-                     38 + scoreRng.centered(4));
-            addEvent(12, scoreRng.centered(20), 2, Instrument::Rim, 37,
-                     34 + scoreRng.centered(4));
         }
 
         const auto addChordLead = [this](std::uint8_t step, std::uint8_t voice,
                                          std::uint8_t duration,
                                          int velocity) noexcept {
             const std::uint8_t note = leadPitchForChordVoice(voice);
-            addEvent(step, scoreRng.centered(30), duration, Instrument::Lead,
-                     note, velocity + scoreRng.centered(5));
+            addEvent(step, 0, duration, Instrument::Lead, note,
+                     velocity + scoreRng.centered(5));
         };
         const auto addHook = [this, &addChordLead](std::uint8_t maximumNotes,
                                                    int velocity) noexcept {
+            static constexpr std::uint8_t fourFourSteps[] = {0, 2, 4, 6, 8, 10, 12, 14};
+            static constexpr std::uint8_t shortSteps[] = {0, 2, 4, 6, 8, 10};
+            const std::uint8_t* hookSteps = meter == MusicMeter::FourFour ?
+                fourFourSteps : shortSteps;
+            const std::uint8_t slots = meter == MusicMeter::FourFour ? 8u : 6u;
             std::uint8_t added = 0;
-            for (std::uint8_t slot = 0; slot < 8 && added < maximumNotes; ++slot) {
+            for (std::uint8_t slot = 0; slot < slots && added < maximumNotes; ++slot) {
                 if (motif[slot] < 0) {
                     continue;
                 }
-                const std::uint8_t step = static_cast<std::uint8_t>(slot * 2u);
-                const std::uint8_t duration = (step & 3u) == 0u ? 3u : 2u;
+                const std::uint8_t step = hookSteps[slot];
+                const std::uint8_t duration = step % stepsPerBeat == 0u ? 2u : 1u;
                 addChordLead(step, static_cast<std::uint8_t>(motif[slot]), duration,
                              velocity + (added == 0 ? 3 : 0));
                 ++added;
             }
         };
-        const auto addResponse = [this, &addChordLead](int velocity) noexcept {
+        const auto addCadence = [this, &harmony](std::uint8_t step, bool useThird,
+                                                 std::uint8_t duration,
+                                                 int velocity) noexcept {
+            const std::uint8_t rootClass = currentBassRoot % 12u;
+            const std::uint8_t thirdClass = static_cast<std::uint8_t>(
+                (rootClass + harmony.shape.third) % 12u);
+            const std::uint8_t root = nearestPitch(rootClass, lastLeadNote, 64, 83);
+            const std::uint8_t third = nearestPitch(thirdClass, lastLeadNote, 64, 83);
+            std::uint8_t note = useThird ? third : root;
+            const std::uint8_t alternative = useThird ? root : third;
+            if (std::abs(static_cast<int>(note) - lastLeadNote) > 5 &&
+                std::abs(static_cast<int>(alternative) - lastLeadNote) <
+                    std::abs(static_cast<int>(note) - lastLeadNote)) {
+                note = alternative;
+            }
+            addEvent(step, 0, duration, Instrument::Lead, note,
+                     velocity + scoreRng.centered(4));
+            lastLeadNote = note;
+        };
+        const auto addResponse = [this, &addChordLead, &addCadence](
+                                     int velocity) noexcept {
+            const std::uint8_t responseSteps[3] = {
+                1u,
+                static_cast<std::uint8_t>(stepsPerBeat + 1u),
+                static_cast<std::uint8_t>(stepsPerBar - 3u),
+            };
             std::uint8_t added = 0;
             for (int slot = 7; slot >= 0 && added < 3; --slot) {
                 if (motif[slot] < 0) {
                     continue;
                 }
-                const std::uint8_t step = static_cast<std::uint8_t>(4u + added * 4u);
-                addChordLead(step, static_cast<std::uint8_t>(motif[slot]),
-                             added == 1 ? 3u : 2u, velocity - added * 2);
+                if (added == 2u) {
+                    addCadence(responseSteps[added], (barIndex & 2u) != 0u,
+                               3, velocity - 4);
+                } else {
+                    addChordLead(responseSteps[added],
+                                 static_cast<std::uint8_t>(motif[slot]), 2,
+                                 velocity - added * 2);
+                }
                 ++added;
             }
         };
         const auto addPassingResolution = [this](std::uint8_t passingStep,
-                                                  std::uint8_t resolutionStep,
                                                   std::uint8_t chordVoice,
                                                   int velocity) noexcept {
             std::uint8_t target = nearestLeadChordPitch(chordVoice, lastLeadNote);
-            const std::uint8_t pitchClass = target % 12u;
             const int direction = lastLeadNote < target ? -1 :
                                   lastLeadNote > target ? 1 :
                                   ((barIndex + chordVoice + current.seed) & 1u) != 0u ?
                                       1 : -1;
-            const std::uint8_t passing = passingPitchTo(target, direction, 64, 83);
-            addEvent(passingStep, scoreRng.centered(24), 1, Instrument::Lead,
-                     passing, velocity - 5 + scoreRng.centered(3));
+            std::uint8_t passing = passingPitchTo(target, direction, 64, 83);
+            if (passing == target) {
+                for (std::uint8_t alternativeVoice = 0; alternativeVoice < 4;
+                     ++alternativeVoice) {
+                    const std::uint8_t alternative = nearestLeadChordPitch(
+                        alternativeVoice, lastLeadNote);
+                    const std::uint8_t alternativePassing = passingPitchTo(
+                        alternative, direction, 64, 83);
+                    if (alternativePassing != alternative) {
+                        target = alternative;
+                        passing = alternativePassing;
+                        break;
+                    }
+                }
+            }
+            const std::uint8_t pitchClass = target % 12u;
+            addEvent(passingStep, 0, 1, Instrument::Lead, passing,
+                     velocity - 5 + scoreRng.centered(3));
             lastLeadNote = passing;
             target = nearestPitch(pitchClass, lastLeadNote, 64, 83);
-            addEvent(resolutionStep, scoreRng.centered(24), 2, Instrument::Lead,
-                     target, velocity + scoreRng.centered(4));
+            addEvent(static_cast<std::uint8_t>(passingStep + 1u), 0, 2,
+                     Instrument::Lead, target, velocity + scoreRng.centered(4));
             lastLeadNote = target;
         };
 
         if (section == ArrangementSection::Outro) {
             if ((barIndex & 1u) == 0u) {
-                addChordLead(8, 0, 4, 35);
+                addCadence(static_cast<std::uint8_t>(stepsPerBeat), false,
+                           stepsPerBeat, 35);
             }
         } else if (section == ArrangementSection::Breakdown) {
             if (phraseBar == 0u || phraseBar == 4u) {
-                addChordLead(8, static_cast<std::uint8_t>(phraseBar / 4u), 4, 37);
+                addChordLead(static_cast<std::uint8_t>(stepsPerBeat),
+                             static_cast<std::uint8_t>(phraseBar / 4u),
+                             stepsPerBeat, 37);
             } else if (phraseBar == 3u || phraseBar == 7u) {
-                addChordLead(12, 0, 3, 34);
+                addCadence(static_cast<std::uint8_t>(stepsPerBar - stepsPerBeat),
+                           false, static_cast<std::uint8_t>(stepsPerBeat - 1u), 34);
             }
         } else {
             switch (phraseBar) {
             case 0:
-                // The unmodified seed motif is the recurring eight-bar hook.
                 addHook(8, section == ArrangementSection::Intro ? 40 : 45);
                 break;
             case 1:
                 addResponse(section == ArrangementSection::Intro ? 40 : 44);
                 break;
             case 2:
-                addPassingResolution(5, 7, 1, 42);
+                addPassingResolution(meter == MusicMeter::SixEight ? 3u : 5u,
+                                     1, 42);
                 break;
             case 3:
-                addChordLead(8, 0, 4, 43);
+                addCadence(static_cast<std::uint8_t>(stepsPerBar / 2u),
+                           (barIndex & 8u) != 0u, stepsPerBeat, 43);
                 break;
             case 4:
                 addHook(3, 41);
@@ -1042,11 +1213,12 @@ struct Engine::Impl {
                 addResponse(42);
                 break;
             case 6:
-                addPassingResolution(9, 11, 2, 40);
+                addPassingResolution(meter == MusicMeter::SixEight ? 8u : 9u,
+                                     2, 40);
                 break;
             case 7:
-                addChordLead(10, 2, 2, 40);
-                addChordLead(14, 0, 2, 37);
+                addChordLead(static_cast<std::uint8_t>(stepsPerBar - 6u), 2, 2, 40);
+                addCadence(static_cast<std::uint8_t>(stepsPerBar - 2u), false, 2, 37);
                 break;
             }
         }
@@ -1257,26 +1429,27 @@ struct Engine::Impl {
 
         switch (event.instrument) {
         case Instrument::Keys:
-            voice->attackIncrement = 1.0f / 224.0f;
-            voice->sustain = 0.23f;
-            voice->decay = current.mood == Mood::Rainy ? 0.99988f : 0.99984f;
-            voice->release = harmonicRelease(0.99972f);
-            voice->gain = 0.185f;
+        case Instrument::Lead: {
+            const bool lead = event.instrument == Instrument::Lead;
+            const Tone tone = lead ? current.leadTone : current.keysTone;
+            const ToneEnvelope profile = toneEnvelope(tone, lead);
+            voice->attackIncrement = profile.attackIncrement;
+            voice->sustain = profile.sustain;
+            voice->decay = tone == Tone::ElectricPiano && !lead && current.mood == Mood::Rainy
+                ? 0.99988f : profile.decay;
+            voice->release = harmonicRelease(profile.release);
+            voice->gain = profile.gain;
             break;
-        case Instrument::Bass:
-            voice->attackIncrement = 1.0f / 112.0f;
-            voice->sustain = 0.54f;
-            voice->decay = 0.99955f;
-            voice->release = harmonicRelease(0.99885f);
-            voice->gain = 0.25f;
+        }
+        case Instrument::Bass: {
+            const ToneEnvelope profile = bassEnvelope(current.bassTone);
+            voice->attackIncrement = profile.attackIncrement;
+            voice->sustain = profile.sustain;
+            voice->decay = profile.decay;
+            voice->release = harmonicRelease(profile.release);
+            voice->gain = profile.gain;
             break;
-        case Instrument::Lead:
-            voice->attackIncrement = 1.0f / 180.0f;
-            voice->sustain = 0.16f;
-            voice->decay = 0.99968f;
-            voice->release = harmonicRelease(0.9989f);
-            voice->gain = 0.14f;
-            break;
+        }
         case Instrument::Kick:
             voice->attackIncrement = 1.0f;
             voice->sustain = 0.0f;
@@ -1312,7 +1485,11 @@ struct Engine::Impl {
 
         if (current.soundEngine == SoundEngine::Hybrid) {
             if (event.instrument == Instrument::Keys || event.instrument == Instrument::Lead) {
-                voice->sample = keySampleFor(event.note);
+                // Keep the electric-piano source specific to that tone. The
+                // other selected pitched profiles are procedural in both engines.
+                const Tone tone = event.instrument == Instrument::Keys
+                    ? current.keysTone : current.leadTone;
+                voice->sample = tone == Tone::ElectricPiano ? keySampleFor(event.note) : nullptr;
                 if (voice->sample != nullptr && voice->sample->data != nullptr &&
                     voice->sample->frames != 0) {
                     voice->sampleActive = true;
@@ -1375,28 +1552,24 @@ struct Engine::Impl {
         }
 
         float signal = 0.0f;
-        const float fundamental = fastSin(voice.phase);
+        const float fundamental = isDrum(voice.instrument) ? phaseSine(voice.phase) : 0.0f;
         switch (voice.instrument) {
         case Instrument::Keys:
         case Instrument::Lead: {
-            const float ageDecay = 1.0f /
-                (1.0f + static_cast<float>(voice.age) * 0.000055f);
-            const float electric = fundamental * 0.72f +
-                                   fastSin(voice.phase * 2u + (voice.phase >> 5)) *
-                                       0.19f * ageDecay +
-                                   fastSin(voice.phase * 3u) * 0.09f * ageDecay;
-            if (current.soundEngine == SoundEngine::Hybrid && voice.sampleActive) {
-                const float sampleValue = readSample(voice);
-                signal = sampleValue * 0.78f + electric * 0.32f;
-            } else {
-                signal = electric;
+            const Tone tone = voice.instrument == Instrument::Keys
+                ? current.keysTone : current.leadTone;
+            const float tonal = renderTone(tone, voice.phase, voice.age);
+            signal = tonal;
+            if (current.soundEngine == SoundEngine::Hybrid && voice.sample != nullptr) {
+                // The synthesized bed stays at its original blend level even
+                // after the one-shot ends; otherwise it jumps from 0.32 to 1.0.
+                signal = readSample(voice) * 0.78f + tonal * 0.32f;
             }
             break;
         }
         case Instrument::Bass: {
-            const float roundedTriangle = fundamental * 0.78f +
-                                          fastSin(voice.phase * 2u) * 0.12f;
-            voice.filter += 0.075f * (roundedTriangle - voice.filter);
+            const float tonal = renderBassTone(current.bassTone, voice.phase, voice.age);
+            voice.filter += 0.075f * (tonal - voice.filter);
             signal = voice.filter;
             break;
         }
@@ -1450,9 +1623,11 @@ struct Engine::Impl {
             voice.stealTail = 0.0f;
         }
         voice.lastOutput = output;
-        if (voice.stage == EnvelopeStage::Release && voice.envelope < 0.00035f &&
-            !voice.sampleActive) {
+        if (voice.stage == EnvelopeStage::Release && voice.envelope < 0.00035f) {
+            // The envelope also multiplies samples. A faded-out source must
+            // release its pool slot even if the one-shot has unread frames.
             voice.active = false;
+            voice.sampleActive = false;
         }
         return output;
     }
@@ -1499,7 +1674,7 @@ struct Engine::Impl {
             ++barIndex;
             barStartQ32 = barEndQ32;
             updateEffectiveTempo();
-            barEndQ32 = barStartQ32 + stepQ32 * 16u;
+            barEndQ32 = barStartQ32 + stepQ32 * stepsPerBar;
             generateBar();
             return;
         }
@@ -1516,7 +1691,7 @@ struct Engine::Impl {
         }
         ++barIndex;
         barStartQ32 = barEndQ32;
-        barEndQ32 += stepQ32 * 16u;
+        barEndQ32 += stepQ32 * stepsPerBar;
         generateBar();
     }
 
@@ -1530,6 +1705,11 @@ struct Engine::Impl {
         snap.sessionSample = sessionSample;
         snap.bar = barIndex;
         snap.bpm = bpm;
+        snap.meterNumerator = meterNumerator;
+        snap.meterDenominator = meterDenominator;
+        snap.beatsPerBar = beatsPerBar;
+        snap.stepsPerBar = stepsPerBar;
+        snap.stepsPerBeat = stepsPerBeat;
         const std::uint64_t start = barStartSample();
         const std::uint64_t end = std::max<std::uint64_t>(start + 1, barEndSample());
         const std::uint64_t within = sessionSample > start ?
@@ -1537,13 +1717,23 @@ struct Engine::Impl {
         snap.barPhaseQ16 = static_cast<std::uint16_t>(
             within * UINT64_C(65535) / (end - start));
         snap.sixteenth = static_cast<std::uint8_t>(
-            std::min<std::uint64_t>(15, within * 16u / (end - start)));
-        snap.beat = static_cast<std::uint8_t>(snap.sixteenth / 4u);
+            std::min<std::uint64_t>(stepsPerBar - 1u,
+                                    within * stepsPerBar / (end - start)));
+        snap.beat = static_cast<std::uint8_t>(
+            std::min<std::uint8_t>(beatsPerBar - 1u,
+                                   snap.sixteenth / stepsPerBeat));
         snap.section = sectionForBar(barIndex, sessionBars);
         snap.paused = pauseTarget;
         snap.changePending = pendingChange || automaticTransitionDue();
         snap.activeVoices = activeVoiceCount();
         snap.voiceCapacity = kMusicVoiceCapacity;
+        for (std::size_t instrument = 0; instrument < kMusicInstrumentCount;
+             ++instrument) {
+            const float level = pauseSettled && pauseTarget ? 0.0f :
+                std::max(0.0f, std::min(1.0f, recentInstrumentPeaks[instrument]));
+            snap.instrumentLevels[instrument] = static_cast<std::uint8_t>(
+                level * 255.0f + 0.5f);
+        }
         snap.recentPeak = recentPeak;
         snap.scoreEventHash = scoreHash;
         snap.scoreEventCount = scoreEvents;
@@ -1590,6 +1780,25 @@ const char* soundEngineName(SoundEngine engine) noexcept {
     return "Unknown";
 }
 
+const char* meterName(MusicMeter meter) noexcept {
+    switch (meter) {
+    case MusicMeter::Auto:
+        return "AUTO";
+    case MusicMeter::FourFour:
+        return "4/4";
+    case MusicMeter::ThreeFour:
+        return "3/4";
+    case MusicMeter::SixEight:
+        return "6/8";
+    }
+    return "Unknown";
+}
+
+bool validMeter(MusicMeter meter) noexcept {
+    return static_cast<std::uint8_t>(meter) <=
+           static_cast<std::uint8_t>(MusicMeter::SixEight);
+}
+
 bool validBpm(std::uint16_t bpm) noexcept {
     return bpm == 0 || (bpm >= kMusicMinBpm && bpm <= kMusicMaxBpm);
 }
@@ -1598,7 +1807,9 @@ bool validConfig(const Config& config) noexcept {
     return static_cast<std::uint8_t>(config.mood) <= static_cast<std::uint8_t>(Mood::Night) &&
            static_cast<std::uint8_t>(config.soundEngine) <=
                static_cast<std::uint8_t>(SoundEngine::Hybrid) &&
-           validBpm(config.bpm);
+           validBpm(config.bpm) && validMeter(config.meter) &&
+           validTone(config.keysTone) && validTone(config.leadTone) &&
+           validBassTone(config.bassTone);
 }
 
 Engine::Engine(const Config& config) noexcept {
@@ -1701,8 +1912,11 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
 
         state.dispatchEvents();
         float mix = 0.0f;
+        float instrumentMix[kMusicInstrumentCount]{};
         for (Voice& voice : state.voices) {
-            mix += state.renderVoice(voice);
+            const float voiceOutput = state.renderVoice(voice);
+            mix += voiceOutput;
+            instrumentMix[static_cast<std::size_t>(voice.instrument)] += voiceOutput;
         }
         mix += state.renderTexture();
 
@@ -1751,6 +1965,8 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
             if (state.pauseGain <= 0.0f) {
                 state.pauseGain = 0.0f;
                 state.pauseSettled = true;
+                std::fill(std::begin(state.recentInstrumentPeaks),
+                          std::end(state.recentInstrumentPeaks), 0.0f);
             }
         } else {
             state.pauseGain = std::min(1.0f, state.pauseGain + 1.0f / kFadeFrames);
@@ -1758,6 +1974,14 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
 
         const float volume = static_cast<float>(state.current.volume) / 100.0f;
         const float master = volume * volume * 0.94f;
+        const float instrumentScale = master * state.pauseGain *
+                                      state.transitionGain * state.duck * 1.32f;
+        for (std::size_t instrument = 0; instrument < kMusicInstrumentCount;
+             ++instrument) {
+            state.recentInstrumentPeaks[instrument] = std::max(
+                state.recentInstrumentPeaks[instrument] * 0.9997f,
+                std::fabs(instrumentMix[instrument]) * instrumentScale);
+        }
         const float scaled = mix * master * state.pauseGain * state.transitionGain;
         const float limited = std::max(-1.0f, std::min(1.0f, scaled));
         const std::int32_t pcm = static_cast<std::int32_t>(limited * 32767.0f);
@@ -1802,6 +2026,13 @@ ScoreBar Engine::scoreBar() const noexcept {
     result.seed = state.current.seed;
     result.bar = state.barIndex;
     result.bpm = state.bpm;
+    result.meterNumerator = state.meterNumerator;
+    result.meterDenominator = state.meterDenominator;
+    result.beatsPerBar = state.beatsPerBar;
+    result.stepsPerBar = state.stepsPerBar;
+    result.stepsPerBeat = state.stepsPerBeat;
+    result.barStartSample = state.barStartSample();
+    result.barEndSample = state.barEndSample();
     result.keyPitchClass = state.keyPitchClass;
     result.minor = state.minorSession;
     result.chordRoot = state.currentBassRoot;
@@ -1867,7 +2098,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
     const Config saved = config();
     char local[kFavoriteCodeCapacity]{};
     char* cursor = local;
-    const char prefix[] = "lofi3-";
+    const char prefix[] = "lofi4-";
     for (char character : prefix) {
         if (character != '\0') {
             *cursor++ = character;
@@ -1884,10 +2115,16 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
     appendDecimal(cursor, saved.volume);
     *cursor++ = '-';
     appendDecimal(cursor, saved.texture);
-    if (saved.bpm != 0) {
-        *cursor++ = '-';
-        appendDecimal(cursor, saved.bpm);
-    }
+    *cursor++ = '-';
+    appendDecimal(cursor, saved.bpm);
+    *cursor++ = '-';
+    *cursor++ = static_cast<char>('0' + static_cast<std::uint8_t>(saved.meter));
+    *cursor++ = '-';
+    *cursor++ = static_cast<char>('0' + static_cast<std::uint8_t>(saved.keysTone));
+    *cursor++ = '-';
+    *cursor++ = static_cast<char>('0' + static_cast<std::uint8_t>(saved.leadTone));
+    *cursor++ = '-';
+    *cursor++ = static_cast<char>('0' + static_cast<std::uint8_t>(saved.bassTone));
     *cursor = '\0';
     const std::size_t length = static_cast<std::size_t>(cursor - local);
     if (capacity <= length) {
@@ -1899,7 +2136,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
 }
 
 bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
-    if (text == nullptr || std::strncmp(text, "lofi3-", 6) != 0) {
+    if (text == nullptr || std::strncmp(text, "lofi4-", 6) != 0) {
         return false;
     }
     const char* cursor = text + 6;
@@ -1940,17 +2177,30 @@ bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
         return false;
     }
     std::uint16_t texture = 0;
-    if (!parseDecimal(cursor, 100, texture)) {
+    if (!parseDecimal(cursor, 100, texture) || *cursor++ != '-') {
         return false;
     }
     std::uint16_t bpm = 0;
-    if (*cursor == '-') {
-        ++cursor;
-        if (!parseDecimal(cursor, kMusicMaxBpm, bpm) ||
-            bpm < kMusicMinBpm) {
-            return false;
-        }
+    if (!parseDecimal(cursor, kMusicMaxBpm, bpm) || !validBpm(bpm) ||
+        *cursor++ != '-') {
+        return false;
     }
+    if (*cursor < '0' || *cursor > '3') {
+        return false;
+    }
+    const MusicMeter meter = static_cast<MusicMeter>(*cursor++ - '0');
+    if (*cursor++ != '-' || *cursor < '0' || *cursor > '5') {
+        return false;
+    }
+    const Tone keysTone = static_cast<Tone>(*cursor++ - '0');
+    if (*cursor++ != '-' || *cursor < '0' || *cursor > '5') {
+        return false;
+    }
+    const Tone leadTone = static_cast<Tone>(*cursor++ - '0');
+    if (*cursor++ != '-' || *cursor < '0' || *cursor > '2') {
+        return false;
+    }
+    const BassTone bassTone = static_cast<BassTone>(*cursor++ - '0');
     if (*cursor != '\0') {
         return false;
     }
@@ -1960,6 +2210,10 @@ bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
     output.volume = static_cast<std::uint8_t>(volume);
     output.texture = static_cast<std::uint8_t>(texture);
     output.bpm = bpm;
+    output.meter = meter;
+    output.keysTone = keysTone;
+    output.leadTone = leadTone;
+    output.bassTone = bassTone;
     return true;
 }
 

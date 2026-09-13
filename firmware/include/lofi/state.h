@@ -6,10 +6,16 @@
 
 namespace lofi {
 constexpr std::size_t kMaxFavorites = 8;
-constexpr std::size_t kStateBytes = 160;
+// The first two formats are exactly 160 bytes.  Format 3 appends typed
+// instrument/meter settings while retaining the original favorite records.
+// Keep the legacy size public so platform readers can accept both lengths.
+constexpr std::size_t kStateLegacyBytes = 160;
+constexpr std::size_t kStateBytes = 192;
 constexpr std::uint8_t kStateFormatLegacy = 1;
-constexpr std::uint8_t kStateFormatCurrent = 2;
+constexpr std::uint8_t kStateFormatBpm = 2;
+constexpr std::uint8_t kStateFormatCurrent = 3;
 static_assert(kMusicMaxBpm <= 255, "Persisted BPM bytes must hold the full manual range");
+static_assert(kStateBytes <= 255, "Persisted state length must fit the header byte");
 static_assert(kMusicSchemaVersion <= 255, "Favorite schema must fit the saved format");
 constexpr std::uint8_t kSessionSchema = static_cast<std::uint8_t>(kMusicSchemaVersion);
 struct Settings {
@@ -26,6 +32,10 @@ struct Settings {
     // continue to mean the same thing. 0 = AUTO; otherwise
     // kMusicMinBpm..kMusicMaxBpm.
     std::uint16_t bpm = 0;
+    MusicMeter meter = MusicMeter::Auto;
+    Tone keysTone = Tone::ElectricPiano;
+    Tone leadTone = Tone::Vibraphone;
+    BassTone bassTone = BassTone::Round;
 };
 struct Favorite {
     std::uint64_t seed = 0;
@@ -35,6 +45,10 @@ struct Favorite {
     std::uint8_t texture = 15;
     std::uint8_t schema = kSessionSchema;
     std::uint16_t bpm = 0; // 0 = AUTO; otherwise kMusicMinBpm..kMusicMaxBpm.
+    MusicMeter meter = MusicMeter::Auto;
+    Tone keysTone = Tone::ElectricPiano;
+    Tone leadTone = Tone::Vibraphone;
+    BassTone bassTone = BassTone::Round;
 };
 struct SavedState {
     Settings settings{};

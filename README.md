@@ -4,13 +4,16 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.4-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds manual BPM and volume up to 300%, retaining the LCD color correction and larger text from 0.1.3-dev. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.5-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds selectable instrument tones, meter-aware melodic phrases and a music-driven strip at the bottom of the screen, retaining manual BPM, volume up to 300% and the LCD correction. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
 - Seeded composition with three moods: Cozy, Rainy and Night.
 - Layered openings with keys, bass and a soft groove from the first bar; related chord progressions, returning melody motifs, phrase variations, swing and automatic new sessions.
+- Six selectable chord/lead tones (electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute) plus round, upright and sub bass. These are compact synthesized interpretations.
+- AUTO, 4/4, 3/4 or 6/8 meter; each session keeps one meter, and melody gates fit its bars.
 - Two sound candidates behind the same composer: pure synthesis, or a hybrid using a tiny bank of instrument/drum one-shots. **Both remain available for comparison.**
+- A bottom strip displays actual activity of the seven music parts and the current musical pulse.
 - An original cat with six animation poses in a cozy pixel-art room; quiet rain and steam. Reduced/still motion and a clean scene view.
 - Pause, 0–300% output volume, AUTO or manual 40–180 BPM, mood selection, next session and up to eight favorites.
 - Built-in music and artwork need **no SD, network, account or API key**. Optional SD stores settings and favorites; without it they remain in RAM until restart.
@@ -31,7 +34,7 @@ ctest --test-dir build/cmake --output-on-failure
 ./build/cmake/lofi_native
 ```
 
-For persistent desktop favorites, add `--state build/local-state.bin`. Explicit `--engine`, `--mood`, `--bpm` and `--volume` flags override saved settings. The preview starts audio immediately at a modest master volume.
+For persistent desktop favorites, add `--state build/local-state.bin`. Explicit `--engine`, `--mood`, `--bpm`, `--volume`, `--meter`, `--keys`, `--lead` and `--bass` flags override saved settings. The preview starts audio immediately at a modest master volume.
 
 | Key | Action |
 | --- | --- |
@@ -41,6 +44,7 @@ For persistent desktop favorites, add `--state build/local-state.bin`. Explicit 
 | `F` / `L` | Toggle favorite / favorite list |
 | `V` / `S` / `H` | Clean scene / settings / help |
 | `E` | Switch synth/hybrid at the next bar |
+| `I` | Choose chord, melody and bass tones, plus meter |
 | `;` / `.` and `,` / `/` | Menu movement and adjustment |
 | Enter / backtick or Escape | Select / back |
 | Backspace | Remove selected favorite |
@@ -52,7 +56,9 @@ Open **S → BPM** to set tempo. Use `,` / `/` to adjust by 1 BPM, and Enter to 
 
 Above 100%, volume adds up to 3× software gain before a soft limiter. It is a signal gain setting, not a claim of three times the acoustic loudness. Volume changes ramp over 10 ms; the native player and device share the same output stage, with the previous ADV volume curve preserved below 100%.
 
-Version 0.1.4-dev retains generation schema 3 (`lofi3-` favorite codes). Earlier settings and favorites migrate to save format 2; manual favorites remember their BPM and add it to the code. AUTO compositions retain the previous score. Schema-1/2 favorites remain visible as `OLD` and removable; use the earlier firmware for faithful replay of those scores. Older firmware cannot read the new save format.
+Open **I → CHORDS / MELODY / BASS / METER** and use `,` / `/` or Enter to select sounds and meter. Changes apply at a bar boundary. AUTO chooses a meter from the seed, favoring 4/4, and holds it for the whole session. In 6/8, BPM counts the two dotted-quarter pulses per bar. Start with 4/4 for the familiar lofi groove; 3/4 has a waltz pulse and 6/8 groups its six eighth notes into two pulses.
+
+Version 0.1.5-dev uses generation schema 4 (`lofi4-` favorite codes). New favorites retain tempo, meter and all three tone choices. Earlier settings migrate; schema-1/2/3 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. The new melodic rules intentionally change the music generated from an old seed. Older firmware cannot read the new save format.
 
 ## Compare the sound engines
 
@@ -64,6 +70,8 @@ Use the same seed and mood for both candidates:
 ./build/cmake/lofi_native --engine hybrid --mood cozy --seed 0xCA7CAFE \
   --wav build/audio/cozy-hybrid.wav --seconds 180 --meta build/audio/cozy-hybrid.json
 ```
+
+Add `--meter 3/4 --keys felt --lead flute --bass upright` to audition a different combination. Tone names accepted by `--keys` and `--lead` are `epiano`, `felt`, `nylon`, `vibes`, `pad` and `flute`; bass names are `round`, `upright` and `sub`. Tone changes keep the same score when the seed, mood, tempo and meter match. Hybrid uses bundled key samples for the electric-piano tone and one-shot drums; other selected pitched tones use their procedural voices in both engines.
 
 The event hash and count in the metadata establish whether both renders played the same score. Host render times are not ESP32 timing measurements. See [current verification](docs/VERIFICATION.md), [the engine comparison](docs/MUSIC_ENGINE.md) and [sample production](docs/SAMPLE_PRODUCTION.md).
 
@@ -98,6 +106,8 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 ./build/cmake/lofi_native --shots build/screens --animation build/animation --frames 144
 python3 tools/export_media.py
 python3 tools/render_audio.py
+# Optional finite meter/tone/gain stress matrix (requires the native build):
+python3 tools/verify_music.py --seconds 30
 python3 tools/build_site.py
 python3 -m http.server 8080 --directory build/site
 ```

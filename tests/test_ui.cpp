@@ -39,10 +39,51 @@ int main() {
     view.clean = true;
     view.motion = 0;
     view.seed = 0xca7cafe;
+    view.volume = 100;
+    view.instrumentLevels[0] = 200;
+    view.instrumentLevels[1] = 100;
+    view.level = 0.9f;
     render(before, view);
     view.timeMs = 9876543210123ULL;
     view.beatPhase = 0.8f;
+    render(frame, view);
+    assert(std::memcmp(before.packed(), frame.packed(), Frame::packedBytes) == 0);
+
+    // Full motion exposes actual role activity and meter phase. Pausing or
+    // muting suppresses those dynamic marks, while keeping the room and text.
+    view.motion = 2;
+    view.clean = false;
+    view.playing = true;
+    view.beatPhase = 0.25f;
+    view.instrumentLevels[0] = 200;
+    view.instrumentLevels[1] = 100;
+    render(before, view);
+    const auto active = before;
+    view.timeMs += 417;
+    view.beatPhase = 0.75f;
+    view.instrumentLevels[0] = 30;
+    render(frame, view);
+    assert(std::memcmp(active.packed(), frame.packed(), Frame::packedBytes) != 0);
+
+    view.playing = false;
+    view.level = 0.9f; // Renderer must still suppress beat/level animation.
+    view.instrumentLevels[0] = 255;
+    view.beatPhase = 0.1f;
+    render(before, view);
+    view.instrumentLevels[0] = 0;
+    view.level = 0.0f;
+    view.beatPhase = 0.9f;
+    render(frame, view);
+    assert(std::memcmp(before.packed(), frame.packed(), Frame::packedBytes) == 0);
+    view.playing = true;
+    view.volume = 0;
+    view.instrumentLevels[0] = 255;
     view.level = 0.9f;
+    view.beatPhase = 0.2f;
+    render(before, view);
+    view.instrumentLevels[0] = 0;
+    view.level = 0.0f;
+    view.beatPhase = 0.8f;
     render(frame, view);
     assert(std::memcmp(before.packed(), frame.packed(), Frame::packedBytes) == 0);
 

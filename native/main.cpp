@@ -31,11 +31,30 @@ struct Options {
     fs::path wav,meta,score,shots,animation,state;
     unsigned frames=48, smokeMs=0, volume=100;
     bool noAudio=false, moodExplicit=false, engineExplicit=false, bpmExplicit=false, volumeExplicit=false;
+    bool meterExplicit=false, keysExplicit=false, leadExplicit=false, bassExplicit=false;
 };
 std::uint64_t number(const std::string& s) {
     std::size_t consumed=0; auto value=std::stoull(s,&consumed,0);
     if(consumed!=s.size() || (!s.empty() && s[0]=='-')) throw std::runtime_error("Invalid integer: "+s);
     return value;
+}
+Tone parseTone(const std::string& value) {
+    const char* names[]={"epiano","felt","nylon","vibes","pad","flute"};
+    for(unsigned i=0;i<6;++i) if(value==names[i]) return static_cast<Tone>(i);
+    throw std::runtime_error("Tone: epiano, felt, nylon, vibes, pad or flute");
+}
+MusicMeter parseMeter(const std::string& value) {
+    if(value=="auto") return MusicMeter::Auto;
+    if(value=="4/4") return MusicMeter::FourFour;
+    if(value=="3/4") return MusicMeter::ThreeFour;
+    if(value=="6/8") return MusicMeter::SixEight;
+    throw std::runtime_error("Meter: auto, 4/4, 3/4 or 6/8");
+}
+BassTone parseBass(const std::string& value) {
+    if(value=="round") return BassTone::Round;
+    if(value=="upright") return BassTone::Upright;
+    if(value=="sub") return BassTone::Sub;
+    throw std::runtime_error("Bass: round, upright or sub");
 }
 Options options(int argc,char** argv) {
     Options o;
@@ -50,6 +69,10 @@ Options options(int argc,char** argv) {
         else if(a=="--state") o.state=value();
         else if(a=="--seed") o.config.seed=number(value());
         else if(a=="--bpm") { auto v=value(); auto n=v=="auto"?0:number(v); if(v!="auto" && (n<kMusicMinBpm || n>kMusicMaxBpm)) throw std::runtime_error("BPM: auto or 40..180"); o.config.bpm=static_cast<std::uint16_t>(n);o.bpmExplicit=true; }
+        else if(a=="--meter") {o.config.meter=parseMeter(value());o.meterExplicit=true;}
+        else if(a=="--keys") {o.config.keysTone=parseTone(value());o.keysExplicit=true;}
+        else if(a=="--lead") {o.config.leadTone=parseTone(value());o.leadExplicit=true;}
+        else if(a=="--bass") {o.config.bassTone=parseBass(value());o.bassExplicit=true;}
         else if(a=="--volume") { auto n=number(value()); if(n>OutputGain::kMaxPercent) throw std::runtime_error("Volume: 0..300 percent"); o.volume=static_cast<unsigned>(n);o.volumeExplicit=true; }
         else if(a=="--seconds") { auto s=value(); std::size_t pos=0; o.seconds=std::stod(s,&pos); if(pos!=s.size() || !std::isfinite(o.seconds) || o.seconds<=0 || o.seconds>7200) throw std::runtime_error("Seconds must be in (0,7200]"); }
         else if(a=="--frames") { auto n=number(value()); if(n<1 || n>720) throw std::runtime_error("Frames must be 1..720"); o.frames=static_cast<unsigned>(n); }
@@ -63,6 +86,9 @@ Options options(int argc,char** argv) {
                 <<"  --score FILE   Export scheduled notes/harmony as CSV for --seconds\n"
                 <<"  --engine synth|hybrid --mood cozy|rainy|night --seed INTEGER\n"
                 <<"  --bpm auto|40..180 --volume 0..300  Playback/WAV output settings\n"
+                <<"  --meter auto|4/4|3/4|6/8  6/8 BPM counts dotted-quarter pulses\n"
+                <<"  --keys/--lead epiano|felt|nylon|vibes|pad|flute\n"
+                <<"  --bass round|upright|sub\n"
                 <<"  --shots DIRECTORY   Export actual renderer scenarios as PPM\n"
                 <<"  --animation DIRECTORY [--frames 48]   Export at 12 FPS\n"
                 <<"  --state FILE   Optional local settings/favorites\n"
@@ -90,7 +116,8 @@ void exportAudio(const Options& o) {
     double worstUs=0; long double squares=0; std::uint64_t clips=0; int outputPeak=0; auto start=std::chrono::steady_clock::now();
     OutputGain gain(o.volume);
     Diagnostics opening=engine.diagnostics();
-    const auto initialBpm=engine.snapshot().bpm;
+    const auto initialSnapshot=engine.snapshot();
+    const auto initialBpm=initialSnapshot.bpm;
     for(std::uint64_t done=0;done<frames;) {
         const auto n=static_cast<std::size_t>(std::min<std::uint64_t>(512,frames-done)); auto t=std::chrono::steady_clock::now();
         engine.render(pcm.data(),n);
@@ -109,6 +136,10 @@ void exportAudio(const Options& o) {
         parent(o.meta); std::ofstream m(o.meta);
         m<<"{\n  \"version\": \""<<LOFI_VERSION<<"\",\n  \"source\": \"native_shared_engine\",\n  \"hardware_verified\": false,\n"
          <<"  \"generation_schema\": "<<kMusicSchemaVersion<<",\n  \"bpm\": "<<initialBpm<<",\n"
+         <<"  \"meter\": \""<<unsigned(initialSnapshot.meterNumerator)<<'/'<<unsigned(initialSnapshot.meterDenominator)<<"\",\n"
+         <<"  \"meter_mode\": \""<<meterName(o.config.meter)<<"\",\n"
+         <<"  \"keys_tone\": \""<<toneName(o.config.keysTone)<<"\",\n  \"lead_tone\": \""<<toneName(o.config.leadTone)<<"\",\n"
+         <<"  \"bass_tone\": \""<<bassToneName(o.config.bassTone)<<"\",\n"
          <<"  \"bpm_override\": "<<o.config.bpm<<",\n  \"output_gain_percent\": "<<o.volume<<",\n"
          <<"  \"output_gain_applied\": "<<(o.volumeExplicit?"true":"false")<<",\n  \"limited_samples\": "<<gain.limitedSamples()<<",\n"
          <<"  \"engine\": \""<<soundEngineName(o.config.soundEngine)<<"\",\n  \"mood\": \""<<moodName(o.config.mood)<<"\",\n"
@@ -137,7 +168,7 @@ void exportAudio(const Options& o) {
 void exportScore(const Options& o) {
     Engine engine(o.config); parent(o.score); std::ofstream out(o.score);
     if(!out) throw std::runtime_error("Cannot open score output");
-    out<<"schema,session,seed,bar,bpm,key_pc,minor,chord_root,chord_0,chord_1,chord_2,chord_3,instrument,midi,velocity,start_sample,transport_start_sample,duration_samples,export_frames\n";
+    out<<"schema,session,seed,bar,bpm,key_pc,minor,chord_root,chord_0,chord_1,chord_2,chord_3,instrument,midi,velocity,start_sample,transport_start_sample,duration_samples,export_frames,meter_numerator,meter_denominator,beats_per_bar,steps_per_bar,steps_per_beat,bar_start_sample,bar_end_sample\n";
     const auto frames=static_cast<std::uint64_t>(std::llround(o.seconds*kMusicSampleRate));
     std::array<std::int16_t,512> pcm{};
     std::uint32_t lastBar=UINT32_MAX, lastSession=UINT32_MAX;
@@ -156,7 +187,9 @@ void exportScore(const Options& o) {
                    <<score.bpm<<','<<unsigned(score.keyPitchClass)<<','<<score.minor<<','<<unsigned(score.chordRoot);
                 for(auto pitch:score.chordNotes) out<<','<<unsigned(pitch);
                 out<<','<<instruments[static_cast<unsigned>(note.instrument)]<<','<<unsigned(note.note)<<','
-                   <<unsigned(note.velocity)<<','<<note.startSample<<','<<offset+note.startSample<<','<<note.durationSamples<<','<<frames<<'\n';
+                   <<unsigned(note.velocity)<<','<<note.startSample<<','<<offset+note.startSample<<','<<note.durationSamples<<','<<frames<<','
+                   <<unsigned(score.meterNumerator)<<','<<unsigned(score.meterDenominator)<<','<<unsigned(score.beatsPerBar)<<','
+                   <<unsigned(score.stepsPerBar)<<','<<unsigned(score.stepsPerBeat)<<','<<score.barStartSample<<','<<score.barEndSample<<'\n';
                 ++notes;
             }
             lastBar=snap.bar; lastSession=session;
@@ -178,6 +211,8 @@ void ppm(const fs::path& path,const Frame& frame) {
 }
 void exportScreens(const Options& o) {
     Controller controller(o.config.seed); controller.saved.settings.mood=static_cast<std::uint8_t>(o.config.mood);controller.saved.settings.engine=static_cast<std::uint8_t>(o.config.soundEngine);controller.saved.settings.texture=o.config.texture;controller.saved.settings.bpm=o.config.bpm;
+    controller.saved.settings.meter=o.config.meter;controller.saved.settings.keysTone=o.config.keysTone;
+    controller.saved.settings.leadTone=o.config.leadTone;controller.saved.settings.bassTone=o.config.bassTone;
     if(o.volumeExplicit) controller.saved.settings.volume=o.volume;
     Engine engine(o.config); std::array<std::int16_t,512> buffer{};
     for(int i=0;i<500;++i) engine.render(buffer.data(),buffer.size());
@@ -201,10 +236,33 @@ void exportScreens(const Options& o) {
         controller.key('s');controller.view.selection=1;shot("18-bpm-manual");
         controller.saved.settings.bpm=0;auto automatic=o.config;automatic.bpm=0;engine.reset(automatic);controller.setSnapshot(engine.snapshot());
         shot("19-bpm-auto");
+        controller.key('i');shot("20-instruments");
+        controller.saved.settings.keysTone=Tone::NylonGuitar;controller.saved.settings.leadTone=Tone::SoftFlute;
+        controller.saved.settings.bassTone=BassTone::Upright;controller.view.selection=1;shot("21-instrument-selection");
+        for(const auto meter:{MusicMeter::FourFour,MusicMeter::ThreeFour,MusicMeter::SixEight}) {
+            auto config=o.config;config.meter=meter;engine.reset(config);
+            for(int i=0;i<30;++i) engine.render(buffer.data(),buffer.size());
+            controller.setSnapshot(engine.snapshot());controller.key(27);controller.view.clean=false;
+            shot(meter==MusicMeter::FourFour?"22-music-4-4":meter==MusicMeter::ThreeFour?"23-music-3-4":"24-music-6-8");
+        }
+        controller.saved.settings.motion=0;shot("25-still-visualizer");controller.saved.settings.motion=2;
     }
     if(!o.animation.empty()) {
-        fs::create_directories(o.animation); View v=controller.view; v.screen=Screen::Radio; v.clean=true;v.batteryPercent=76;v.notice[0]=0;
-        for(unsigned i=0;i<o.frames;++i) {v.timeMs=std::uint64_t(i)*1000/12;v.beatPhase=std::fmod(float(i)*float(v.bpm)/720.0f,1.0f);render(frame,v);char name[32];std::snprintf(name,sizeof(name),"%04u.ppm",i);ppm(o.animation/name,frame);}
+        fs::create_directories(o.animation);
+        engine.reset(o.config);std::uint64_t produced=0;
+        controller.view.screen=Screen::Radio;controller.view.notice[0]=0;
+        for(unsigned i=0;i<o.frames;++i) {
+            // Capture actual rendered music activity, including the rhythmic
+            // pulse, rather than drawing a fabricated beat or spectrum.
+            const auto target=(std::uint64_t(i)+1)*kMusicSampleRate/12;
+            while(produced<target) {
+                auto n=static_cast<std::size_t>(std::min<std::uint64_t>(buffer.size(),target-produced));
+                engine.render(buffer.data(),n);produced+=n;
+            }
+            controller.setSnapshot(engine.snapshot());controller.tick(std::uint64_t(i)*1000/12);
+            View v=controller.view;v.clean=true;v.batteryPercent=76;v.notice[0]=0;
+            render(frame,v);char name[32];std::snprintf(name,sizeof(name),"%04u.ppm",i);ppm(o.animation/name,frame);
+        }
     }
 }
 void action(Engine& engine,const Action& a) {
@@ -214,7 +272,7 @@ int interactive(const Options& o) {
 #ifdef LOFI_HAS_SDL
     if(SDL_Init(SDL_INIT_VIDEO|(o.noAudio?0:SDL_INIT_AUDIO))!=0) throw std::runtime_error(SDL_GetError());
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"0");
-    auto* window=SDL_CreateWindow("Pocket Lofi | SPACE play | M moods | S settings | E engine | H help | Q quit",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,960,540,SDL_WINDOW_RESIZABLE);
+    auto* window=SDL_CreateWindow("Pocket Lofi | SPACE play | M moods | S settings | I instruments | E engine | H help | Q quit",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,960,540,SDL_WINDOW_RESIZABLE);
     if(!window) throw std::runtime_error(SDL_GetError());
     auto* renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
     if(!renderer) renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);
@@ -232,12 +290,18 @@ int interactive(const Options& o) {
         if(!o.moodExplicit) cfg.mood=static_cast<Mood>(controller.saved.settings.mood);
         if(!o.engineExplicit) cfg.soundEngine=static_cast<SoundEngine>(controller.saved.settings.engine);
         if(!o.bpmExplicit) cfg.bpm=controller.saved.settings.bpm;
+        if(!o.meterExplicit) cfg.meter=controller.saved.settings.meter;
+        if(!o.keysExplicit) cfg.keysTone=controller.saved.settings.keysTone;
+        if(!o.leadExplicit) cfg.leadTone=controller.saved.settings.leadTone;
+        if(!o.bassExplicit) cfg.bassTone=controller.saved.settings.bassTone;
         cfg.texture=controller.saved.settings.texture;
     }
     controller.saved.settings.mood=static_cast<std::uint8_t>(cfg.mood);
     controller.saved.settings.engine=static_cast<std::uint8_t>(cfg.soundEngine);
     controller.saved.settings.texture=cfg.texture;
     controller.saved.settings.bpm=cfg.bpm;
+    controller.saved.settings.meter=cfg.meter;controller.saved.settings.keysTone=cfg.keysTone;
+    controller.saved.settings.leadTone=cfg.leadTone;controller.saved.settings.bassTone=cfg.bassTone;
     if(o.volumeExplicit) controller.saved.settings.volume=o.volume;
     OutputGain gain(controller.saved.settings.volume);
     Engine engine(cfg); Frame frame; std::array<std::int16_t,512> pcm{}; std::array<std::uint16_t,240*135> pixels{};
@@ -269,7 +333,18 @@ int interactive(const Options& o) {
         }
         const unsigned interval=controller.saved.settings.motion==2?83:controller.saved.settings.motion==1?166:250;
         if(now-lastDraw>=interval) {
-            controller.setSnapshot(engine.snapshot());controller.tick(now);View v=controller.view;
+            auto snap=engine.snapshot();
+            // SDL reports queued source PCM; display pulse follows an estimate
+            // of playback rather than the end of our pre-rendered queue.
+            if(audio) {
+                const auto queuedFrames=SDL_GetQueuedAudioSize(audio)/sizeof(std::int16_t);
+                const auto phaseOffset=(std::uint64_t(queuedFrames)*snap.bpm*65536u)/
+                    (std::uint64_t(kMusicSampleRate)*60u*snap.beatsPerBar);
+                snap.barPhaseQ16=static_cast<std::uint16_t>(snap.barPhaseQ16-phaseOffset);
+                snap.sixteenth=static_cast<std::uint8_t>((std::uint32_t(snap.barPhaseQ16)*snap.stepsPerBar)/65536u);
+                snap.beat=static_cast<std::uint8_t>(snap.sixteenth/snap.stepsPerBeat);
+            }
+            controller.setSnapshot(snap);controller.tick(now);View v=controller.view;
             if(!controller.saved.settings.motion) v.timeMs=0;
             render(frame,v);for(int y=0;y<135;++y) frame.rowRgb565(y,pixels.data()+y*240);
             SDL_UpdateTexture(texture,nullptr,pixels.data(),240*2);SDL_RenderClear(renderer);SDL_RenderCopy(renderer,texture,nullptr,nullptr);SDL_RenderPresent(renderer);lastDraw=now;

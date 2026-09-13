@@ -145,17 +145,77 @@ int main() {
     // Favorites retain and replay manual tempo, and the compact list stays
     // within the renderer's 26-character item budget.
     Controller favorite(UINT64_C(0x0badcafe));
+    favorite.saved.settings.meter = MusicMeter::SixEight;
+    favorite.saved.settings.keysTone = Tone::NylonGuitar;
+    favorite.saved.settings.leadTone = Tone::WarmPad;
+    favorite.saved.settings.bassTone = BassTone::Upright;
     Snapshot favoriteSnapshot = snapshotFor(favorite, 96, 96);
     favorite.key('f');
-    assert(favorite.saved.count == 1 && favorite.saved.favorites[0].bpm == 96);
+    assert(favorite.saved.count == 1 && favorite.saved.favorites[0].bpm == 96 &&
+           favorite.saved.favorites[0].meter == MusicMeter::SixEight &&
+           favorite.saved.favorites[0].keysTone == Tone::NylonGuitar &&
+           favorite.saved.favorites[0].leadTone == Tone::WarmPad &&
+           favorite.saved.favorites[0].bassTone == BassTone::Upright);
     favorite.key('l');
     assert(std::strlen(favorite.view.items[0]) <= 26);
     assert(std::strstr(favorite.view.items[0], "96") != nullptr);
     auto favoriteReplay = favorite.key('\n');
     assert(favoriteReplay.kind == ActionKind::Config && favoriteReplay.restartSession &&
-           favoriteReplay.config.bpm == 96);
+           favoriteReplay.config.bpm == 96 && favoriteReplay.config.meter == MusicMeter::SixEight &&
+           favoriteReplay.config.keysTone == Tone::NylonGuitar &&
+           favoriteReplay.config.leadTone == Tone::WarmPad &&
+           favoriteReplay.config.bassTone == BassTone::Upright);
     assert(favorite.saved.settings.bpm == 96);
     (void)favoriteSnapshot;
+
+    // Instrument selection is a separate four-row screen. Comma/slash and
+    // Enter cycle each bounded selector, and every edit coalesces into the
+    // same next-bar Config action.
+    Controller instruments(UINT64_C(0x33445566));
+    snapshotFor(instruments, 88);
+    instruments.key('i');
+    assert(instruments.view.screen == Screen::Instruments && instruments.view.itemCount == 4);
+    auto chordChange = instruments.key('\n');
+    assert(chordChange.kind == ActionKind::Config &&
+           chordChange.config.keysTone == Tone::FeltPiano &&
+           instruments.saved.settings.keysTone == Tone::FeltPiano);
+    instruments.key('.');
+    auto melodyChange = instruments.key('/');
+    assert(melodyChange.kind == ActionKind::Config &&
+           melodyChange.config.leadTone == Tone::WarmPad);
+    instruments.key('.');
+    auto bassChange = instruments.key(',');
+    assert(bassChange.kind == ActionKind::Config &&
+           bassChange.config.bassTone == BassTone::Sub);
+    instruments.key('.');
+    auto meterChange = instruments.key('\n');
+    assert(meterChange.kind == ActionKind::Config &&
+           meterChange.config.meter == MusicMeter::FourFour);
+    // Wrap-around is deliberate: comma from the first meter returns to 6/8.
+    auto previousMeter = instruments.key(',');
+    assert(previousMeter.config.meter == MusicMeter::Auto);
+    assert(instruments.view.items[3][0] == 'M');
+
+    // Role levels are the engine's actual snapshot values, but paused and
+    // muted views deliberately clear them before the renderer sees them.
+    Snapshot levelSnapshot = instruments.snapshot();
+    levelSnapshot.paused = false;
+    levelSnapshot.instrumentLevels[0] = 42;
+    levelSnapshot.instrumentLevels[1] = 18;
+    levelSnapshot.recentPeak = 96;
+    instruments.saved.settings.volume = 100;
+    instruments.setSnapshot(levelSnapshot);
+    instruments.populateView();
+    assert(instruments.view.instrumentLevels[0] == 42 && instruments.view.instrumentLevels[1] == 18);
+    levelSnapshot.paused = true;
+    instruments.setSnapshot(levelSnapshot);
+    instruments.populateView();
+    assert(instruments.view.instrumentLevels[0] == 0 && instruments.view.level == 0.0f);
+    levelSnapshot.paused = false;
+    instruments.saved.settings.volume = 0;
+    instruments.setSnapshot(levelSnapshot);
+    instruments.populateView();
+    assert(instruments.view.instrumentLevels[0] == 0 && instruments.view.level == 0.0f);
 
     c.dirty = false;
     c.storageResult(true);

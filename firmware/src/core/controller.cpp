@@ -33,6 +33,10 @@ Config Controller::initialConfig() const {
     c.soundEngine = static_cast<SoundEngine>(saved.settings.engine);
     c.bpm = saved.settings.bpm;
     c.texture = saved.settings.texture;
+    c.meter = saved.settings.meter;
+    c.keysTone = saved.settings.keysTone;
+    c.leadTone = saved.settings.leadTone;
+    c.bassTone = saved.settings.bassTone;
     // Config::volume remains the engine's normalized session parameter. The
     // 0..300 master gain is carried by Settings and applied by the platform.
     c.volume = 78;
@@ -41,7 +45,9 @@ Config Controller::initialConfig() const {
 void Controller::setSnapshot(const Snapshot& s) {
     const auto& a=s.config;const auto& b=requestedConfig_;
     const bool applied=a.seed==b.seed && a.mood==b.mood && a.soundEngine==b.soundEngine &&
-                       a.bpm==b.bpm && a.texture==b.texture;
+                       a.bpm==b.bpm && a.texture==b.texture && a.meter==b.meter &&
+                       a.keysTone==b.keysTone && a.leadTone==b.leadTone &&
+                       a.bassTone==b.bassTone;
     if(!s.changePending && (snapshot_.changePending || applied)) configRequested_=false;
     if(s.paused==desiredPaused_) pauseRequested_=false;
     snapshot_=s;
@@ -64,6 +70,10 @@ Favorite Controller::currentFavorite() const {
     favorite.texture = c.texture;
     favorite.schema = kSessionSchema;
     favorite.bpm = c.bpm;
+    favorite.meter = c.meter;
+    favorite.keysTone = c.keysTone;
+    favorite.leadTone = c.leadTone;
+    favorite.bassTone = c.bassTone;
     return favorite;
 }
 void Controller::tick(std::uint64_t now) {
@@ -76,8 +86,21 @@ void Controller::populateView() {
     const auto& s=snapshot_;
     view.seed=s.config.seed; view.motion=saved.settings.motion; view.mood=static_cast<int>(s.config.mood); view.bpm=s.bpm;
     view.volume=saved.settings.volume; view.playing=!s.paused; view.pending=s.changePending || configRequested_;
-    view.beatPhase=static_cast<float>((std::uint32_t(s.barPhaseQ16)*4u)%65536u)/65536.0f;
-    view.level=static_cast<float>(s.recentPeak)/32768.0f; view.favorite=findFavorite(saved,currentFavorite())>=0;
+    view.meter=s.config.meter; view.keysTone=s.config.keysTone; view.leadTone=s.config.leadTone;
+    view.bassTone=s.config.bassTone;
+    view.meterNumerator=s.meterNumerator == 0 ? 4 : s.meterNumerator;
+    view.meterDenominator=s.meterDenominator == 0 ? 4 : s.meterDenominator;
+    view.beatsPerBar=s.beatsPerBar == 0 ? view.meterNumerator : s.beatsPerBar;
+    view.stepsPerBar=s.stepsPerBar == 0 ? 16 : s.stepsPerBar;
+    view.stepsPerBeat=s.stepsPerBeat == 0 ? 4 : s.stepsPerBeat;
+    view.beatPhase=static_cast<float>(s.barPhaseQ16)/65535.0f;
+    view.level=(s.paused || saved.settings.volume == 0) ? 0.0f :
+               static_cast<float>(s.recentPeak)/32768.0f;
+    std::memset(view.instrumentLevels,0,sizeof(view.instrumentLevels));
+    if(!s.paused && saved.settings.volume != 0) {
+        for(std::size_t i=0;i<kMusicInstrumentCount;++i) view.instrumentLevels[i]=s.instrumentLevels[i];
+    }
+    view.favorite=findFavorite(saved,currentFavorite())>=0;
     std::memset(view.items,0,sizeof(view.items)); view.itemCount=0;
     if(view.screen==Screen::Moods) {
         view.itemCount=3;
@@ -111,6 +134,19 @@ void Controller::populateView() {
         std::snprintf(view.items[5],32,"ENGINE          %s",v.engine?"HYBRID":"SYNTH");
         std::snprintf(view.items[6],32,"DIAGNOSTICS");
         std::snprintf(view.items[7],32,"RESET SETTINGS");
+    } else if(view.screen==Screen::Instruments) {
+        const auto& settings = saved.settings;
+        view.itemCount=4;
+        std::snprintf(view.items[0],32,"CHORDS %s",toneName(settings.keysTone));
+        std::snprintf(view.items[1],32,"MELODY %s",toneName(settings.leadTone));
+        std::snprintf(view.items[2],32,"BASS %s",bassToneName(settings.bassTone));
+        if(settings.meter == MusicMeter::Auto) {
+            std::snprintf(view.items[3],32,"METER AUTO %u/%u",
+                          static_cast<unsigned>(view.meterNumerator),
+                          static_cast<unsigned>(view.meterDenominator));
+        } else {
+            std::snprintf(view.items[3],32,"METER %s",meterName(settings.meter));
+        }
     } else if(view.screen==Screen::Diagnostics) {
         view.itemCount=7;
         std::snprintf(view.items[0],32,"SEED %016llX",static_cast<unsigned long long>(s.config.seed));
@@ -129,6 +165,10 @@ Action Controller::changedConfig() {
     c.soundEngine=static_cast<SoundEngine>(saved.settings.engine);
     c.bpm=saved.settings.bpm;
     c.texture=saved.settings.texture;
+    c.meter=saved.settings.meter;
+    c.keysTone=saved.settings.keysTone;
+    c.leadTone=saved.settings.leadTone;
+    c.bassTone=saved.settings.bassTone;
     requestedConfig_=c;configRequested_=true;
     dirty=true; notice("CHANGE AT NEXT BAR"); return {ActionKind::Config,c,false};
 }
@@ -146,6 +186,7 @@ Action Controller::key(int ch) {
     if(ch=='s') { view.screen=Screen::Settings; view.selection=0; populateView(); return {}; }
     if(ch=='m') { view.screen=Screen::Moods; view.selection=saved.settings.mood; populateView(); return {}; }
     if(ch=='l') { view.screen=Screen::Favorites; view.selection=0; populateView(); return {}; }
+    if(ch=='i') { view.screen=Screen::Instruments; view.selection=0; populateView(); return {}; }
     if(ch=='v') { manualClean_=!manualClean_; view.screen=Screen::Radio; return {}; }
     if(ch=='n') { notice("NEXT SESSION AT NEXT BAR"); return {ActionKind::Next,{},false}; }
     if(ch=='e') { saved.settings.engine^=1; return changedConfig(); }
@@ -160,9 +201,29 @@ Action Controller::key(int ch) {
     if(view.screen==Screen::Favorites && ch==127 && saved.count) {
         removeFavorite(saved,view.selection); dirty=true; notice("FAVORITE REMOVED"); populateView(); return {};
     }
-    if(ch==';' || ch=='.' || ((ch==',' || ch=='/') && view.screen!=Screen::Settings)) {
+    if(ch==';' || ch=='.' || ((ch==',' || ch=='/') && view.screen!=Screen::Settings &&
+                              view.screen!=Screen::Instruments)) {
         const int direction=(ch==';' || ch==',')?-1:1;
         view.selection=std::clamp(view.selection+direction,0,std::max(0,view.itemCount-1)); return {};
+    }
+    if(view.screen==Screen::Instruments && (ch==',' || ch=='/' || ch=='\n')) {
+        const int direction=ch==','?-1:1;
+        auto cycle=[](int value,int count,int delta) {
+            value=(value+delta)%count;
+            return value<0?value+count:value;
+        };
+        switch(view.selection) {
+            case 0: saved.settings.keysTone=static_cast<Tone>(cycle(
+                static_cast<int>(saved.settings.keysTone),6,direction)); break;
+            case 1: saved.settings.leadTone=static_cast<Tone>(cycle(
+                static_cast<int>(saved.settings.leadTone),6,direction)); break;
+            case 2: saved.settings.bassTone=static_cast<BassTone>(cycle(
+                static_cast<int>(saved.settings.bassTone),3,direction)); break;
+            case 3: saved.settings.meter=static_cast<MusicMeter>(cycle(
+                static_cast<int>(saved.settings.meter),4,direction)); break;
+            default: return {};
+        }
+        return changedConfig();
     }
     if(view.screen==Screen::Settings && (ch==',' || ch=='/' || ch=='\n')) {
         const int direction=ch==','?-1:1; auto& v=saved.settings;
@@ -197,7 +258,9 @@ Action Controller::key(int ch) {
         if(f.schema!=kSessionSchema) { notice("OLD FAVORITE - USE EARLIER VERSION",4000); return {}; }
         if(f.engine && f.bankFingerprint!=fingerprint(builtinSampleBankId())) { notice("FAVORITE BANK DOES NOT MATCH",4000); return {}; }
         Config c; c.seed=f.seed; c.mood=static_cast<Mood>(f.mood); c.soundEngine=static_cast<SoundEngine>(f.engine); c.bpm=f.bpm; c.texture=f.texture; c.volume=78;
+        c.meter=f.meter; c.keysTone=f.keysTone; c.leadTone=f.leadTone; c.bassTone=f.bassTone;
         saved.settings.mood=f.mood; saved.settings.engine=f.engine; saved.settings.bpm=f.bpm; saved.settings.texture=f.texture;
+        saved.settings.meter=f.meter; saved.settings.keysTone=f.keysTone; saved.settings.leadTone=f.leadTone; saved.settings.bassTone=f.bassTone;
         requestedConfig_=c;configRequested_=true;
         dirty=true; view.screen=Screen::Radio; notice("FAVORITE AT NEXT BAR"); return {ActionKind::Config,c,false,true};
     }

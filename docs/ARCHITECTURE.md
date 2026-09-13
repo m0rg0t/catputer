@@ -76,9 +76,11 @@ One audio producer owns synthesis state and renders upcoming events. A dedicated
 
 The high-priority audio work must block or yield correctly when its queue is full. Avoid busy waits that starve the library output task. Choose exact priorities and core placement after tracing both tasks; a reasonable experiment isolates audio from UI work, but do not assume two cores automatically eliminate contention.
 
-No file I/O, display calls, logging, JSON parsing, allocation or mutex held by storage/UI is allowed in the render path. Commands are bounded; coalesce repeated volume inputs. Composer lookahead runs outside urgent output deadlines. Pass a small coherent beat/level/status snapshot to the UI instead of sharing mutable synthesis state.
+No file I/O, display calls, logging, JSON parsing, allocation or mutex held by storage/UI is allowed in the render path. Commands are bounded; coalesce repeated volume inputs. Composer lookahead runs outside urgent output deadlines. Pass a small coherent beat/level/status snapshot to the UI instead of sharing mutable synthesis state. The current snapshot also includes seven bounded instrument activity levels and the resolved meter grid. The bottom display reads those levels; it does not scan PCM buffers or run an FFT. Pause and mute make it idle. Pulse latency compensation divides by the actual pulses per bar, including two dotted-quarter pulses in 6/8.
 
 Audio timing comes from the sample timeline. For beat-linked animation, compensate for queued output latency using consumed/estimated played sample position. If an exact playback position is unavailable, publish the known estimate and test phase error physically; do not synchronize to an unrelated `millis()` beat timer.
+
+Meter is stable within a session: AUTO resolves from a seed, or the user selects 4/4, 3/4 or 6/8. A bar contains 16/12/12 sixteenth steps respectively, grouped into 4/3/2 pulses. Chord, bass and melody gate boundaries use the actual bar end; new meter/tone configurations apply at a boundary. The six chord/lead timbres and three bass timbres use fixed oscillator/envelope profiles and require no new sample-bank storage. Timbre selection remains outside the composition RNG.
 
 Manual tempo is a configuration override: 0 selects the seed/mood tempo, and 40–180 selects a fixed BPM. A tempo-only update keeps the current score, voices and session, takes effect at the next bar edge, and uses that edge as the new fractional-sample timing origin. It must not recompute elapsed time as `bar × new bar length`. Explicit favorite replay requests a restart even when its seed matches the current session.
 
@@ -110,7 +112,7 @@ A full RGB565 frame is 64,800 bytes; two use 129,600 bytes. An indexed framebuff
 
 ## Display and animation
 
-Use a static room background with small animated layers: rain, lamp/steam, a few cat poses and slow background movement. The cat is the main character. Target 12 FPS, with 6 FPS as a load fallback. Update controls promptly even if the scenery is slow. Use an independent fixed-step animation timeline for reproducible screenshots.
+Use a static room background with small animated layers: rain, lamp/steam, a few cat poses and slow background movement. The cat is the main character. Target 12 FPS, with 6 FPS as a load fallback. Update controls promptly even if the scenery is slow. Use an independent fixed-step timeline for scene motion; derive music-linked motion from rendered audio snapshots. Native animation exports render the shared engine up to each frame, rather than inventing musical activity.
 
 Compile original pixel art into a bounded indexed format at build time. Optional SD assets are validated and loaded before use; no file reads occur for each frame. Avoid JPEG/GIF/video decoding in the main listening loop. Scene switching either fits within allocated buffers or uses a short visual transition while audio keeps playing.
 
@@ -122,7 +124,7 @@ The confirmed no-SD baseline embeds one scene, presets and the selected minimal 
 
 Own optional SD access in one storage service. The reference uses SCK 40, MISO 39, MOSI 14, CS 12 and a conservative 10 MHz clock; cross-check the library setup before copying pin initialization. Validate manifest versions, counts, dimensions, decoded sizes and paths under `/LOFI`. Only fully validated packs can become active.
 
-Persist settings/favorites with a temp file, flush/close, recoverable rename/backup sequence and boot recovery. FAT rename is not treated as a universal power-loss guarantee. Avoid writes on every key repeat. Never replace the whole user's `/LOFI` directory during updates.
+Current format 3 uses 192 bytes and retains the eight original favorite records, with extra tempo/meter/tone bytes and a CRC. The bounded decoder also accepts valid 160-byte format-1/2 files; the device reader passes their actual size for migration. Legacy favorite schemas remain unavailable for replay under the new composer. Persist settings/favorites with a temp file, flush/close, recoverable rename/backup sequence and boot recovery. FAT rename is not treated as a universal power-loss guarantee. Avoid writes on every key repeat. Never replace the whole user's `/LOFI` directory during updates.
 
 Without SD, the conservative proposal is RAM-only session settings and favorites, with a visible seed for recall. Persistent internal storage requires an explicit, verified app-specific partition contract; do not blindly call `nvs_flash_init` or erase `apps_nvs`. The final baseline is recorded in the decision log.
 

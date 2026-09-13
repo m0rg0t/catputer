@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.4-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.5-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
@@ -24,7 +24,7 @@ Arduino's generic NVS startup is intentionally skipped: this app has no NVS cons
 
 ## Controls
 
-Space play/pause; `-` / `=` volume; `M` moods; `N` next session; `F` add/remove current favorite; `L` favorites; `V` clean scene; `S` settings; `H` help; `E` compare sound engine.
+Space play/pause; `-` / `=` volume; `M` moods; `N` next session; `F` add/remove current favorite; `L` favorites; `V` clean scene; `S` settings; `I` instruments/meter; `H` help; `E` compare sound engine.
 
 In menus use `;` / `.` up/down, `,` / `/` left/right, Enter select, backtick/Escape back. Backspace removes a selected favorite. Keyboard letters are case-insensitive. The native preview also accepts arrow keys and `Q` to quit.
 
@@ -32,6 +32,10 @@ In **S → BPM**, use `,` / `/` for 1 BPM steps from 40 to 180. Enter toggles AU
 
 Volume runs from 0 to 300% in 5% steps. Above 100% it adds software gain, with a soft limiter before PCM output; actual loudness depends on the speaker or headphones. Volume changes ramp over 10 ms. The default remains 35%.
 
-Mood/engine/session changes take effect at the next bar with a fade. A BPM-only change takes effect at the next bar without restarting the current tune. A favorite restarts a seed at its beginning, not at the point where it was saved. Replay is tied to generation schema, parameters, tempo and the matching hybrid sample bank.
+Mood/engine/instrument/meter/session changes take effect at the next bar with a fade. A BPM-only change takes effect at the next bar without restarting the current tune. A favorite restarts a seed at its beginning, not at the point where it was saved. Replay is tied to generation schema, parameters, tempo and the matching hybrid sample bank.
 
-Version 0.1.4-dev retains the LCD RGB565 correction, larger text and generation schema 3. It reads earlier 160-byte saves and upgrades to format 2 when saving, retaining settings and favorites. Earlier favorites use AUTO tempo; new manual-tempo codes append `-<BPM>`. Older firmware cannot read format 2, so retain a copy of the old state before a downgrade. Existing schema-1 and schema-2 favorites remain visible as `OLD` and require the earlier firmware for faithful replay.
+Open **I** to select the chord tone, melody tone, bass tone and musical meter. Use `;` / `.` to move, `,` / `/` or Enter to change the selected value. AUTO chooses a meter once per session; manual choices are 4/4, 3/4 and 6/8. In 6/8, BPM counts dotted-quarter pulses (two per bar).
+
+The bottom strip shows real instrument activity and musical pulses. Pause or mute silences its activity; motion OFF keeps a static meter display. The clean scene retains the unobtrusive strip.
+
+Version 0.1.5-dev retains the LCD RGB565 correction and larger text, and introduces generation schema 4. It migrates earlier saved settings and retains old favorites, marked `OLD`; faithful replay needs the earlier firmware. New favorites include the selected tempo, meter and tones. Older firmware cannot read the new save format, so retain a copy of old state before a downgrade.
