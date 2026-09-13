@@ -1,6 +1,8 @@
-# Cardputer ADV Lofi
+# Catputer
 
 An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 composes chords, bass, melodies and drums while an original pixel-art cat reads in a rainy room.
+
+[Project site, audio demos and firmware downloads](https://m0rg0t.github.io/catputer/)
 
 ![The shared pixel-art scene, rendered on desktop](docs/media/scene.gif)
 
@@ -114,6 +116,8 @@ python3 tools/build_site.py
 python3 -m http.server 8080 --directory build/site
 ```
 
+The [GitHub Pages workflow](.github/workflows/pages.yml) rebuilds the firmware, native screenshots, animation and six audio demos on each push to `main`, then publishes only the generated `build/site` directory. It can also be run manually from GitHub Actions. No audio-generation API keys are needed. See [site deployment](docs/DELIVERY.md#github-pages-deployment) for details.
+
 The built-in bank is reproducible from [generate_samples.py](tools/generate_samples.py); [prepare_samples.py](tools/prepare_samples.py) validates and emits the flash bank. Optional ElevenLabs generation happens on the development computer using an environment key, with bounded requests and private raw outputs. It is never part of firmware playback. See the tools' `--help` and [audio asset notes](assets/audio/README.md).
 
 The room and cat masters were created with the built-in imagegen tool, then adapted to the LCD as indexed pixel assets. [Artwork sources and prompts](assets/source/imagegen-v1/README.md) are included. To rebuild the bundled scene after editing its sources, run `python3 tools/prepare_scene.py`, then rebuild the native preview and firmware. The device uses a 240 × 135 background, six 64 × 72 sprite containers and a shared 64-color palette; generation and image conversion happen only during development.
@@ -124,4 +128,4 @@ The room and cat masters were created with the built-in imagegen tool, then adap
 
 The [accepted plan](docs/PROJECT_PLAN.md), [architecture](docs/ARCHITECTURE.md), [delivery milestones](docs/DELIVERY.md) and [decisions](docs/DECISIONS.md) describe the direction. [Verification](docs/VERIFICATION.md) distinguishes implemented behavior from remaining acceptance work.
 
-[Lofi Cat](https://github.com/m0rg0t/lofi_cat), Hermes, Oracle and Agent informed the experience and development workflow. This project uses original cat/room graphics and original procedural music. See [sources and dependency licenses](docs/THIRD_PARTY.md). A project license will be selected before public release.
+This project uses original cat/room graphics and original procedural music. See [sources and dependency licenses](docs/THIRD_PARTY.md). A project license has not yet been selected.

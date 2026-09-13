@@ -95,9 +95,17 @@ Page contents:
 
 Read version, screenshots, audio metadata and release links from canonical manifests. Fail the site build on missing/stale assets, hash mismatches, broken local links or unresolved placeholders. Audio players should not autoplay. Before a tested firmware release exists, show development status rather than a fictitious download button or “verified” badge.
 
-Use relative paths compatible with a GitHub Pages repository prefix. Start with English and keep copy extractable for later locales; localization is not yet an agreed requirement. A Sites mirror can use the same public output when requested, following the Sites skill at that stage. Neither GitHub Pages nor Sites is deployed by these planning files.
+Use relative paths compatible with a GitHub Pages repository prefix. Start with English and keep copy extractable for later locales; localization is not yet an agreed requirement. A Sites mirror can use the same public output when requested, following the Sites skill at that stage.
 
 Public packaging must exclude private favorites/settings, serial logs, device dumps, backups, local hosting metadata and unrelated SD content. Preserve all required asset/license attributions. Never point a site builder at the entire workspace or blindly copy an SD card.
+
+### GitHub Pages deployment
+
+The project site is published at <https://m0rg0t.github.io/catputer/>. The repository's Pages source is **GitHub Actions**. The workflow in [pages.yml](../.github/workflows/pages.yml) runs on pushes to `main` and supports manual dispatch.
+
+Each run builds the pinned PlatformIO firmware and the native renderer, runs the native and Python checks, exports fresh PNG/GIF captures and six matched 180-second MP3 demos, and creates the validated application-only package. The site builder checks media, audio and package hashes before the workflow uploads only `build/site`. The build needs no OpenRouter, ElevenLabs or other private API keys.
+
+The deployment job runs only after a successful build, with Pages write and OpenID Connect permissions scoped to that job and the `github-pages` environment. A failed build leaves the previous site online. The website serves a development candidate; deployment does not establish hardware verification or create a tagged firmware release.
 
 ## Future command interface
 

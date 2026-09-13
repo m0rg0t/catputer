@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the offline Cardputer ADV Lofi project showcase.
+"""Build the static Catputer project showcase.
 
 The builder copies a small, explicit public allowlist into ``build/site`` and
 writes one self-contained HTML page.  It never crawls the workspace, embeds
@@ -579,15 +579,15 @@ def render_index(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cardputer ADV Lofi · Pocket radio</title>
+  <title>Catputer · Offline lofi radio for Cardputer ADV</title>
   <meta name="description" content="An offline lofi radio and original pixel-art room for the M5Stack Cardputer ADV.">
   <style>{STYLE}</style>
 </head>
 <body>
-  <header><div class="wrap"><nav><a class="wordmark" href="#top">Pocket Lofi</a><ul><li><a href="#scene">Scene</a></li><li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Build</a></li></ul></nav></div></header>
+  <header><div class="wrap"><nav><a class="wordmark" href="#top">Catputer</a><ul><li><a href="#scene">Scene</a></li><li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Build</a></li><li><a href="https://github.com/m0rg0t/catputer">GitHub</a></li></ul></nav></div></header>
   <main id="top">
     <div class="wrap"><section class="hero" style="border-top:0">
-      <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for long nights.</h1><p class="lead">Pocket Lofi composes a quiet stream on the device while an original pixel-art cat reads beside a rainy window. The built-in scene and music are designed for a 240 × 135 display and no network connection.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a></div></div>
+      <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for long nights.</h1><p class="lead">Catputer composes a quiet stream on the device while an original pixel-art cat reads beside a rainy window. The built-in scene and music are designed for a 240 × 135 display and no network connection.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a></div></div>
       <div class="hero-frame"><img src="{hero_image}" alt="{html.escape(hero['label'])} desktop render at 240 by 135 pixels"><div class="caption">{html.escape(hero['label'])} · native renderer capture · 240×135 · physical display unverified</div></div>
     </section></div>
     <section id="scene"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Shared renderer evidence</div><h2>Rain, light, and a cat with a pulse.</h2></div><p>The screenshots use the same drawing code compiled for the native preview. They are desktop renders, shown at the device’s native size and an integer nearest-neighbour scale.</p></div>
@@ -601,7 +601,7 @@ def render_index(
     <section id="install"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Build and install</div><h2>Build a little radio.</h2></div><p>The preview can be inspected on a desktop today. Physical audio, LCD, battery, key and install behavior still need an ADV run.</p></div><div class="columns"><article class="panel"><h3>Build the preview</h3><ol><li>Build the C++17 native target using the README commands.</li><li>Run the native renderer to create <code>build/screens/*.ppm</code> and <code>build/animation/*.ppm</code>.</li><li>Run <code>python tools/export_media.py</code> with Pillow to create the public PNG/GIF evidence.</li><li>Run <code>python tools/build_site.py</code> to regenerate this offline page.</li></ol><p>Source revision: <code>{revision}</code><br>Media evidence generated: <code>{generated}</code></p></article><article class="panel"><h3>Install path</h3><p>The planned device route is M5Apps → Installer → SD. The baseline application is intended to keep playing after the installation card is removed; this behavior is a physical verification item.</p><p>Optional audio MP3s are host listening evidence only. The development download below includes installation instructions and checksums. Physical verification is still pending.</p><div class="downloads">{release_html}</div></article></div></div></section>
     <section><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Source notes</div><h2>Made to be explored.</h2></div><p>Original room and cat artwork was created with imagegen, then adapted to the LCD palette. Every scene shown here is captured from the shared renderer. This showcase uses local assets without external fonts or tracking scripts.</p></div><div class="panel"><p>Selected project documents: {docs_html or '<span class="muted">none copied</span>'}</p><p class="muted">The native captures are not a hardware certification. Current results and remaining device checks are in VERIFICATION.md.</p></div></div></section>
   </main>
-  <footer><div class="wrap">Cardputer ADV Lofi · Pocket Lofi · generated locally · no hosting or deployment performed.</div></footer>
+  <footer><div class="wrap">Catputer · an offline lofi radio for Cardputer ADV · <a href="https://github.com/m0rg0t/catputer">Explore the source on GitHub</a></div></footer>
   <dialog id="lightbox"><img alt=""><button type="button">Close</button></dialog>
   <script>
     const box = document.querySelector('#lightbox');
