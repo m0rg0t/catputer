@@ -11,10 +11,12 @@ float ageFalloff(std::uint32_t age, float rate) noexcept {
 
 ToneEnvelope leadVersion(ToneEnvelope envelope) noexcept {
     envelope.attackIncrement *= 1.25f;
-    envelope.sustain *= 0.72f;
-    envelope.decay = 1.0f - (1.0f - envelope.decay) * 1.65f;
-    envelope.release = 1.0f - (1.0f - envelope.release) * 3.9f;
-    envelope.gain *= 0.76f;
+    // The melody sings above the bed: a fuller sustain and a tail long enough
+    // to connect notes, still shorter than the chord release.
+    envelope.sustain *= 0.85f;
+    envelope.decay = 1.0f - (1.0f - envelope.decay) * 1.3f;
+    envelope.release = 1.0f - (1.0f - envelope.release) * 2.4f;
+    envelope.gain *= 0.92f;
     return envelope;
 }
 

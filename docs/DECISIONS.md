@@ -29,6 +29,7 @@ Planning session: 2026-09-12.
 | Daytime scope | User requested an additional sunny background and mode, with night artwork for night/relaxed moods. Cozy is treated as relaxed; Rainy uses daylight with rain, Sunny clear daylight. Existing schema-5 music remains unchanged |
 | Sleep and dim defaults | Sleep Off/30/60/90 minutes, final 30-second fade to pause; auto-dim Off/30/60/120 seconds, default 60, first key wakes only |
 | Speaker maximum · 0.1.10-dev | User reports the built-in speaker remains too quiet at max. Strengthen the upper output range with controlled peaks; retain default 35%, 0–100% behavior, score/favorites and the post-limiter sleep fade |
+| Melodic lofi generation · schema 6 | User asked for more melodic and more recognisably lofi generation and approved schema 6 as designed: phrase-form melody, rootless ninth voicings, lazier groove, tape pitch drift, saturation and darker top, deeper kick response, vinyl texture. Schema-5 favorites become `OLD`; no bit-crushing |
 | Public identity and delivery | Catputer, `m0rg0t/catputer`; publish the project site on GitHub Pages and provide application-only builds |
 
 ## Under discussion

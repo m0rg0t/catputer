@@ -40,7 +40,7 @@ int main() {
     sunnyMenu.key('f');sunnyMenu.key('l');
     const auto sunnyRecall = sunnyMenu.key('\n');
     assert(sunnyRecall.kind == ActionKind::Config && sunnyRecall.restartSession &&
-           sunnyRecall.config.mood == Mood::Sunny && sunnyMenu.saved.favorites[0].schema == 5);
+           sunnyRecall.config.mood == Mood::Sunny && sunnyMenu.saved.favorites[0].schema == kSessionSchema);
 
     Controller c(UINT64_C(0x123456789abcdef0));
     const Snapshot snap = snapshotFor(c, 72);

@@ -7,7 +7,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 ![Sunny room, rendered on desktop](docs/media/scene-day.gif)
 ![Night room, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.10-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update makes the upper volume range stronger for the built-in speaker, with peak control and unchanged quiet levels, music and favorites. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.11-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update rewrites the melody into repeating eight-bar phrases, adds ninth chords and a lazier groove, and gives the mix tape-style pitch drift, saturation and vinyl texture. It changes the generated music, so earlier favorites are listed as `OLD`. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -68,7 +68,7 @@ Open **S → SLEEP** to cycle Off / 30 / 60 / 90 minutes. The final 30 seconds f
 
 Open **S → AUTO DIM** for Off / 30 / 60 / 120 seconds. The default is 60 seconds, then the backlight dims to at most 10%. The first keypress only wakes the screen; press again to perform its action. The auto-dim preference is saved with SD settings.
 
-Version 0.1.10-dev keeps generation schema 5 (`lofi5-` favorite codes), so 0.1.8-dev favorites and existing-mood compositions replay unchanged. Save format 5 still includes Sunny in the 192-byte layout; valid formats 1–4 migrate. Schema-1/2/3/4 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
+Version 0.1.11-dev uses generation schema 6 (`lofi6-` favorite codes). The same seed now composes a different tune, so favorites saved by 0.1.8-dev to 0.1.10-dev no longer replay. Save format 5 keeps its 192-byte layout; valid formats 1–4 migrate. Schema-1 to schema-5 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
 
 ## Compare the sound engines
 

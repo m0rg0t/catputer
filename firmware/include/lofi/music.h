@@ -9,14 +9,14 @@ namespace lofi {
 
 constexpr std::uint32_t kMusicSampleRate = 32000;
 constexpr std::uint8_t kMusicVoiceCapacity = 12;
-constexpr std::uint32_t kMusicSchemaVersion = 5;
+constexpr std::uint32_t kMusicSchemaVersion = 6;
 constexpr std::uint16_t kMusicMinBpm = 40;
 constexpr std::uint16_t kMusicMaxBpm = 180;
 constexpr std::size_t kMusicInstrumentCount = 7;
 constexpr std::size_t kMusicMaxBarNotes = 48;
 constexpr std::uint64_t kMusicNoNoteSample = UINT64_MAX;
 
-// Append-only values encoded in schema-5 favorite codes and saved settings.
+// Append-only values encoded in favorite codes and saved settings.
 enum class Mood : std::uint8_t {
     Cozy = 0,
     Rainy = 1,
@@ -96,6 +96,8 @@ struct Snapshot {
     // Q15 gain currently applied only to the keys bed. Lead notes pull it
     // down smoothly to leave a little room, then it returns to unity.
     std::uint16_t keysGainQ15 = 32767;
+    // Shared tape-style pitch offset of the pitched voices, in cents * 256.
+    std::int16_t pitchDriftQ8 = 0;
     // Peak contribution of each MusicInstrument in the recent audio with a roughly 104 ms peak decay.
     std::uint8_t instrumentLevels[kMusicInstrumentCount]{};
     std::uint16_t recentPeak = 0;
@@ -195,7 +197,7 @@ public:
     ScoreBar scoreBar() const noexcept;
 
     // Stable, allocation-free favorite representation:
-    // lofi5-<seed>-<mood>-<engine>-<volume>-<texture>-<bpm>-<meter>-<keys>-<lead>-<bass>
+    // lofi6-<seed>-<mood>-<engine>-<volume>-<texture>-<bpm>-<meter>-<keys>-<lead>-<bass>
     static constexpr std::size_t kFavoriteCodeCapacity = 80;
     std::size_t writeFavoriteCode(char* output, std::size_t capacity) const noexcept;
     static bool parseFavoriteCode(const char* text, Config& output) noexcept;

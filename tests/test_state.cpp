@@ -121,19 +121,31 @@ int main() {
     assert(decoded.settings.volume == 300 && decoded.favorites[0].bpm == 123);
 
     // Format 4 already stores auto-dim and schema-5 favorites. Migration must
-    // preserve both, so the existing radio sessions still replay exactly.
+    // preserve both; the controller then lists such a favorite as OLD because
+    // schema 6 composes a different tune from the same seed.
     auto format4 = data;
     format4[4] = kStateFormatAutoDim;
+    format4[31] = 5;
     put32(format4.data() + 188, crc32(format4.data(), 188));
+    SavedState expected4 = state;
+    expected4.favorites[0].schema = 5;
     SavedState from4;
     assert(decodeState(format4.data(), format4.size(), from4));
-    assert(sameState(state, from4) && from4.favorites[0].schema == 5);
+    assert(sameState(expected4, from4) && from4.favorites[0].schema == 5);
+    // Format 4 predates schema 6 and cannot claim one of its favorites.
+    auto format4ClaimingCurrentMusic = format4;
+    format4ClaimingCurrentMusic[31] = 6;
+    put32(format4ClaimingCurrentMusic.data() + 188,
+          crc32(format4ClaimingCurrentMusic.data(), 188));
+    SavedState rejected4;
+    assert(!decodeState(format4ClaimingCurrentMusic.data(),
+                        format4ClaimingCurrentMusic.size(), rejected4));
     for (const unsigned offset : {13u, 28u}) {
         auto invalidOld = format4;
         invalidOld[offset] = 3; // Sunny did not exist in format 4.
         put32(invalidOld.data() + 188, crc32(invalidOld.data(), 188));
         assert(!decodeState(invalidOld.data(), invalidOld.size(), from4));
-        assert(sameState(state, from4));
+        assert(sameState(expected4, from4));
     }
     SavedState sunny = state;
     sunny.settings.mood = static_cast<std::uint8_t>(Mood::Sunny);

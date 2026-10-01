@@ -10,7 +10,7 @@ import build_site
 
 class SiteBoundaries(unittest.TestCase):
     def test_sunny_favorite_requires_current_schema(self):
-        for schema, mood, valid in ((5, 3, True), (4, 3, False), (5, 4, False), (4, 2, True)):
+        for schema, mood, valid in ((6, 3, True), (5, 3, True), (4, 3, False), (6, 4, False), (4, 2, True), (7, 2, False)):
             code=f'lofi{schema}-000000000ca7cafe-{mood}-1-78-18-0-0-0-3-0'
             self.assertEqual(build_site.parse_favorite_seed({'favorite_code':code}),
                              '000000000CA7CAFE' if valid else None)

@@ -18,9 +18,19 @@ constexpr std::uint64_t kFnvOffset = UINT64_C(14695981039346656037);
 constexpr std::uint64_t kFnvPrime = UINT64_C(1099511628211);
 constexpr std::uint32_t kFadeFrames = 640;
 constexpr std::size_t kMaxBarEvents = kMusicMaxBarNotes;
-constexpr std::size_t kDelayFrames = 2720; // 85 ms at 32 kHz.
+constexpr std::size_t kDelayFrames = 2704; // 84.5 ms at 32 kHz.
 constexpr int kBassLow = 32;
 constexpr int kBassHigh = 48;
+constexpr int kLeadLow = 64;
+constexpr int kLeadHigh = 83;
+constexpr int kLeadMaxLeap = 5;
+constexpr std::size_t kLeadCellNotes = 6;
+// Shared tape-style pitch movement: slow wow plus a little faster flutter.
+constexpr std::uint32_t kWowIncrement = 73820u;      // 0.55 Hz at 32 kHz.
+constexpr std::uint32_t kFlutterIncrement = 845555u; // 6.3 Hz at 32 kHz.
+constexpr float kWowDepth = 0.0026f;
+constexpr float kFlutterDepth = 0.0005f;
+constexpr float kCentsPerRatio = 1731.234f; // 1200 / ln(2).
 constexpr float kInvInt16 = 1.0f / 32768.0f;
 constexpr float kPhaseScale = 4294967296.0f / static_cast<float>(kMusicSampleRate);
 
@@ -232,7 +242,7 @@ float signedNoise(std::uint32_t& state) noexcept {
            2147483648.0f;
 }
 
-float readSample(Voice& voice) noexcept {
+float readSample(Voice& voice, float drift = 0.0f) noexcept {
     if (!voice.sampleActive || voice.sample == nullptr || voice.sample->data == nullptr ||
         voice.sample->frames == 0) {
         return 0.0f;
@@ -250,7 +260,9 @@ float readSample(Voice& voice) noexcept {
     const float b = static_cast<float>(sample.data[nextIndex]);
     const float result = (a + (b - a) * fraction) * kInvInt16;
 
-    voice.samplePhaseQ16 += voice.sampleIncrementQ16;
+    voice.samplePhaseQ16 += voice.sampleIncrementQ16 +
+        static_cast<std::uint32_t>(static_cast<std::int32_t>(
+            static_cast<float>(voice.sampleIncrementQ16) * drift));
     index = voice.samplePhaseQ16 >> 16;
     const bool canLoop = sample.loopEnd > sample.loopStart &&
                          sample.loopEnd <= sample.frames &&
@@ -335,6 +347,60 @@ constexpr MeterSpec meterSpec(MusicMeter meter) noexcept {
     return MeterSpec{4, 4, 4, 16, 4};
 }
 
+// One bar of melody rhythm on the session's sixteenth grid. Each gate ends at
+// or before the next onset; swing can still trim it by a few samples.
+struct LeadCell {
+    std::uint8_t count;
+    std::uint8_t steps[kLeadCellNotes];
+    std::uint8_t gates[kLeadCellNotes];
+};
+
+// Indexed by meter: 4/4, 3/4, 6/8. Hooks are the returning idea, answers
+// leave a beat of space and end on a held note, contrasts open the B bars.
+constexpr LeadCell kHookCells[3][4] = {
+    {{5, {0, 3, 6, 8, 10}, {3, 3, 2, 2, 4}},
+     {6, {0, 2, 4, 7, 8, 14}, {2, 2, 3, 1, 4, 2}},
+     {5, {2, 4, 6, 11, 12}, {2, 2, 4, 1, 4}},
+     {5, {0, 6, 8, 10, 12}, {4, 2, 2, 2, 3}}},
+    {{4, {0, 2, 4, 8}, {2, 2, 4, 3}},
+     {5, {0, 3, 4, 6, 8}, {3, 1, 2, 2, 4}},
+     {4, {2, 4, 6, 8}, {2, 2, 2, 4}},
+     {4, {0, 6, 8, 10}, {4, 2, 2, 2}}},
+    {{4, {0, 2, 4, 6}, {2, 2, 2, 5}},
+     {5, {0, 4, 6, 8, 10}, {4, 2, 2, 2, 2}},
+     {4, {2, 4, 6, 10}, {2, 2, 4, 2}},
+     {4, {0, 6, 8, 10}, {6, 2, 2, 2}}},
+};
+constexpr LeadCell kAnswerCells[3][3] = {
+    {{3, {4, 6, 8}, {2, 2, 6}},
+     {4, {3, 4, 10, 12}, {1, 4, 2, 4}},
+     {4, {6, 8, 10, 12}, {2, 2, 2, 4}}},
+    {{3, {4, 6, 8}, {2, 2, 4}},
+     {2, {4, 8}, {4, 4}},
+     {3, {2, 4, 6}, {2, 2, 6}}},
+    {{2, {4, 6}, {2, 6}},
+     {2, {3, 6}, {3, 6}},
+     {3, {2, 4, 6}, {2, 2, 4}}},
+};
+constexpr LeadCell kContrastCells[3][3] = {
+    {{4, {0, 8, 10, 12}, {6, 2, 2, 4}},
+     {5, {0, 2, 4, 6, 8}, {2, 2, 2, 2, 6}},
+     {3, {4, 8, 12}, {4, 4, 4}}},
+    {{3, {0, 8, 10}, {6, 2, 2}},
+     {4, {0, 2, 4, 6}, {2, 2, 2, 6}},
+     {3, {0, 4, 8}, {4, 4, 4}}},
+    {{2, {0, 6}, {6, 6}},
+     {5, {0, 2, 4, 6, 8}, {2, 2, 2, 2, 4}},
+     {4, {0, 4, 6, 10}, {4, 2, 4, 2}}},
+};
+constexpr LeadCell kCadenceCells[3] = {
+    {2, {6, 8}, {2, 6}},
+    {2, {2, 4}, {2, 6}},
+    {2, {4, 6}, {2, 6}},
+};
+constexpr std::int8_t kFallingContour[kLeadCellNotes] = {0, -1, -1, -1, 1, -1};
+constexpr std::int8_t kRisingContour[kLeadCellNotes] = {0, 1, 1, -1, 1, -1};
+
 } // namespace
 
 struct Engine::Impl {
@@ -375,6 +441,13 @@ struct Engine::Impl {
     std::int16_t delay[kDelayFrames]{};
     std::size_t delayIndex = 0;
     float toneState = 0.0f;
+    float toneState2 = 0.0f;
+    float hissState = 0.0f;
+    float crackle = 0.0f;
+    std::uint32_t wowPhase = 0;
+    std::uint32_t flutterPhase = 0;
+    float pitchDrift = 0.0f;
+    float pumpDepth = 0.0f;
     float dcInput = 0.0f;
     float dcOutput = 0.0f;
     float kickDuck = 1.0f;
@@ -410,7 +483,11 @@ struct Engine::Impl {
     std::uint8_t currentBassRoot = 36;
     std::uint8_t lastBassNote = 36;
     std::uint8_t lastLeadNote = 72;
-    std::int8_t motif[8]{};
+    std::uint8_t hookCell = 0;
+    std::uint8_t answerCell = 0;
+    std::uint8_t contrastCell = 0;
+    std::uint8_t leadHome = 72;
+    std::int8_t hookContour[kLeadCellNotes]{};
     std::uint64_t scoreHash = kFnvOffset;
     std::uint32_t scoreEvents = 0;
     std::uint32_t stolenVoices = 0;
@@ -499,6 +576,13 @@ struct Engine::Impl {
         std::fill(std::begin(delay), std::end(delay), 0);
         delayIndex = 0;
         toneState = 0.0f;
+        toneState2 = 0.0f;
+        hissState = 0.0f;
+        crackle = 0.0f;
+        wowPhase = 0;
+        flutterPhase = 0;
+        pitchDrift = 0.0f;
+        pumpDepth = 0.0f;
         dcInput = 0.0f;
         dcOutput = 0.0f;
         kickDuck = 1.0f;
@@ -506,45 +590,28 @@ struct Engine::Impl {
     }
 
     void chooseProgression() noexcept {
-        if (current.mood == Mood::Sunny) {
-            minorSession = false;
-        } else {
-            // Keep this original expression and short-circuit draw behavior
-            // unchanged for schema-5 Cozy, Rainy and Night sessions.
-            minorSession = current.mood != Mood::Cozy || scoreRng.chance(1, 4);
-        }
-        if (!minorSession) {
-            static constexpr std::uint8_t degrees[][4] = {
-                {0, 9, 2, 7},
-                {0, 4, 5, 7},
-                {0, 5, 9, 7},
-            };
-            static constexpr ChordShape shapes[][4] = {
-                {kMajor7, kMinor7, kMinor7, kDominant7},
-                {kMajor7, kMinor7, kMajor7, kDominant7},
-                {kMajor7, kMajor7, kMinor7, kDominant7},
-            };
-            const std::size_t selection = scoreRng.bounded(3);
-            std::copy(std::begin(degrees[selection]), std::end(degrees[selection]),
-                      progressionDegrees);
-            std::copy(std::begin(shapes[selection]), std::end(shapes[selection]),
-                      progressionShapes);
-        } else {
-            static constexpr std::uint8_t degrees[][4] = {
-                {0, 8, 3, 10},
-                {0, 5, 8, 7},
-                {0, 3, 5, 7},
-            };
-            static constexpr ChordShape shapes[][4] = {
-                {kMinor7, kMajor7, kMajor7, kDominant7},
-                {kMinor7, kMinor7, kMajor7, kMinor7},
-                {kMinor7, kMajor7, kMinor7, kMinor7},
-            };
-            const std::size_t selection = scoreRng.bounded(3);
-            std::copy(std::begin(degrees[selection]), std::end(degrees[selection]),
-                      progressionDegrees);
-            std::copy(std::begin(shapes[selection]), std::end(shapes[selection]),
-                      progressionShapes);
+        minorSession = current.mood == Mood::Sunny ? false :
+            current.mood != Mood::Cozy || scoreRng.chance(1, 4);
+        // Degrees are semitones above the tonic; shapes follow the key.
+        static constexpr std::uint8_t majorDegrees[][4] = {
+            {0, 9, 2, 7}, // I - vi - ii - V
+            {0, 4, 5, 7}, // I - iii - IV - V
+            {0, 5, 9, 7}, // I - IV - vi - V
+            {2, 7, 0, 9}, // ii - V - I - vi
+            {5, 4, 2, 0}, // IV - iii - ii - I
+        };
+        static constexpr std::uint8_t minorDegrees[][4] = {
+            {0, 8, 3, 10}, // i - VI - III - VII
+            {0, 5, 8, 7},  // i - iv - VI - v
+            {0, 3, 5, 7},  // i - III - iv - v
+            {0, 10, 8, 7}, // i - VII - VI - v
+            {5, 10, 3, 8}, // iv - VII - III - VI
+        };
+        const std::size_t selection = scoreRng.bounded(5);
+        for (std::size_t slot = 0; slot < 4; ++slot) {
+            progressionDegrees[slot] = minorSession ?
+                minorDegrees[selection][slot] : majorDegrees[selection][slot];
+            progressionShapes[slot] = shapeForDegree(progressionDegrees[slot]);
         }
     }
 
@@ -601,7 +668,11 @@ struct Engine::Impl {
     }
 
     bool chordContains(int midi) const noexcept {
+        // The keys voicing is rootless; the bass root completes the harmony.
         const int pitchClass = midi % 12;
+        if (currentBassRoot % 12 == pitchClass) {
+            return true;
+        }
         for (const std::uint8_t note : chordNotes) {
             if (note % 12 == pitchClass) {
                 return true;
@@ -633,51 +704,21 @@ struct Engine::Impl {
         return nearestPitch(pitchClass, reference, kBassLow, kBassHigh);
     }
 
-    std::uint8_t nearestLeadChordPitch(std::uint8_t voice,
-                                       int reference) const noexcept {
-        const std::uint8_t pitchClass = chordNotes[voice & 3u] % 12u;
-        std::uint8_t note = nearestPitch(pitchClass, reference, 64, 83);
-        if (std::abs(static_cast<int>(note) - reference) > 5) {
-            int bestDistance = std::numeric_limits<int>::max();
-            for (const std::uint8_t chordNote : chordNotes) {
-                const std::uint8_t alternative = nearestPitch(
-                    chordNote % 12u, reference, 64, 83);
-                const int distance = std::abs(static_cast<int>(alternative) - reference);
-                if (distance < bestDistance) {
-                    note = alternative;
-                    bestDistance = distance;
-                }
-            }
-        }
-        return note;
-    }
-
-    std::uint8_t leadPitchForChordVoice(std::uint8_t voice) noexcept {
-        const std::uint8_t note = nearestLeadChordPitch(voice, lastLeadNote);
-        lastLeadNote = note;
-        return note;
-    }
-
-    std::uint8_t passingPitchTo(std::uint8_t target, int preferredDirection,
-                                int minimum, int maximum) const noexcept {
-        const int directions[2] = {preferredDirection, -preferredDirection};
-        std::uint8_t best = target;
-        int bestMovement = std::numeric_limits<int>::max();
-        for (const int direction : directions) {
+    // A scale tone just beside the target that is not in the harmony, on the
+    // side the line arrives from. Returns target when none fits.
+    std::uint8_t approachPitch(std::uint8_t target, int from) const noexcept {
+        const int preferred = from >= static_cast<int>(target) ? 1 : -1;
+        for (const int direction : {preferred, -preferred}) {
             for (int distance = 1; distance <= 2; ++distance) {
                 const int candidate = static_cast<int>(target) + direction * distance;
-                if (candidate >= minimum && candidate <= maximum &&
-                    scaleContains(candidate) && !chordContains(candidate)) {
-                    const int movement = std::abs(candidate - static_cast<int>(lastLeadNote));
-                    if (movement < bestMovement) {
-                        best = static_cast<std::uint8_t>(candidate);
-                        bestMovement = movement;
-                    }
-                    break;
+                if (candidate >= kLeadLow && candidate <= kLeadHigh &&
+                    scaleContains(candidate) && !chordContains(candidate) &&
+                    std::abs(candidate - from) <= kLeadMaxLeap) {
+                    return static_cast<std::uint8_t>(candidate);
                 }
             }
         }
-        return best;
+        return target;
     }
 
     std::uint8_t scaleBridgeToward(std::uint8_t target, int reference,
@@ -702,8 +743,11 @@ struct Engine::Impl {
 
     void buildChord(Harmony harmony) noexcept {
         const int root = 60 + (keyPitchClass + harmony.degree) % 12u;
-        const int raw[4] = {root, root + harmony.shape.third, root + 7,
-                            root + harmony.shape.seventh};
+        // Rootless voicing: third, fifth, seventh and the ninth. A ninth
+        // outside the session key falls back to the root an octave up.
+        const int top = scaleContains(root + 14) ? root + 14 : root + 12;
+        const int raw[4] = {root + harmony.shape.third, root + 7,
+                            root + harmony.shape.seventh, top};
         int bestScore = std::numeric_limits<int>::max();
         std::uint8_t best[4]{};
         for (int inversion = 0; inversion < 4; ++inversion) {
@@ -734,14 +778,24 @@ struct Engine::Impl {
     }
 
     void buildMotif() noexcept {
-        static constexpr std::int8_t templates[][8] = {
-            {0, -1, 1, 2, -1, 3, 2, -1},
-            {2, -1, 1, -1, 0, 1, -1, 3},
-            {-1, 0, 2, -1, 1, -1, 3, 2},
-            {0, 1, -1, 2, -1, 1, 0, -1},
-        };
-        const std::size_t selected = scoreRng.bounded(4);
-        std::copy(std::begin(templates[selected]), std::end(templates[selected]), motif);
+        hookCell = static_cast<std::uint8_t>(scoreRng.bounded(4));
+        answerCell = static_cast<std::uint8_t>(scoreRng.bounded(3));
+        contrastCell = static_cast<std::uint8_t>(scoreRng.bounded(3));
+        // An arch (or occasionally a valley) in harmony-ladder steps: mostly
+        // neighbors, sometimes a skip. Entry 0 is the offset from leadHome.
+        const bool valley = scoreRng.chance(1, 3);
+        hookContour[0] = static_cast<std::int8_t>(scoreRng.centered(1));
+        for (std::size_t note = 1; note < kLeadCellNotes; ++note) {
+            const int magnitude = scoreRng.chance(1, 5) ? 2 : 1;
+            const bool rising = (note <= 2u) != valley;
+            hookContour[note] = static_cast<std::int8_t>(rising ? magnitude : -magnitude);
+        }
+        leadHome = static_cast<std::uint8_t>(71 + scoreRng.bounded(5));
+    }
+
+    std::size_t meterIndex() const noexcept {
+        return meter == MusicMeter::ThreeFour ? 1u :
+               meter == MusicMeter::SixEight ? 2u : 0u;
     }
 
     void startSession(Config config, bool resetCounters) noexcept {
@@ -771,7 +825,7 @@ struct Engine::Impl {
         const MusicMeter automaticMeter = meterDraw < 7u ? MusicMeter::FourFour :
             meterDraw < 9u ? MusicMeter::ThreeFour : MusicMeter::SixEight;
         setMeter(current.meter == MusicMeter::Auto ? automaticMeter : current.meter);
-        swingPercent = static_cast<std::uint8_t>(55 + scoreRng.bounded(5));
+        swingPercent = static_cast<std::uint8_t>(58 + scoreRng.bounded(5));
         static constexpr std::uint8_t cozyKeys[] = {0, 2, 5, 7, 9};
         static constexpr std::uint8_t darkKeys[] = {0, 2, 3, 5, 7, 9, 10};
         static constexpr std::uint8_t sunnyKeys[] = {0, 4, 5, 7, 9};
@@ -789,7 +843,7 @@ struct Engine::Impl {
         std::copy(std::begin(voicingReference), std::end(voicingReference), chordNotes);
         currentBassRoot = nearestPitch(keyPitchClass, 42, kBassLow, kBassHigh);
         lastBassNote = currentBassRoot;
-        lastLeadNote = nearestPitch(keyPitchClass, 72, 64, 83);
+        lastLeadNote = leadHome;
 
         updateEffectiveTempo();
         sessionSample = 0;
@@ -893,13 +947,23 @@ struct Engine::Impl {
         const Harmony harmony = harmonyForBar(barIndex);
         buildChord(harmony);
         const int timingRadius = current.mood == Mood::Rainy ? 34 : 48;
-        const std::uint8_t phraseBar = static_cast<std::uint8_t>(barIndex & 7u);
+        // The backbeat sits about 12 ms behind the grid for a relaxed pocket.
+        constexpr int kLazyBackbeat = 384;
         const std::uint8_t pattern = static_cast<std::uint8_t>(
             (barIndex + (barIndex / 8u) + (current.seed >> 9)) & 3u);
 
         const int chordVelocity = section == ArrangementSection::Breakdown ? 58 :
                                   section == ArrangementSection::Intro ?
                                       62 + static_cast<int>(barIndex) * 2 : 72;
+        // In the full sections every other bar re-strikes the two upper chord
+        // voices on a late off-beat instead of holding all four for the bar.
+        const bool fullSection = section == ArrangementSection::Groove ||
+                                 section == ArrangementSection::Melody ||
+                                 section == ArrangementSection::Return;
+        // 6/8 bars are too short for it to read as anything but clutter.
+        const std::uint8_t restrikeStep = fullSection && pattern != 3u &&
+            (barIndex & 1u) != 0u && meter != MusicMeter::SixEight ?
+                (meter == MusicMeter::FourFour ? 10u : 6u) : 0u;
         for (int voice = 0; voice < 4; ++voice) {
             const int source = pattern == 1u ? 3 - voice : voice;
             std::uint8_t onset = 0;
@@ -913,10 +977,22 @@ struct Engine::Impl {
             const std::uint8_t tailSpace =
                 section == ArrangementSection::Intro ? 3u : 2u;
             const std::uint8_t remaining = static_cast<std::uint8_t>(stepsPerBar - onset);
-            const std::uint8_t gate = remaining > tailSpace ?
+            std::uint8_t gate = remaining > tailSpace ?
                 static_cast<std::uint8_t>(remaining - tailSpace) : 1u;
+            if (restrikeStep != 0u && source >= 2) {
+                gate = static_cast<std::uint8_t>(restrikeStep - onset);
+            }
+            const int velocity = chordVelocity + scoreRng.centered(5);
             addEvent(onset, strum, gate, Instrument::Keys, chordNotes[source],
-                     chordVelocity + scoreRng.centered(5));
+                     velocity);
+        }
+        if (restrikeStep != 0u) {
+            for (int source = 2; source < 4; ++source) {
+                const int velocity = chordVelocity - 16 + scoreRng.centered(4);
+                addEvent(restrikeStep, (source - 2) * 22,
+                         static_cast<std::uint8_t>(stepsPerBar - restrikeStep - 2u),
+                         Instrument::Keys, chordNotes[source], velocity);
+            }
         }
 
         std::uint8_t secondBassStep = 0;
@@ -997,9 +1073,7 @@ struct Engine::Impl {
             }
         }
 
-        const bool fullDrums = section == ArrangementSection::Groove ||
-                               section == ArrangementSection::Melody ||
-                               section == ArrangementSection::Return;
+        const bool fullDrums = fullSection;
         if (meter == MusicMeter::FourFour) {
             if (section == ArrangementSection::Intro || fullDrums) {
                 const int kick = section == ArrangementSection::Intro ? 69 : 89;
@@ -1008,15 +1082,20 @@ struct Engine::Impl {
                 static constexpr std::uint8_t secondKicks[] = {8, 10, 8, 7};
                 addHumanizedEvent(secondKicks[pattern], 0, 22, 2,
                                   Instrument::Kick, 36, kick - 12, 5);
-                addHumanizedEvent(4, 0, 24, 2, Instrument::Snare, 38, snare, 6);
-                addHumanizedEvent(12, 0, 24, 2, Instrument::Snare, 38,
+                addHumanizedEvent(4, kLazyBackbeat, 24, 2, Instrument::Snare, 38,
+                                  snare, 6);
+                addHumanizedEvent(12, kLazyBackbeat, 24, 2, Instrument::Snare, 38,
                                   snare + 3, 6);
                 for (std::uint8_t step = 2; step < 16; step += 2) {
                     const bool rest = fullDrums && pattern == 1u && step == 6u;
                     if (!rest) {
                         addHumanizedEvent(step, 0, 18, 1, Instrument::Hat, 42,
-                                          (step & 3u) == 0u ? 37 : 44, 4);
+                                          (step & 3u) == 0u ? 32 : 46, 5);
                     }
+                }
+                if (fullDrums && (pattern & 1u) != 0u) {
+                    // A ghosted sixteenth leading into the second backbeat.
+                    addHumanizedEvent(11, 0, 14, 1, Instrument::Hat, 42, 24, 3);
                 }
                 if ((barIndex & 1u) != 0u) {
                     addHumanizedEvent(15, 0, 10, 1, Instrument::Rim, 37, 38, 4);
@@ -1040,12 +1119,13 @@ struct Engine::Impl {
                     addHumanizedEvent(pattern == 3u ? 6u : 8u, 0, 18, 2,
                                       Instrument::Kick, 36, kick - 18, 4);
                 }
-                addHumanizedEvent(4, 0, 20, 2, Instrument::Snare, 38, snare, 5);
-                addHumanizedEvent(8, 0, 20, 2, Instrument::Snare, 38,
+                addHumanizedEvent(4, kLazyBackbeat, 20, 2, Instrument::Snare, 38,
+                                  snare, 5);
+                addHumanizedEvent(8, kLazyBackbeat, 20, 2, Instrument::Snare, 38,
                                   snare - 3, 5);
                 for (std::uint8_t step = 2; step < 12; step += 2) {
                     addHumanizedEvent(step, 0, 16, 1, Instrument::Hat, 42,
-                                      step == 2u ? 35 : 42, 4);
+                                      (step & 3u) == 0u ? 32 : 44, 5);
                 }
                 if ((barIndex & 1u) != 0u) {
                     addHumanizedEvent(11, 0, 9, 1, Instrument::Rim, 37, 36, 3);
@@ -1069,7 +1149,8 @@ struct Engine::Impl {
                     addHumanizedEvent(pattern == 3u ? 9u : 8u, 0, 16, 2,
                                       Instrument::Kick, 36, kick - 15, 4);
                 }
-                addHumanizedEvent(6, 0, 20, 2, Instrument::Snare, 38, snare, 5);
+                addHumanizedEvent(6, kLazyBackbeat, 20, 2, Instrument::Snare, 38,
+                                  snare, 5);
                 for (std::uint8_t step = 2; step < 12; step += 2) {
                     addHumanizedEvent(step, 0, 14, 1, Instrument::Hat, 42,
                                       step == 2u || step == 8u ? 36 : 43, 4);
@@ -1087,161 +1168,171 @@ struct Engine::Impl {
             }
         }
 
-        const auto addChordLead = [this](std::uint8_t step, std::uint8_t voice,
-                                         std::uint8_t duration,
-                                         int velocity) noexcept {
-            const std::uint8_t note = leadPitchForChordVoice(voice);
-            addEvent(step, 0, duration, Instrument::Lead, note,
-                     velocity + scoreRng.centered(5));
-        };
-        const auto addHook = [this, &addChordLead](std::uint8_t maximumNotes,
-                                                   int velocity,
-                                                   std::uint8_t delay = 0) noexcept {
-            static constexpr std::uint8_t fourFourSteps[] = {0, 2, 4, 6, 8, 10, 12, 14};
-            static constexpr std::uint8_t shortSteps[] = {0, 2, 4, 6, 8, 10};
-            const std::uint8_t* hookSteps = meter == MusicMeter::FourFour ?
-                fourFourSteps : shortSteps;
-            const std::uint8_t slots = meter == MusicMeter::FourFour ? 8u : 6u;
-            std::uint8_t added = 0;
-            for (std::uint8_t slot = 0; slot < slots && added < maximumNotes; ++slot) {
-                if (motif[slot] < 0) {
-                    continue;
-                }
-                const std::uint8_t step = static_cast<std::uint8_t>(
-                    hookSteps[slot] + delay);
-                if (step >= stepsPerBar) {
-                    continue;
-                }
-                const std::uint8_t duration = step % stepsPerBeat == 0u ? 2u : 1u;
-                addChordLead(step, static_cast<std::uint8_t>(motif[slot]), duration,
-                             velocity + (added == 0 ? 3 : 0));
-                ++added;
-            }
-        };
-        const auto addCadence = [this, &harmony](std::uint8_t step, bool useThird,
-                                                 std::uint8_t duration,
-                                                 int velocity) noexcept {
-            const std::uint8_t rootClass = currentBassRoot % 12u;
-            const std::uint8_t thirdClass = static_cast<std::uint8_t>(
-                (rootClass + harmony.shape.third) % 12u);
-            const std::uint8_t root = nearestPitch(rootClass, lastLeadNote, 64, 83);
-            const std::uint8_t third = nearestPitch(thirdClass, lastLeadNote, 64, 83);
-            std::uint8_t note = useThird ? third : root;
-            const std::uint8_t alternative = useThird ? root : third;
-            if (std::abs(static_cast<int>(note) - lastLeadNote) > 5 &&
-                std::abs(static_cast<int>(alternative) - lastLeadNote) <
-                    std::abs(static_cast<int>(note) - lastLeadNote)) {
-                note = alternative;
-            }
-            addEvent(step, 0, duration, Instrument::Lead, note,
-                     velocity + scoreRng.centered(4));
-            lastLeadNote = note;
-        };
-        const auto addResponse = [this, &addChordLead, &addCadence](
-                                     int velocity,
-                                     std::uint8_t maximumNotes) noexcept {
-            const std::uint8_t responseSteps[3] = {
-                static_cast<std::uint8_t>(stepsPerBeat + 1u),
-                static_cast<std::uint8_t>(stepsPerBar - 3u),
-                static_cast<std::uint8_t>(stepsPerBar - 1u),
-            };
-            std::uint8_t added = 0;
-            for (int slot = 7; slot >= 0 && added < maximumNotes; --slot) {
-                if (motif[slot] < 0) {
-                    continue;
-                }
-                if (added == 2u) {
-                    addCadence(responseSteps[added], (barIndex & 2u) != 0u,
-                               1, velocity - 4);
-                } else {
-                    addChordLead(responseSteps[added],
-                                 static_cast<std::uint8_t>(motif[slot]), 2,
-                                 velocity - added * 2);
-                }
-                ++added;
-            }
-        };
-        const auto addPassingResolution = [this](std::uint8_t passingStep,
-                                                  std::uint8_t chordVoice,
-                                                  int velocity) noexcept {
-            std::uint8_t target = nearestLeadChordPitch(chordVoice, lastLeadNote);
-            const int direction = lastLeadNote < target ? -1 :
-                                  lastLeadNote > target ? 1 :
-                                  ((barIndex + chordVoice + current.seed) & 1u) != 0u ?
-                                      1 : -1;
-            std::uint8_t passing = passingPitchTo(target, direction, 64, 83);
-            if (passing == target) {
-                for (std::uint8_t alternativeVoice = 0; alternativeVoice < 4;
-                     ++alternativeVoice) {
-                    const std::uint8_t alternative = nearestLeadChordPitch(
-                        alternativeVoice, lastLeadNote);
-                    const std::uint8_t alternativePassing = passingPitchTo(
-                        alternative, direction, 64, 83);
-                    if (alternativePassing != alternative) {
-                        target = alternative;
-                        passing = alternativePassing;
-                        break;
-                    }
-                }
-            }
-            const std::uint8_t pitchClass = target % 12u;
-            addEvent(passingStep, 0, 1, Instrument::Lead, passing,
-                     velocity - 5 + scoreRng.centered(3));
-            lastLeadNote = passing;
-            target = nearestPitch(pitchClass, lastLeadNote, 64, 83);
-            addEvent(static_cast<std::uint8_t>(passingStep + 1u), 0, 2,
-                     Instrument::Lead, target, velocity + scoreRng.centered(4));
-            lastLeadNote = target;
-        };
+        generateLead(section, harmony);
+        trimLeadGates();
+    }
 
+    // Walks the harmony ladder (chord tones plus the bass root inside the lead
+    // register) along a contour, then turns short off-beat notes into scale
+    // approach tones that resolve by step into the following chord tone.
+    void addLeadPhrase(const LeadCell& cell, const std::int8_t* contour,
+                       bool inverted, int home, int velocity, bool cadence,
+                       const Harmony& harmony) noexcept {
+        std::uint8_t ladder[kLeadHigh - kLeadLow + 1]{};
+        int rungs = 0;
+        for (int note = kLeadLow; note <= kLeadHigh; ++note) {
+            if (chordContains(note)) {
+                ladder[rungs++] = static_cast<std::uint8_t>(note);
+            }
+        }
+        if (rungs == 0 || cell.count == 0) {
+            return;
+        }
+        int index = 0;
+        for (int rung = 1; rung < rungs; ++rung) {
+            if (std::abs(static_cast<int>(ladder[rung]) - home) <
+                std::abs(static_cast<int>(ladder[index]) - home)) {
+                index = rung;
+            }
+        }
+
+        std::uint8_t pitches[kLeadCellNotes]{};
+        int previous = lastLeadNote;
+        for (std::uint8_t note = 0; note < cell.count; ++note) {
+            const int delta = inverted ? -contour[note] : contour[note];
+            index += delta;
+            if (index < 0 || index >= rungs) {
+                index -= 2 * delta;
+            }
+            index = std::max(0, std::min(rungs - 1, index));
+            while (index > 0 &&
+                   static_cast<int>(ladder[index]) - previous > kLeadMaxLeap) {
+                --index;
+            }
+            while (index + 1 < rungs &&
+                   previous - static_cast<int>(ladder[index]) > kLeadMaxLeap) {
+                ++index;
+            }
+            pitches[note] = ladder[index];
+            previous = pitches[note];
+        }
+
+        const std::uint8_t last = static_cast<std::uint8_t>(cell.count - 1u);
+        if (cadence) {
+            // Close on the root or third, whichever is nearer; later phrases
+            // lean toward the third so cadences do not all sound final.
+            const int reference = last > 0 ? pitches[last - 1u] : lastLeadNote;
+            const std::uint8_t rootClass = currentBassRoot % 12u;
+            const std::uint8_t root = nearestPitch(rootClass, reference,
+                                                   kLeadLow, kLeadHigh);
+            const std::uint8_t third = nearestPitch(
+                static_cast<std::uint8_t>((rootClass + harmony.shape.third) % 12u),
+                reference, kLeadLow, kLeadHigh);
+            const int rootDistance = std::abs(static_cast<int>(root) - reference);
+            const int thirdDistance = std::abs(static_cast<int>(third) - reference) -
+                                      ((barIndex & 8u) != 0u ? 1 : 0);
+            pitches[last] = rootDistance <= thirdDistance ? root : third;
+        }
+
+        bool approached = false;
+        for (std::uint8_t note = 0; note < last; ++note) {
+            const bool eligible = !approached && cell.gates[note] <= 2u &&
+                cell.steps[note] % stepsPerBeat != 0u &&
+                cell.steps[note + 1u] - cell.steps[note] <= 2;
+            approached = false;
+            if (!eligible) {
+                continue;
+            }
+            const int from = note > 0 ? pitches[note - 1u] : lastLeadNote;
+            const std::uint8_t candidate = approachPitch(pitches[note + 1u], from);
+            if (candidate != pitches[note + 1u]) {
+                pitches[note] = candidate;
+                approached = true;
+            }
+        }
+
+        for (std::uint8_t note = 0; note < cell.count; ++note) {
+            const int accent = (note == 0 ? 4 : 0) + (cell.gates[note] >= 4u ? 2 : 0);
+            const int adjusted = velocity + accent + scoreRng.centered(3);
+            addEvent(cell.steps[note], 0, cell.gates[note], Instrument::Lead,
+                     pitches[note], adjusted);
+        }
+        lastLeadNote = pitches[last];
+    }
+
+    void generateLead(ArrangementSection section, const Harmony& harmony) noexcept {
+        const std::size_t grid = meterIndex();
+        const std::uint8_t phraseBar = static_cast<std::uint8_t>(barIndex & 7u);
+        const LeadCell& cadenceCell = kCadenceCells[grid];
         if (section == ArrangementSection::Outro) {
             if ((barIndex & 1u) == 0u) {
-                addCadence(static_cast<std::uint8_t>(stepsPerBeat), false,
-                           stepsPerBeat, 35);
+                addLeadPhrase(cadenceCell, kFallingContour, false, lastLeadNote,
+                              42, true, harmony);
             }
-        } else if (section == ArrangementSection::Breakdown) {
-            if (phraseBar == 0u || phraseBar == 4u) {
-                addChordLead(static_cast<std::uint8_t>(stepsPerBeat),
-                             static_cast<std::uint8_t>(phraseBar / 4u),
-                             stepsPerBeat, 37);
-            } else if (phraseBar == 3u || phraseBar == 7u) {
-                addCadence(static_cast<std::uint8_t>(stepsPerBar - stepsPerBeat),
-                           false, static_cast<std::uint8_t>(stepsPerBeat - 1u), 34);
+            return;
+        }
+        if (section == ArrangementSection::Breakdown) {
+            // One held tone per bar keeps the tune present while the beat rests.
+            const LeadCell held{1, {stepsPerBeat},
+                                {static_cast<std::uint8_t>(stepsPerBeat * 2u)}};
+            const bool close = (phraseBar & 3u) == 3u;
+            addLeadPhrase(close ? cadenceCell : held, kFallingContour,
+                          (phraseBar & 1u) != 0u, close ? lastLeadNote : leadHome,
+                          46, close, harmony);
+            return;
+        }
+
+        // Eight bars form A - A' - B - A'': the hook and its answer, the hook
+        // again with a closing answer, a contrasting idea, then the hook and a
+        // cadence. Each later eight-bar block shifts the register slightly.
+        static constexpr std::int8_t homeShift[4] = {0, 2, 0, -2};
+        const int home = leadHome + homeShift[(barIndex / 8u) & 3u];
+        const int velocity = section == ArrangementSection::Intro ? 52 : 58;
+        const LeadCell& hook = kHookCells[grid][hookCell];
+        const LeadCell& answer = kAnswerCells[grid][answerCell];
+        const LeadCell& secondAnswer = kAnswerCells[grid][(answerCell + 1u) % 3u];
+        switch (phraseBar) {
+        case 0:
+        case 2:
+        case 6:
+            addLeadPhrase(hook, hookContour, false, home, velocity, false, harmony);
+            break;
+        case 1:
+            addLeadPhrase(answer, kFallingContour, false, lastLeadNote,
+                          velocity - 2, false, harmony);
+            break;
+        case 3:
+            addLeadPhrase(answer, kFallingContour, false, lastLeadNote,
+                          velocity - 2, true, harmony);
+            break;
+        case 4:
+            addLeadPhrase(kContrastCells[grid][contrastCell], hookContour, true,
+                          home + 4, velocity, false, harmony);
+            break;
+        case 5:
+            addLeadPhrase(secondAnswer, kRisingContour, false, lastLeadNote,
+                          velocity - 2, false, harmony);
+            break;
+        default:
+            addLeadPhrase(cadenceCell, kFallingContour, false, lastLeadNote,
+                          velocity - 3, true, harmony);
+            break;
+        }
+    }
+
+    // Swing delays some onsets, so end every melody gate at the next onset.
+    void trimLeadGates() noexcept {
+        Event* previous = nullptr;
+        for (std::uint8_t index = 0; index < eventCount; ++index) {
+            Event& event = events[index];
+            if (event.instrument != Instrument::Lead) {
+                continue;
             }
-        } else {
-            switch (phraseBar) {
-            case 0:
-                addHook(8, section == ArrangementSection::Intro ? 40 : 45);
-                break;
-            case 1:
-                addResponse(section == ArrangementSection::Intro ? 40 : 44, 3);
-                break;
-            case 2:
-                addPassingResolution(meter == MusicMeter::SixEight ? 3u : 5u,
-                                     1, 42);
-                break;
-            case 3:
-                addCadence(static_cast<std::uint8_t>(stepsPerBar / 2u),
-                           (barIndex & 8u) != 0u, stepsPerBeat, 43);
-                break;
-            case 4:
-                // The motif returns as a delayed echo after one clear beat.
-                // Its full, on-the-downbeat form comes back at the next
-                // eight-bar boundary.
-                addHook(3, 41, stepsPerBeat);
-                break;
-            case 5:
-                addResponse(42, 2);
-                break;
-            case 6:
-                addPassingResolution(meter == MusicMeter::SixEight ? 8u : 9u,
-                                     2, 40);
-                break;
-            case 7:
-                addChordLead(static_cast<std::uint8_t>(stepsPerBar - 6u), 2, 2, 40);
-                addCadence(static_cast<std::uint8_t>(stepsPerBar - 2u), false, 2, 37);
-                break;
+            if (previous != nullptr && previous->start + previous->duration > event.start) {
+                previous->duration = static_cast<std::uint32_t>(
+                    std::max<std::uint64_t>(1, event.start - previous->start));
             }
+            previous = &event;
         }
     }
 
@@ -1346,12 +1437,26 @@ struct Engine::Impl {
         };
         Voice* candidate = nullptr;
         if (isDrum(event.instrument)) {
-            // Percussion may recycle percussion tails, but it never takes a
-            // sounding harmonic voice.
+            // Percussion recycles percussion tails first. With none left it
+            // may take the quietest already-released harmonic tail, but never
+            // a note that is still held.
             for (Voice& voice : voices) {
                 if (isDrum(voice.instrument) &&
                     (candidate == nullptr || betterVictim(voice, *candidate))) {
                     candidate = &voice;
+                }
+            }
+            if (candidate == nullptr) {
+                for (Voice& voice : voices) {
+                    if (released(voice) &&
+                        (candidate == nullptr || voice.envelope < candidate->envelope)) {
+                        candidate = &voice;
+                    }
+                }
+                if (candidate != nullptr) {
+                    candidate->stealTail = candidate->lastOutput;
+                    ++stolenVoices;
+                    return candidate;
                 }
             }
         } else {
@@ -1426,6 +1531,17 @@ struct Engine::Impl {
     }
 
     void startVoice(const Event& event) noexcept {
+        if (event.instrument == Instrument::Lead) {
+            // The melody is one line: a new note hands the previous one a
+            // short tail (about 80 ms) so slow tones cannot stack up.
+            constexpr float kLeadHandoffRelease = 0.997f;
+            for (Voice& sounding : voices) {
+                if (sounding.active && sounding.instrument == Instrument::Lead) {
+                    sounding.stage = EnvelopeStage::Release;
+                    sounding.release = std::min(sounding.release, kLeadHandoffRelease);
+                }
+            }
+        }
         Voice* voice = allocateVoice(event);
         if (voice == nullptr) {
             ++droppedNoteEvents;
@@ -1478,7 +1594,7 @@ struct Engine::Impl {
             voice->release = 0.991f;
             voice->gain = 0.43f;
             voice->phaseIncrement = static_cast<std::uint32_t>(112.0f * kPhaseScale);
-            kickDuck = std::min(kickDuck, 0.91f);
+            pumpDepth = 0.22f;
             break;
         case Instrument::Snare:
             voice->attackIncrement = 1.0f;
@@ -1584,7 +1700,7 @@ struct Engine::Impl {
             if (current.soundEngine == SoundEngine::Hybrid && voice.sample != nullptr) {
                 // The synthesized bed stays at its original blend level even
                 // after the one-shot ends; otherwise it jumps from 0.32 to 1.0.
-                signal = readSample(voice) * 0.78f + tonal * 0.32f;
+                signal = readSample(voice, pitchDrift) * 0.78f + tonal * 0.32f;
             }
             break;
         }
@@ -1635,6 +1751,10 @@ struct Engine::Impl {
         }
 
         voice.phase += voice.phaseIncrement;
+        if (!isDrum(voice.instrument)) {
+            voice.phase += static_cast<std::uint32_t>(static_cast<std::int32_t>(
+                static_cast<float>(voice.phaseIncrement) * pitchDrift));
+        }
         ++voice.age;
         float output = signal * voice.envelope * voice.velocity * voice.gain;
         if (std::fabs(voice.stealTail) > 0.00005f) {
@@ -1658,14 +1778,20 @@ struct Engine::Impl {
             return 0.0f;
         }
         const float amount = static_cast<float>(current.texture) / 100.0f;
-        const float dust = static_cast<float>(static_cast<std::int32_t>(textureRng.next32())) /
-                           2147483648.0f * 0.0022f * amount;
-        float crackle = 0.0f;
-        if ((textureRng.next32() & 0x3ffffu) == 0u) {
-            crackle = static_cast<float>(static_cast<std::int32_t>(textureRng.next32())) /
-                      2147483648.0f * 0.035f * amount;
+        // Softened hiss plus irregular record pops: about two a second, most
+        // of them faint, each ringing out over a few samples.
+        const float white = static_cast<float>(
+            static_cast<std::int32_t>(textureRng.next32())) / 2147483648.0f;
+        hissState += 0.35f * (white - hissState);
+        const std::uint32_t draw = textureRng.next32();
+        if ((draw & 0x3fffu) == 0u) {
+            const float size = static_cast<float>((draw >> 14) & 0xffu) / 255.0f;
+            const float pop = size * size * 0.085f * amount;
+            crackle = (draw >> 31) != 0u ? -pop : pop;
+        } else {
+            crackle *= 0.8f;
         }
-        return dust + crackle;
+        return hissState * 0.012f * amount + crackle;
     }
 
     std::uint8_t activeVoiceCount() const noexcept {
@@ -1750,6 +1876,8 @@ struct Engine::Impl {
         snap.voiceCapacity = kMusicVoiceCapacity;
         snap.keysGainQ15 = static_cast<std::uint16_t>(
             std::max(0.0f, std::min(1.0f, keysGain)) * 32767.0f + 0.5f);
+        snap.pitchDriftQ8 = static_cast<std::int16_t>(
+            pitchDrift * kCentsPerRatio * 256.0f);
         for (std::size_t instrument = 0; instrument < kMusicInstrumentCount;
              ++instrument) {
             const float level = pauseSettled && pauseTarget ? 0.0f :
@@ -1937,6 +2065,11 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
             state.advanceBar();
         }
 
+        state.wowPhase += kWowIncrement;
+        state.flutterPhase += kFlutterIncrement;
+        state.pitchDrift = phaseSine(state.wowPhase) * kWowDepth +
+                           phaseSine(state.flutterPhase) * kFlutterDepth;
+
         state.dispatchEvents();
         float instrumentMix[kMusicInstrumentCount]{};
         bool leadActive = false;
@@ -1961,6 +2094,15 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         state.minimumKeysGain = std::min(state.minimumKeysGain, state.keysGain);
         instrumentMix[static_cast<std::size_t>(Instrument::Keys)] *= state.keysGain;
 
+        // Each kick dips the pitched bed and lets it swell back over roughly
+        // 200 ms. The gain itself is smoothed, so the dip has no edge; drums
+        // and texture stay outside it.
+        state.pumpDepth -= state.pumpDepth * 0.00016f;
+        state.kickDuck += ((1.0f - state.pumpDepth) - state.kickDuck) * 0.006f;
+        instrumentMix[static_cast<std::size_t>(Instrument::Keys)] *= state.kickDuck;
+        instrumentMix[static_cast<std::size_t>(Instrument::Lead)] *= state.kickDuck;
+        instrumentMix[static_cast<std::size_t>(Instrument::Bass)] *= state.kickDuck;
+
         float mix = 0.0f;
         for (float contribution : instrumentMix) {
             mix += contribution;
@@ -1969,8 +2111,6 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
 
         const std::uint8_t active = state.activeVoiceCount();
         state.maxActiveVoices = std::max(state.maxActiveVoices, active);
-        state.kickDuck += (1.0f - state.kickDuck) * 0.00042f;
-        mix *= state.kickDuck;
 
         const float delayed = static_cast<float>(state.delay[state.delayIndex]) * kInvInt16;
         const float delayWrite = std::max(-0.98f, std::min(0.98f, mix + delayed * 0.16f));
@@ -1981,11 +2121,19 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         }
         mix += delayed * 0.105f;
 
-        const float toneCoefficient = state.current.mood == Mood::Night ? 0.105f :
-                                      state.current.mood == Mood::Rainy ? 0.125f : 0.145f;
+        // Tape-style stage: a slightly biased soft saturation adds even
+        // harmonics, then two gentle poles round the top off at 12 dB/octave.
+        // The DC blocker below removes the offset the bias introduces.
+        constexpr float kTapeBias = 0.06f;
+        constexpr float kTapeBiasOutput = kTapeBias / (1.0f + 0.55f * kTapeBias);
+        const float driven = mix * 1.18f + kTapeBias;
+        mix = driven / (1.0f + 0.55f * std::fabs(driven)) - kTapeBiasOutput;
+        const float toneCoefficient = state.current.mood == Mood::Night ? 0.24f :
+                                      state.current.mood == Mood::Rainy ? 0.27f : 0.31f;
         state.toneState += toneCoefficient * (mix - state.toneState);
-        const float dcBlocked = state.toneState - state.dcInput + 0.995f * state.dcOutput;
-        state.dcInput = state.toneState;
+        state.toneState2 += toneCoefficient * (state.toneState - state.toneState2);
+        const float dcBlocked = state.toneState2 - state.dcInput + 0.995f * state.dcOutput;
+        state.dcInput = state.toneState2;
         state.dcOutput = dcBlocked;
         mix = softClip(dcBlocked * 1.32f);
 
@@ -2022,7 +2170,7 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         const float volume = static_cast<float>(state.current.volume) / 100.0f;
         const float master = volume * volume * 0.94f;
         const float instrumentScale = master * state.pauseGain *
-                                      state.transitionGain * state.kickDuck * 1.32f;
+                                      state.transitionGain * 1.32f;
         for (std::size_t instrument = 0; instrument < kMusicInstrumentCount;
              ++instrument) {
             state.recentInstrumentPeaks[instrument] = std::max(
@@ -2145,7 +2293,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
     const Config saved = config();
     char local[kFavoriteCodeCapacity]{};
     char* cursor = local;
-    const char prefix[] = "lofi5-";
+    const char prefix[] = "lofi6-";
     for (char character : prefix) {
         if (character != '\0') {
             *cursor++ = character;
@@ -2183,7 +2331,7 @@ std::size_t Engine::writeFavoriteCode(char* output, std::size_t capacity) const 
 }
 
 bool Engine::parseFavoriteCode(const char* text, Config& output) noexcept {
-    if (text == nullptr || std::strncmp(text, "lofi5-", 6) != 0) {
+    if (text == nullptr || std::strncmp(text, "lofi6-", 6) != 0) {
         return false;
     }
     const char* cursor = text + 6;

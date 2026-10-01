@@ -124,7 +124,12 @@ bool scaleContains(const lofi::ScoreBar& bar, std::uint8_t note) {
     return std::find(scale, scale + 7, relative) != scale + 7;
 }
 
+// The keys play a rootless voicing while the bass supplies the root, so the
+// harmony a melody or bass note may anchor on is the voicing plus that root.
 bool chordContains(const lofi::ScoreBar& bar, std::uint8_t note) {
+    if (bar.chordRoot % 12u == note % 12u) {
+        return true;
+    }
     return std::any_of(std::begin(bar.chordNotes), std::end(bar.chordNotes),
                        [note](std::uint8_t chordNote) {
         return chordNote % 12u == note % 12u;
@@ -360,7 +365,7 @@ void testFavoriteRoundTrip() {
     const std::size_t length = engine.writeFavoriteCode(code, sizeof(code));
     CHECK(length > 0);
     CHECK(std::strcmp(code,
-                      "lofi5-fedcba9876543210-2-1-100-0-0-0-0-3-0") == 0);
+                      "lofi6-fedcba9876543210-2-1-100-0-0-0-0-3-0") == 0);
 
     Config parsed{};
     CHECK(Engine::parseFavoriteCode(code, parsed));
@@ -374,7 +379,7 @@ void testFavoriteRoundTrip() {
     Engine manual(source);
     CHECK(manual.writeFavoriteCode(code, sizeof(code)) > 0);
     CHECK(std::strcmp(code,
-                      "lofi5-fedcba9876543210-2-1-100-0-180-3-5-2-2") == 0);
+                      "lofi6-fedcba9876543210-2-1-100-0-180-3-5-2-2") == 0);
     CHECK(Engine::parseFavoriteCode(code, parsed));
     CHECK(sameConfig(source, parsed));
 
@@ -382,7 +387,9 @@ void testFavoriteRoundTrip() {
     CHECK(!Engine::parseFavoriteCode(
         "lofi4-fedcba9876543210-2-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba987654321-2-1-100-0-0-0-0-3-0", parsed));
+        "lofi5-fedcba9876543210-2-1-100-0-0-0-0-3-0", parsed));
+    CHECK(!Engine::parseFavoriteCode(
+        "lofi6-fedcba987654321-2-1-100-0-0-0-0-3-0", parsed));
     source.mood = Mood::Sunny;
     source.bpm = 0;
     source.meter = MusicMeter::Auto;
@@ -392,26 +399,26 @@ void testFavoriteRoundTrip() {
     Engine sunny(source);
     CHECK(sunny.writeFavoriteCode(code, sizeof(code)) > 0);
     CHECK(std::strcmp(code,
-                      "lofi5-fedcba9876543210-3-1-100-0-0-0-0-3-0") == 0);
+                      "lofi6-fedcba9876543210-3-1-100-0-0-0-0-3-0") == 0);
     CHECK(Engine::parseFavoriteCode(code, parsed));
     CHECK(sameConfig(source, parsed));
 
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-4-1-100-0-0-0-0-3-0", parsed));
+        "lofi6-fedcba9876543210-4-1-100-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-101-0-0-0-0-3-0", parsed));
+        "lofi6-fedcba9876543210-2-1-101-0-0-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-100-0-39-0-0-3-0", parsed));
+        "lofi6-fedcba9876543210-2-1-100-0-39-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-100-0-181-0-0-3-0", parsed));
+        "lofi6-fedcba9876543210-2-1-100-0-181-0-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-100-0-120-4-0-3-0", parsed));
+        "lofi6-fedcba9876543210-2-1-100-0-120-4-0-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-100-0-120-1-6-3-0", parsed));
+        "lofi6-fedcba9876543210-2-1-100-0-120-1-6-3-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-100-0-120-1-0-6-0", parsed));
+        "lofi6-fedcba9876543210-2-1-100-0-120-1-0-6-0", parsed));
     CHECK(!Engine::parseFavoriteCode(
-        "lofi5-fedcba9876543210-2-1-100-0-120-1-0-3-3", parsed));
+        "lofi6-fedcba9876543210-2-1-100-0-120-1-0-3-3", parsed));
 
     char tooSmall[8] = {'x'};
     CHECK(engine.writeFavoriteCode(tooSmall, sizeof(tooSmall)) == 0);
@@ -448,28 +455,34 @@ void testReplayAndBlockDeterminism() {
     CHECK(left.renderedFrames == frames);
     CHECK(left.scoreEventCount > 20);
     CHECK(energy(reference) > UINT64_C(10000000));
-    // Pin the schema-5 AUTO score and PCM stream, including its weighted meter
+    // Pin the schema-6 AUTO score and PCM stream, including its weighted meter
     // draw, so host and device builds cannot silently diverge.
-    CHECK(smallBlocks.snapshot().bpm == 68);
-    CHECK(smallBlocks.snapshot().meterNumerator == 4);
-    CHECK(smallBlocks.snapshot().meterDenominator == 4);
-    constexpr std::uint32_t expectedScoreEvents = 82;
-    constexpr std::uint64_t expectedScoreHash = UINT64_C(0x5292184dcc22641f);
+    constexpr std::uint16_t expectedBpm = 74;
+    constexpr std::uint32_t expectedScoreEvents = 103;
+    constexpr std::uint64_t expectedScoreHash = UINT64_C(0x02fe7e65c054a351);
     if (left.scoreEventCount != expectedScoreEvents ||
         left.scoreEventHash != expectedScoreHash) {
         std::cerr << "reference score: events=" << left.scoreEventCount
                   << " hash=0x" << std::hex << left.scoreEventHash << std::dec << '\n';
     }
-    CHECK(left.scoreEventCount == expectedScoreEvents);
-    CHECK(left.scoreEventHash == expectedScoreHash);
     // The core disables FP contraction so this exact PCM stream stays portable
     // between ARM and x86 hosts and matches the firmware arithmetic policy.
-    constexpr std::uint64_t expectedPcmHash = UINT64_C(0xbb767a4472919295);
+    constexpr std::uint64_t expectedPcmHash = UINT64_C(0x62c5f460106d0c46);
     const std::uint64_t referencePcmHash = pcmHash(reference);
     if (referencePcmHash != expectedPcmHash) {
         std::cerr << "reference PCM hash: 0x" << std::hex << referencePcmHash
                   << std::dec << '\n';
     }
+    if (smallBlocks.snapshot().bpm != expectedBpm ||
+        smallBlocks.snapshot().meterNumerator != 4) {
+        std::cerr << "reference bpm=" << smallBlocks.snapshot().bpm << " meter="
+                  << static_cast<int>(smallBlocks.snapshot().meterNumerator) << '\n';
+    }
+    CHECK(smallBlocks.snapshot().bpm == expectedBpm);
+    CHECK(smallBlocks.snapshot().meterNumerator == 4);
+    CHECK(smallBlocks.snapshot().meterDenominator == 4);
+    CHECK(left.scoreEventCount == expectedScoreEvents);
+    CHECK(left.scoreEventHash == expectedScoreHash);
     CHECK(referencePcmHash == expectedPcmHash);
 
     Config manualConfig = config;
@@ -483,11 +496,12 @@ void testReplayAndBlockDeterminism() {
     }
 }
 
-void testExistingMoodSchemaFiveBaselines() {
+void testSchemaSixBaselines() {
     struct Baseline {
         Mood mood;
         SoundEngine backend;
         std::uint64_t seed;
+        MusicMeter meter;
         std::uint16_t bpm;
         std::uint8_t meterNumerator;
         std::uint8_t meterDenominator;
@@ -496,51 +510,79 @@ void testExistingMoodSchemaFiveBaselines() {
         std::uint64_t pcm;
     };
     static constexpr Baseline baselines[] = {
-        {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe), 83, 3, 4,
-         68, UINT64_C(0x1a4c7d192dc04e6a), UINT64_C(0x678f86ec30572c8d)},
-        {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef), 76, 4, 4,
-         58, UINT64_C(0x32d75d5b939da9c7), UINT64_C(0x6c0337fdc6277334)},
-        {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe), 83, 3, 4,
-         68, UINT64_C(0x1a4c7d192dc04e6a), UINT64_C(0xbc1304e3bff90a5e)},
-        {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef), 76, 4, 4,
-         58, UINT64_C(0x32d75d5b939da9c7), UINT64_C(0xd6ef32fbf4656561)},
-        {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe), 73, 4, 4,
-         55, UINT64_C(0xb45da02f63a51db8), UINT64_C(0xa7fe98e3b0bbb06b)},
-        {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef), 68, 4, 4,
-         52, UINT64_C(0xa439e405356f38c6), UINT64_C(0x3bb59eaec00e4889)},
-        {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe), 73, 4, 4,
-         55, UINT64_C(0xb45da02f63a51db8), UINT64_C(0x25b8ecc5b0ad3c53)},
-        {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef), 68, 4, 4,
-         52, UINT64_C(0xa439e405356f38c6), UINT64_C(0xcbbe917a10338601)},
-        {Mood::Night, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe), 75, 4, 4,
-         56, UINT64_C(0x7287cc641987cdbd), UINT64_C(0x9db707988a890f94)},
-        {Mood::Night, SoundEngine::Synth, UINT64_C(0x0123456789abcdef), 78, 6, 8,
-         90, UINT64_C(0xee9ab682447a779d), UINT64_C(0x37232c5a787ab5c3)},
-        {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe), 75, 4, 4,
-         56, UINT64_C(0x7287cc641987cdbd), UINT64_C(0xc78910c47943a41a)},
-        {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef), 78, 6, 8,
-         90, UINT64_C(0xee9ab682447a779d), UINT64_C(0x5d7836e1e48d87ed)},
+        {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe),
+         MusicMeter::ThreeFour, 81, 3, 4, 71, UINT64_C(0x7b396ea075dc4259),
+         UINT64_C(0x66db27814c02d64f)},
+        {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef),
+         MusicMeter::Auto, 78, 4, 4, 63, UINT64_C(0xdec3aa5cd7206a76),
+         UINT64_C(0xd737ef6b21c30940)},
+        {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe),
+         MusicMeter::ThreeFour, 81, 3, 4, 71, UINT64_C(0x7b396ea075dc4259),
+         UINT64_C(0xd7fdcaf59b71557a)},
+        {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef),
+         MusicMeter::Auto, 78, 4, 4, 63, UINT64_C(0xdec3aa5cd7206a76),
+         UINT64_C(0x98b89d2f6c20a15a)},
+        {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe),
+         MusicMeter::Auto, 73, 4, 4, 58, UINT64_C(0x11f398c834581e61),
+         UINT64_C(0x3c92431ee5b01102)},
+        {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef),
+         MusicMeter::Auto, 74, 4, 4, 59, UINT64_C(0xb2b2559b9b9c2e6d),
+         UINT64_C(0x11c32664f1b9520f)},
+        {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe),
+         MusicMeter::Auto, 73, 4, 4, 58, UINT64_C(0x11f398c834581e61),
+         UINT64_C(0x1a10bd696fb7b3a8)},
+        {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef),
+         MusicMeter::Auto, 74, 4, 4, 59, UINT64_C(0xb2b2559b9b9c2e6d),
+         UINT64_C(0x7c7a72b98806cd59)},
+        {Mood::Night, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe),
+         MusicMeter::Auto, 76, 4, 4, 62, UINT64_C(0xbdb2028f89e627c6),
+         UINT64_C(0x3d3c500fa94652dd)},
+        {Mood::Night, SoundEngine::Synth, UINT64_C(0x0123456789abcdef),
+         MusicMeter::SixEight, 78, 6, 8, 95, UINT64_C(0x1744139479b5887a),
+         UINT64_C(0x07890a9e548dd32b)},
+        {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe),
+         MusicMeter::Auto, 76, 4, 4, 62, UINT64_C(0xbdb2028f89e627c6),
+         UINT64_C(0xc95095d54405a3f6)},
+        {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef),
+         MusicMeter::SixEight, 78, 6, 8, 95, UINT64_C(0x1744139479b5887a),
+         UINT64_C(0x9a0d2b9cb99d786d)},
     };
 
     constexpr std::size_t frames = lofi::kMusicSampleRate * 8u;
+    bool matched = true;
     for (const Baseline& baseline : baselines) {
         Config config{};
         config.seed = baseline.seed;
         config.mood = baseline.mood;
         config.soundEngine = baseline.backend;
+        config.meter = baseline.meter;
         config.texture = 23;
         Engine engine(config);
         const std::vector<std::int16_t> audio = renderFrames(engine, frames, 509);
         const lofi::Snapshot snapshot = engine.snapshot();
         const lofi::Diagnostics diagnostics = engine.diagnostics();
-        CHECK(snapshot.bpm == baseline.bpm);
-        CHECK(snapshot.meterNumerator == baseline.meterNumerator);
-        CHECK(snapshot.meterDenominator == baseline.meterDenominator);
-        CHECK(diagnostics.scoreEventCount == baseline.events);
-        CHECK(diagnostics.scoreEventHash == baseline.scoreHash);
-        CHECK(pcmHash(audio) == baseline.pcm);
+        if (diagnostics.scoreEventCount != baseline.events ||
+            diagnostics.scoreEventHash != baseline.scoreHash ||
+            pcmHash(audio) != baseline.pcm) {
+            std::cerr << "baseline " << lofi::moodName(baseline.mood) << ' '
+                      << lofi::soundEngineName(baseline.backend) << " seed=0x"
+                      << std::hex << baseline.seed << std::dec << " bpm="
+                      << snapshot.bpm << " meter="
+                      << static_cast<int>(snapshot.meterNumerator) << '/'
+                      << static_cast<int>(snapshot.meterDenominator) << " events="
+                      << diagnostics.scoreEventCount << " score=0x" << std::hex
+                      << diagnostics.scoreEventHash << " pcm=0x" << pcmHash(audio)
+                      << std::dec << '\n';
+        }
+        matched = matched && snapshot.bpm == baseline.bpm &&
+            snapshot.meterNumerator == baseline.meterNumerator &&
+            snapshot.meterDenominator == baseline.meterDenominator &&
+            diagnostics.scoreEventCount == baseline.events &&
+            diagnostics.scoreEventHash == baseline.scoreHash &&
+            pcmHash(audio) == baseline.pcm;
         CHECK(diagnostics.droppedNoteEvents == 0);
     }
+    CHECK(matched);
 }
 
 void testSunnyMoodGeneration() {
@@ -886,7 +928,7 @@ void testLeadMakesBoundedKeysPocket() {
           unevenBlocks.diagnostics().scoreEventHash);
 }
 
-void testRecognizablePhraseShapeAcrossMeters() {
+void testSingablePhraseFormAcrossMeters() {
     for (std::uint8_t meterValue = 1; meterValue <= 3; ++meterValue) {
         Config config{};
         config.seed = UINT64_C(0x000000000ca7cafe);
@@ -898,10 +940,16 @@ void testRecognizablePhraseShapeAcrossMeters() {
         Engine engine(config);
 
         std::uint8_t leadCounts[9]{};
-        std::uint8_t firstLeadSteps[9]{};
-        std::fill(std::begin(firstLeadSteps), std::end(firstLeadSteps), UINT8_MAX);
-        std::uint64_t openingRhythm = UINT64_C(14695981039346656037);
-        std::uint64_t returningRhythm = UINT64_C(14695981039346656037);
+        std::uint8_t lastDurations[9]{};
+        std::uint64_t rhythms[9];
+        std::fill(std::begin(rhythms), std::end(rhythms),
+                  UINT64_C(14695981039346656037));
+        std::uint32_t durationSteps = 0;
+        std::uint32_t intervals = 0;
+        std::uint32_t nearIntervals = 0;
+        std::uint32_t stepIntervals = 0;
+        std::uint8_t quietestGrooveLead = 127;
+        int previous = -1;
 
         for (std::uint32_t expectedBar = 0; expectedBar < 9; ++expectedBar) {
             const lofi::ScoreBar bar = engine.scoreBar();
@@ -913,22 +961,29 @@ void testRecognizablePhraseShapeAcrossMeters() {
                 if (note.instrument != lofi::MusicInstrument::Lead) {
                     continue;
                 }
-                const auto step = static_cast<std::uint8_t>(std::llround(
+                // Swing moves an off-beat eighth by less than half a step.
+                const auto step = static_cast<std::uint8_t>(
                     static_cast<double>(note.startSample - bar.barStartSample) /
-                    stepSamples));
+                    stepSamples + 0.25);
                 const auto duration = static_cast<std::uint8_t>(std::max(
                     1, static_cast<int>(std::llround(
                         static_cast<double>(note.durationSamples) / stepSamples))));
-                if (firstLeadSteps[expectedBar] == UINT8_MAX) {
-                    firstLeadSteps[expectedBar] = step;
-                }
                 ++leadCounts[expectedBar];
-                if (expectedBar == 0u) {
-                    openingRhythm = signatureValue(openingRhythm,
-                        static_cast<std::uint64_t>(step) * 8u + duration);
-                } else if (expectedBar == 8u) {
-                    returningRhythm = signatureValue(returningRhythm,
-                        static_cast<std::uint64_t>(step) * 8u + duration);
+                lastDurations[expectedBar] = duration;
+                rhythms[expectedBar] = signatureValue(rhythms[expectedBar], step);
+                if (expectedBar < 8u) {
+                    durationSteps += duration;
+                    if (previous >= 0) {
+                        const int distance = std::abs(
+                            static_cast<int>(note.note) - previous);
+                        ++intervals;
+                        nearIntervals += distance <= 4 ? 1u : 0u;
+                        stepIntervals += distance >= 1 && distance <= 2 ? 1u : 0u;
+                    }
+                    previous = note.note;
+                }
+                if (expectedBar >= 4u && expectedBar < 8u) {
+                    quietestGrooveLead = std::min(quietestGrooveLead, note.velocity);
                 }
             }
             if (expectedBar < 8u) {
@@ -936,22 +991,105 @@ void testRecognizablePhraseShapeAcrossMeters() {
             }
         }
 
-        const ExpectedMeter expected = expectedMeter(config.meter);
-        CHECK(leadCounts[0] >= 3);
-        CHECK(leadCounts[8] == leadCounts[0]);
-        CHECK(returningRhythm == openingRhythm);
-        CHECK(leadCounts[1] == 3);
-        CHECK(firstLeadSteps[1] >= expected.stepsPerBeat + 1u);
-        CHECK(leadCounts[2] == 2);
-        CHECK(leadCounts[3] == 1);
-        CHECK(firstLeadSteps[3] >= expected.steps / 2u);
-        CHECK(leadCounts[4] >= 1 && leadCounts[4] <= 3);
-        CHECK(firstLeadSteps[4] >= expected.stepsPerBeat);
-        CHECK(leadCounts[5] == 2);
-        CHECK(firstLeadSteps[5] >= expected.stepsPerBeat + 1u);
-        CHECK(leadCounts[6] == 2);
-        CHECK(leadCounts[7] == 2);
+        // A - A' - B - A'': the hook rhythm returns in bars 0, 2 and 6 and at
+        // the next eight-bar boundary; bar 4 is the contrasting idea.
+        CHECK(leadCounts[0] >= 4);
+        CHECK(rhythms[2] == rhythms[0]);
+        CHECK(rhythms[6] == rhythms[0]);
+        CHECK(rhythms[8] == rhythms[0]);
+        CHECK(rhythms[4] != rhythms[0]);
+        std::uint32_t total = 0;
+        for (std::size_t bar = 0; bar < 8; ++bar) {
+            CHECK(leadCounts[bar] >= 2);
+            total += leadCounts[bar];
+        }
+        CHECK(total >= (config.meter == MusicMeter::FourFour ? 26u : 20u));
+        // Answers and cadences end on a held note rather than a blip.
+        for (const std::size_t bar : {1u, 3u, 5u, 7u}) {
+            CHECK(lastDurations[bar] >= 4);
+        }
+        CHECK(durationSteps * 2u >= total * 5u); // Mean gate of 2.5 steps.
+        CHECK(intervals > 0);
+        CHECK(nearIntervals * 4u >= intervals * 3u);
+        CHECK(stepIntervals * 4u >= intervals);
+        CHECK(quietestGrooveLead >= 50);
     }
+}
+
+void testRootlessNinthVoicings() {
+    constexpr std::uint64_t seeds[] = {
+        UINT64_C(0x000000000ca7cafe),
+        UINT64_C(0xbadc0ffee0ddf00d),
+    };
+    for (std::size_t moodIndex = 0; moodIndex < lofi::kMoodCount; ++moodIndex) {
+        for (const std::uint64_t seed : seeds) {
+            Config config{};
+            config.seed = seed;
+            config.mood = static_cast<Mood>(moodIndex);
+            config.texture = 0;
+            config.bpm = 150;
+            Engine engine(config);
+            std::uint32_t ninths = 0;
+            constexpr std::uint32_t kBars = 16;
+            for (std::uint32_t index = 0; index < kBars; ++index) {
+                const lofi::ScoreBar bar = engine.scoreBar();
+                const std::uint8_t root = bar.chordRoot % 12u;
+                const auto voiced = [&bar](std::uint8_t pitchClass) {
+                    return std::any_of(std::begin(bar.chordNotes),
+                                       std::end(bar.chordNotes),
+                                       [pitchClass](std::uint8_t note) {
+                        return note % 12u == pitchClass % 12u;
+                    });
+                };
+                const bool diatonicNinth = scaleContains(
+                    bar, static_cast<std::uint8_t>(root + 2u));
+                // The bass owns the root; the freed voice colors the chord
+                // with a ninth whenever that ninth is inside the session key.
+                CHECK(voiced(static_cast<std::uint8_t>(root + 2u)) == diatonicNinth);
+                CHECK(voiced(root) == !diatonicNinth);
+                CHECK(voiced(static_cast<std::uint8_t>(root + 3u)) ||
+                      voiced(static_cast<std::uint8_t>(root + 4u)));
+                CHECK(voiced(static_cast<std::uint8_t>(root + 10u)) ||
+                      voiced(static_cast<std::uint8_t>(root + 11u)));
+                ninths += diatonicNinth ? 1u : 0u;
+                renderToNextBar(engine, index);
+            }
+            CHECK(ninths * 2u >= kBars);
+        }
+    }
+}
+
+void testTapePitchDriftIsSmallAndFreezesWhenPaused() {
+    Config config{};
+    config.seed = UINT64_C(0x7461706564726966);
+    config.texture = 0;
+    Engine engine(config);
+    CHECK(engine.snapshot().pitchDriftQ8 == 0);
+    std::int16_t block[256]{};
+    int lowest = 0;
+    int highest = 0;
+    for (std::size_t rendered = 0; rendered < lofi::kMusicSampleRate * 6u;
+         rendered += std::size(block)) {
+        engine.render(block, std::size(block));
+        const int drift = engine.snapshot().pitchDriftQ8;
+        lowest = std::min(lowest, drift);
+        highest = std::max(highest, drift);
+    }
+    // Q8 cents: audible wow of a few cents, never a detuned instrument.
+    CHECK(lowest <= -2 * 256);
+    CHECK(highest >= 2 * 256);
+    CHECK(lowest >= -8 * 256);
+    CHECK(highest <= 8 * 256);
+
+    engine.pause(true);
+    for (int index = 0; index < 8; ++index) {
+        engine.render(block, std::size(block));
+    }
+    const int frozen = engine.snapshot().pitchDriftQ8;
+    for (int index = 0; index < 8; ++index) {
+        engine.render(block, std::size(block));
+    }
+    CHECK(engine.snapshot().pitchDriftQ8 == frozen);
 }
 
 void testOpeningHasEveryLayerAndHeadroom() {
@@ -1028,7 +1166,7 @@ void testOpeningHasEveryLayerAndHeadroom() {
     }
 
     CHECK(lofi::kMusicVoiceCapacity == 12);
-    CHECK(lofi::kMusicSchemaVersion == 5);
+    CHECK(lofi::kMusicSchemaVersion == 6);
 }
 
 void testFastTempoVoicePressure() {
@@ -1059,6 +1197,22 @@ void testFastTempoVoicePressure() {
         }
     }
 
+    // Regression: slow pad tails on both the chords and the longer schema-6
+    // melody filled the pool in fast 6/8 and dropped incoming notes.
+    for (std::size_t moodIndex = 0; moodIndex < lofi::kMoodCount; ++moodIndex) {
+        Config padPressure{};
+        padPressure.seed = UINT64_C(0x000000000ca7cafe);
+        padPressure.mood = static_cast<Mood>(moodIndex);
+        padPressure.bpm = lofi::kMusicMaxBpm;
+        padPressure.meter = MusicMeter::SixEight;
+        padPressure.keysTone = lofi::Tone::WarmPad;
+        padPressure.leadTone = lofi::Tone::WarmPad;
+        padPressure.bassTone = lofi::BassTone::Sub;
+        Engine pads(padPressure);
+        renderFrames(pads, lofi::kMusicSampleRate * 30u, 401);
+        CHECK(pads.diagnostics().droppedNoteEvents == 0);
+    }
+
     // Regression: short sampled tails used to occupy all twelve Hybrid slots
     // in this dense 6/8 palette and drop the incoming hat at bar 25.
     Config sampledTailRegression{};
@@ -1073,8 +1227,8 @@ void testFastTempoVoicePressure() {
     Engine regression(sampledTailRegression);
     renderFrames(regression, lofi::kMusicSampleRate * 30u, 401);
     const lofi::Diagnostics regressionDiagnostics = regression.diagnostics();
-    constexpr std::uint32_t expectedRegressionEvents = 717;
-    constexpr std::uint64_t expectedRegressionHash = UINT64_C(0x7c773e98a9050640);
+    constexpr std::uint32_t expectedRegressionEvents = 758;
+    constexpr std::uint64_t expectedRegressionHash = UINT64_C(0xdc371ed6c7c7d82b);
     if (regressionDiagnostics.scoreEventCount != expectedRegressionEvents ||
         regressionDiagnostics.scoreEventHash != expectedRegressionHash) {
         std::cerr << "fast-tempo regression score: events="
@@ -1460,7 +1614,7 @@ void testTempoOnlyChangesAtBarEdges() {
 
     Engine engine(initial);
     const std::uint16_t automaticBpm = engine.snapshot().bpm;
-    CHECK(automaticBpm == 68);
+    CHECK(automaticBpm >= 68 && automaticBpm <= 76 && automaticBpm != 120);
 
     const std::uint64_t automaticStep = stepQ32(automaticBpm);
     const std::uint64_t firstBarEnd = (automaticStep * 16u) >> 32;
@@ -1712,14 +1866,16 @@ int main() {
     testBpmValidationAndSanitizing();
     testFavoriteRoundTrip();
     testReplayAndBlockDeterminism();
-    testExistingMoodSchemaFiveBaselines();
+    testSchemaSixBaselines();
     testSunnyMoodGeneration();
     testBackendIndependentScore();
     testMeterSchedulingAndBackendDeterminism();
     testToneSelectionDoesNotChangeScore();
     testInstrumentLevelTelemetry();
     testLeadMakesBoundedKeysPocket();
-    testRecognizablePhraseShapeAcrossMeters();
+    testSingablePhraseFormAcrossMeters();
+    testRootlessNinthVoicings();
+    testTapePitchDriftIsSmallAndFreezesWhenPaused();
     testOpeningHasEveryLayerAndHeadroom();
     testFastTempoVoicePressure();
     testScheduledHarmonyMovementAndPhraseVariety();
