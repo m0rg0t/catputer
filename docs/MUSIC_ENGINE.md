@@ -73,6 +73,43 @@ The 0.1.8-dev phrasing rules remain in place. Answering bars now leave a full be
 
 While the lead envelope is active, only the chord bed eases down toward 88% gain, with approximately 20 ms attack and 120 ms release time constants. Bass and drums keep their level. This is separate from the existing subtle kick-triggered attenuation. It adds fixed scalar state, with no new voices or sample buffers. This revision intentionally changes the generated score and PCM; schema-4 favorites require earlier firmware for faithful replay.
 
+## Singable melody and tape character · schema 6
+
+Version 0.1.11-dev changes the score and the PCM stream. `lofi5-` favorites stay listed as `OLD`; replaying them needs 0.1.10-dev or earlier. The user asked for music that is more melodic and more recognisably lofi. The rules below describe what the composer and mixer now do. Whether the result sounds better is a listening judgment that has not been made on the device.
+
+**Melody.** The schema-5 lead picked chord voices by index, so it was an arpeggio of short notes. Each session now draws a hook rhythm, an answer rhythm, a contrast rhythm and one contour. The contour is an arch (one session in three, a valley) counted in steps along the *harmony ladder*: the chord tones plus the bass root inside the lead register, MIDI 64–83. Most moves are one rung and no melodic interval exceeds five semitones.
+
+Eight bars form A · A′ · B · A″:
+
+| Bar | Material |
+| --- | --- |
+| 0, 2, 6 | The hook, same rhythm and contour, re-pitched to the bar's chord |
+| 1 | Answer after a beat of space, falling, ending on a held note |
+| 3 | The same answer closing on the chord root or third |
+| 4 | Contrast rhythm with the contour inverted, about a third higher |
+| 5 | A second answer that rises |
+| 7 | Two-note cadence held to the end of the bar |
+
+Later eight-bar blocks shift the register by a tone up or down, and the harmony arcs change the pitches under the same rhythm. A short off-beat note followed within two steps by another note becomes a scale approach tone one or two semitones from that next chord tone. On-beat and long notes stay chord tones, so the earlier audit rules still hold. Gates run to the next onset and are trimmed in samples, because swing moves off-beat eighths. Breakdown bars keep one held tone; the outro keeps a cadence every other bar.
+
+The lead plays at velocity 52 in the intro and 58 afterwards, up from 40–45, with a fuller sustain and a release 2.4 times faster than the chord tone instead of 3.9 times. It is one line: a new lead note gives the previous one an 80 ms tail.
+
+**Harmony and groove.** The keys play a rootless voicing of third, fifth, seventh and ninth while the bass supplies the root. A ninth outside the session key is replaced by the root. The harmony used for melody and bass checks is therefore the four keys notes plus the bass root, in the engine, the native tests and `tools/analyze_score.py`. Two progressions per mode join the earlier three (ii–V–I–vi and IV–iii–ii–I in major; i–VII–VI–v and iv–VII–III–VI in minor). In full sections every other 4/4 or 3/4 bar re-strikes the two upper chord voices on a late off-beat. Swing is 58–62% instead of 55–59%, the backbeat snare sits 12 ms late, off-beat hats are louder than on-beat hats, and some 4/4 bars add a ghosted sixteenth hat.
+
+**Sound.** All added state is scalar; no buffer, voice or allocation was added.
+
+| Stage | Schema 5 | Schema 6 |
+| --- | --- | --- |
+| Pitch | Fixed per voice | Shared wow (0.55 Hz, ±0.26%) and flutter (6.3 Hz, ±0.05%) on keys, bass and lead, about ±5 cents in total |
+| Saturation | Final soft clip only | A slightly biased soft saturation before the tone filter, then the same final soft clip |
+| Tone filter | One pole near 0.8 kHz | Two poles: Night 0.24, Rainy 0.27, Cozy and Sunny 0.31 per-sample coefficient |
+| Kick response | Whole mix stepped to 91% | Keys, bass and lead dip to 78% through a smoothed gain and recover over about 200 ms; drums are not ducked |
+| Texture | White dust, a click roughly every 8 s | Low-passed hiss and about two pops a second of random, mostly small size; Texture 0 is still silent |
+
+`Snapshot::pitchDriftQ8` reports the current pitch offset in cents × 256. Bit-crushing and sample-rate reduction were left out because they alias harshly.
+
+**Voice pool.** The delay line is 84.5 ms instead of 85 ms so the engine object stays within 8,192 bytes on the host. Percussion with no percussion slot to recycle may now take the quietest harmonic voice that is already in release. It still never takes a held note. Without this, fast 6/8 with pad tones dropped hi-hats.
+
 ## Selectable sound sources
 
 The `I` menu selects chord and melody tones independently: electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute. Bass choices are round, upright and sub. These are lightweight synthesized interpretations with distinct partials and envelopes, not high-fidelity acoustic sample libraries. They use the same fixed voice pool and compose entirely on the device. No network or additional SD resources are required.
@@ -99,7 +136,7 @@ The compact bottom strip receives seven instrument activity levels with roughly 
 
 Start at 32,000 Hz, mono, signed 16-bit output. This is a proposed quality/performance point; test codec configuration and output on the pinned library. Compare 22,050 Hz only if measured constraints justify it, and record any backend resampling separately.
 
-The development candidate uses twelve bounded simultaneous voices, increased from eight after the original mixer showed repeated voice stealing. A four-note chord, bass and lead leave six slots for drums and release tails. Allocation protects held musical notes and favors replacing released or quiet disposable voices. The engine still uses fixed inline storage; it performs no audio-path allocation. The short delay is 85 ms (previously 88 ms); compact per-session voice ordering keeps the twelve voices and new diagnostics within the existing 8,192-byte engine object. Host measurements and firmware size checks are in [verification](VERIFICATION.md); the twelve-voice render deadline and heap margin still need confirmation on the ADV.
+The development candidate uses twelve bounded simultaneous voices, increased from eight after the original mixer showed repeated voice stealing. A four-note chord, bass and lead leave six slots for drums and release tails. Allocation protects held musical notes and favors replacing released or quiet disposable voices. The engine still uses fixed inline storage; it performs no audio-path allocation. The short delay is 84.5 ms (88 ms originally, 85 ms through schema 5); compact per-session voice ordering keeps the twelve voices and new diagnostics within the existing 8,192-byte engine object. Host measurements and firmware size checks are in [verification](VERIFICATION.md); the twelve-voice render deadline and heap margin still need confirmation on the ADV.
 
 The application mixes instruments into one stream rather than treating M5Unified's virtual playback channels as the composition model.
 

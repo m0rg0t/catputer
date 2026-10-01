@@ -10,7 +10,7 @@ from analyze_score import inspect
 
 class ScoreAuditTests(unittest.TestCase):
     def note(self, step, midi, duration=1):
-        return dict(schema=5, session=0, seed=42, bar=0, bpm=75, key_pc=0,
+        return dict(schema=6, session=0, seed=42, bar=0, bpm=75, key_pc=0,
                     minor=0, chord_root=0, chord_0=60, chord_1=64,
                     chord_2=67, chord_3=71, instrument="lead", midi=midi,
                     velocity=50, start_sample=step * 6400,
@@ -34,6 +34,13 @@ class ScoreAuditTests(unittest.TestCase):
         self.assertEqual(result["rule_violations"], [])
         self.assertEqual(result["resolved_passing_notes"], 1)
         self.assertEqual(result["max_consecutive_semitones"]["lead"], 2)
+
+    def test_bass_root_completes_a_rootless_voicing(self):
+        rows = [dict(self.note(0, 72, 4), chord_0=64, chord_1=67, chord_2=71, chord_3=74)]
+        self.assertEqual(self.audit(rows)["rule_violations"], [])
+        rows[0]["midi"] = 77
+        reasons = {item[-1] for item in self.audit(rows)["rule_violations"]}
+        self.assertIn("strong/long nonchord note", reasons)
 
     def test_rejects_chromatic_sustained_and_unresolved_notes(self):
         result = self.audit([self.note(4, 73, 3), self.note(10, 77)])

@@ -18,6 +18,15 @@ PITCHED = {"keys", "bass", "lead"}
 INSTRUMENTS = PITCHED | {"kick", "snare", "hat", "rim"}
 
 
+def harmony(row):
+    """Pitch classes a melody or bass note may anchor on.
+
+    Schema 6 keys play a rootless voicing, so the bass root joins the four
+    sounding chord notes.
+    """
+    return {row[f"chord_{i}"] % 12 for i in range(4)} | {row["chord_root"] % 12}
+
+
 def inspect(path):
     expected_schema = music_profile(Path(__file__).resolve().parents[1])["generation_schema"]
     with path.open(newline="") as source:
@@ -76,7 +85,7 @@ def inspect(path):
         if instrument not in PITCHED:
             continue
         ranges[instrument].append(note)
-        chord = {row[f"chord_{i}"] % 12 for i in range(4)}
+        chord = harmony(row)
         scale = {(row["key_pc"] + degree) % 12 for degree in SCALES[row["minor"]]}
         if instrument in ("bass", "lead"):
             low, high = (32, 48) if instrument == "bass" else (64, 83)
@@ -142,7 +151,7 @@ def inspect(path):
             if previous_note["start_sample"] + previous_note["duration_samples"] > following_note["start_sample"]:
                 violations.append([*identity, "lead", previous_note["midi"], "overlapping melody gates"])
         for i, row in enumerate(lead):
-            chord = {row[f"chord_{j}"] % 12 for j in range(4)}
+            chord = harmony(row)
             if row["midi"] % 12 in chord:
                 continue
             following = lead[i + 1] if i + 1 < len(lead) else None

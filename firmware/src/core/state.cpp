@@ -10,6 +10,8 @@ constexpr std::uint8_t kLegacyMaxMusicSchema = 3;
 // Format 3 was superseded before generation schema 5. Keeping this bound
 // prevents a corrupted old save from making a schema-5 favorite replayable.
 constexpr std::uint8_t kFormat3MaxMusicSchema = 4;
+// Formats 4 and 5 share a layout, but format 4 was last written by schema 5.
+constexpr std::uint8_t kFormat4MaxMusicSchema = 5;
 
 void put32(std::uint8_t* out, std::uint32_t value) {
     for (unsigned i = 0; i < 4; ++i) {
@@ -315,6 +317,8 @@ bool decodeState(const std::uint8_t* data, std::size_t size, SavedState& destina
                  favorite.schema > kLegacyMaxMusicSchema) ||
                 (format == kStateFormatInstruments &&
                  favorite.schema > kFormat3MaxMusicSchema) ||
+                (format == kStateFormatAutoDim &&
+                 favorite.schema > kFormat4MaxMusicSchema) ||
                 (format < kStateFormatCurrent && favorite.mood >= 3) ||
                 hasDuplicateFavorite(decoded, i)) {
                 return false;

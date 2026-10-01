@@ -192,7 +192,7 @@ def parse_favorite_seed(value: Any) -> str | None:
         favorite_code = value.get("favorite_code")
         if isinstance(favorite_code, str):
             legacy = re.fullmatch(r"lofi[1-3]-[0-9a-fA-F]{16}-[0-2]-[0-1]-[0-9]{1,3}-[0-9]{1,3}(?:-[0-9]{1,3})?", favorite_code)
-            current = re.fullmatch(r"lofi[45]-[0-9a-fA-F]{16}-[0-3]-[0-1]-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-3]-[0-5]-[0-5]-[0-2]", favorite_code)
+            current = re.fullmatch(r"lofi[4-6]-[0-9a-fA-F]{16}-[0-3]-[0-1]-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-3]-[0-5]-[0-5]-[0-2]", favorite_code)
             if legacy or current:
                 parts = favorite_code.split("-")
                 if parts[0] == "lofi4" and int(parts[2]) > 2:
