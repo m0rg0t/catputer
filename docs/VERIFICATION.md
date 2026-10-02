@@ -4,7 +4,7 @@ This is the development candidate for the accepted plan, version **0.1.11-dev**.
 
 ## Singable melody and tape character · 0.1.11-dev
 
-Generation schema 6 changes the score and PCM for every seed; [the engine notes](MUSIC_ENGINE.md#singable-melody-and-tape-character--schema-6) describe the rules. Everything below is a host measurement or a rule check. Nobody has yet listened to schema 6 on the ADV speaker or headphones, so whether it sounds more melodic or more lofi is still for the user to judge.
+Generation schema 6 changes the score and PCM for every seed; [the engine notes](MUSIC_ENGINE.md#singable-melody-and-tape-character--schema-6) describe the rules. Everything below is a host measurement or a rule check, except one physical observation: on 2026-10-02 the user ran this build on their Cardputer ADV, started from M5Apps, and reported that it works and sounds better than the previous version. That is a single informal listen. It did not measure render deadlines, heap, long-run stability or battery life.
 
 The [216-case meter/tone/gain matrix](evidence/v0111-music-matrix.json) passes at 300% with **207,360,000 frames, zero clipped samples, zero dropped notes and zero score-rule violations**. Maximum active voices stay at 12. Voice steals rise to at most 32 per 30-second case, from 9, in fast 6/8 with pad tones, where percussion now reclaims released tails. An earlier run of this matrix failed 8 cases with dropped hi-hats in exactly that configuration; the lead hand-off and the percussion rule fixed it and a native regression test covers it. Twelve seven-minute AUTO-tempo scores (four moods, three meters, including automatic session changes) also pass the score audit with no violations and a largest melodic interval of five semitones.
 
@@ -18,11 +18,11 @@ Four 60-second 4/4 Synth renders of seed `0xCA7CAFE` were compared with the 0.1.
 | Share of energy above 8 kHz | −49.0 to −46.0 dB | −57.9 to −52.5 dB |
 | Lead notes started | 48–54 | 71–87 |
 
-The lead register carries more of the mix and the top is darker, which matches the intent. The numbers do not show that the balance is pleasant. `tools/verify_output_level.py` and the site's listening demos have not been regenerated for schema 6; the published demos and package are still 0.1.10-dev.
+The lead register carries more of the mix and the top is darker, which matches the intent. The numbers do not show that the balance is pleasant. `tools/verify_output_level.py` has not been rerun for schema 6. The Pages workflow renders the site demos and package from the merged commit; its output has not been reviewed here.
 
-The pinned 14-second Rainy/Synth regression is 103 events, score hash `02fe7e65c054a351`. Twelve shorter score/PCM baselines now include manual 3/4 and 6/8 cases. Exact PCM was checked on this Mac only; the Linux/GCC and x86 checks from 0.1.7-dev have not been repeated for the new arithmetic, which keeps `-ffp-contract=off`.
+The pinned 14-second Rainy/Synth regression is 103 events, score hash `02fe7e65c054a351`. Twelve shorter score/PCM baselines now include manual 3/4 and 6/8 cases. The same exact score and PCM assertions pass on the Mac (ARM, Clang) and in the Pages workflow on Ubuntu 24.04 with GCC 13.3.0, where all 8 native suites and 54 Python tests passed for the merge commit. The x86 Clang check from 0.1.7-dev has not been repeated. Contraction stays disabled with `-ffp-contract=off`.
 
-The local ADV application builds at **750,736 bytes**, leaving **559,984 bytes** under the compact profile, with linker static RAM unchanged at **67,384 bytes**. Nothing was flashed. Render deadlines for the extra per-sample work, heap and speaker sound still need an ADV run.
+The local ADV application builds at **750,736 bytes**, leaving **559,984 bytes** under the compact profile, with linker static RAM unchanged at **67,384 bytes**. The image was written over USB to the app's own M5Apps slot on the user's device after reading the partition table and backing the slot up; the write verified and neighbouring regions were unchanged. Render deadlines for the extra per-sample work and heap are still unmeasured.
 
 All **8 native suites and 54 Python tests pass**, and the music suite also passes under UBSan. An AddressSanitizer run of the music suite did not finish within four minutes on this Mac; the unmodified 0.1.10-dev suite behaves the same way, so ASan gives no result for either. Save format 5 is unchanged; a format-4 file can no longer claim a schema-6 favorite, and schema-5 favorites load as `OLD`.
 
