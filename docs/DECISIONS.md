@@ -30,6 +30,10 @@ Planning session: 2026-09-12.
 | Sleep and dim defaults | Sleep Off/30/60/90 minutes, final 30-second fade to pause; auto-dim Off/30/60/120 seconds, default 60, first key wakes only |
 | Speaker maximum · 0.1.10-dev | User reports the built-in speaker remains too quiet at max. Strengthen the upper output range with controlled peaks; retain default 35%, 0–100% behavior, score/favorites and the post-limiter sleep fade |
 | Melodic lofi generation · schema 6 | User asked for more melodic and more recognisably lofi generation and approved schema 6 as designed: phrase-form melody, rootless ninth voicings, lazier groove, tape pitch drift, saturation and darker top, deeper kick response, vinyl texture. Schema-5 favorites become `OLD`; no bit-crushing |
+| Reverb and drift · 0.1.12-dev | After reviewing fm1-amb, the user chose a plate reverb and irregular drift modulators first. They keep the schema-6 score; favorites replay the same notes with a changed sound |
+| Borrowed techniques | Implement published methods (Dattorro's plate, later Toussaint's Euclidean rhythms) from the papers and cite them in THIRD_PARTY.md; copy no MPL-licensed code |
+| Licenses | MIT for code and documentation, CC BY 4.0 for artwork and sounds, chosen by the user on 2026-11-10 |
+| Standalone full image | User asked on 2026-11-10 for a whole-flash build beside the M5Apps application. It is a separate, clearly labeled package that replaces the launcher; build tools still never flash a device |
 | Public identity and delivery | Catputer, `m0rg0t/catputer`; publish the project site on GitHub Pages and provide application-only builds |
 
 ## Under discussion

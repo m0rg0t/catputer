@@ -1,5 +1,6 @@
 #include "lofi/music.h"
 
+#include "lofi/plate_reverb.h"
 #include "lofi/sample_bank.h"
 
 #include <algorithm>
@@ -30,6 +31,19 @@ constexpr std::uint32_t kWowIncrement = 73820u;      // 0.55 Hz at 32 kHz.
 constexpr std::uint32_t kFlutterIncrement = 845555u; // 6.3 Hz at 32 kHz.
 constexpr float kWowDepth = 0.0026f;
 constexpr float kFlutterDepth = 0.0005f;
+// Slow, irregular movement layered over the tape stage. Each modulator eases
+// toward a new random target every 7 to 40 seconds, so wow, brightness and
+// the reverb send never repeat on a fixed cycle. They draw from their own
+// generator and are stepped once per control tick.
+constexpr std::size_t kDriftModCount = 6;
+constexpr std::size_t kDriftWowDepth = 0;
+constexpr std::size_t kDriftPitch = 1;
+constexpr std::size_t kDriftFlutter = 2;
+constexpr std::size_t kDriftWowSpeed = 3;
+constexpr std::size_t kDriftTone = 4;
+constexpr std::size_t kDriftSpace = 5;
+constexpr std::uint32_t kDriftTickFrames = 32; // 1 ms at 32 kHz.
+constexpr float kPitchWanderDepth = 0.0010f;   // About +/-1.7 cents.
 constexpr float kCentsPerRatio = 1731.234f; // 1200 / ln(2).
 constexpr float kInvInt16 = 1.0f / 32768.0f;
 constexpr float kPhaseScale = 4294967296.0f / static_cast<float>(kMusicSampleRate);
@@ -43,6 +57,13 @@ enum class EnvelopeStage : std::uint8_t {
     Attack,
     Decay,
     Release,
+};
+
+struct DriftMod {
+    float value = 0.0f;
+    float target = 0.0f;
+    float rate = 0.0f;
+    std::uint32_t ticksLeft = 0;
 };
 
 struct Rng {
@@ -429,6 +450,13 @@ struct Engine::Impl {
     Rng scoreRng{};
     Rng timbreRng{};
     Rng textureRng{};
+    // Sound-only movement. Never read by the composer, so the score is the
+    // same with or without it.
+    Rng driftRng{};
+    DriftMod drift[kDriftModCount]{};
+    std::uint32_t driftCountdown = 0;
+    PlateReverb reverb{};
+    float reverbWet = 0.0f;
     const Sample* samples = nullptr;
     std::size_t sampleCount = 0;
 
@@ -575,6 +603,11 @@ struct Engine::Impl {
         }
         std::fill(std::begin(delay), std::end(delay), 0);
         delayIndex = 0;
+        reverb.clear();
+        for (DriftMod& mod : drift) {
+            mod = DriftMod{};
+        }
+        driftCountdown = 0;
         toneState = 0.0f;
         toneState2 = 0.0f;
         hissState = 0.0f;
@@ -806,6 +839,8 @@ struct Engine::Impl {
         timbreRng.seed(mix64(current.seed ^ UINT64_C(0x54494d4252455f31) ^
                              static_cast<std::uint64_t>(current.soundEngine)));
         textureRng.seed(mix64(current.seed ^ UINT64_C(0x544558545552455f)));
+        driftRng.seed(mix64(current.seed ^ UINT64_C(0x44524946545f3031)));
+        configureSpace();
 
         switch (current.mood) {
         case Mood::Cozy:
@@ -1773,6 +1808,52 @@ struct Engine::Impl {
         return output;
     }
 
+    // Room size per mood: a short bright room for Sunny, a long dark one for
+    // Night. These are sound choices, not score choices.
+    void configureSpace() noexcept {
+        PlateReverb::Settings settings{};
+        switch (current.mood) {
+        case Mood::Cozy:
+            settings.decay = 0.55f;
+            settings.damping = 0.45f;
+            reverbWet = 0.30f;
+            break;
+        case Mood::Rainy:
+            settings.decay = 0.66f;
+            settings.damping = 0.40f;
+            reverbWet = 0.36f;
+            break;
+        case Mood::Night:
+            settings.decay = 0.72f;
+            settings.damping = 0.50f;
+            reverbWet = 0.40f;
+            break;
+        case Mood::Sunny:
+            settings.decay = 0.48f;
+            settings.damping = 0.35f;
+            reverbWet = 0.24f;
+            break;
+        }
+        reverb.configure(settings);
+    }
+
+    void stepDrift() noexcept {
+        for (DriftMod& mod : drift) {
+            if (mod.ticksLeft == 0) {
+                // 7.00 to 40.00 seconds to the next target.
+                const std::uint32_t centiseconds = 700u + driftRng.bounded(3301u);
+                const std::uint32_t ticks = centiseconds * 10u;
+                mod.target = static_cast<float>(
+                    static_cast<std::int32_t>(driftRng.next32())) / 2147483648.0f;
+                mod.ticksLeft = ticks;
+                mod.rate = 2.0f / static_cast<float>(ticks);
+            } else {
+                --mod.ticksLeft;
+            }
+            mod.value += (mod.target - mod.value) * mod.rate;
+        }
+    }
+
     float renderTexture() noexcept {
         if (current.texture == 0) {
             return 0.0f;
@@ -2065,10 +2146,23 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
             state.advanceBar();
         }
 
-        state.wowPhase += kWowIncrement;
+        if (state.driftCountdown == 0) {
+            state.stepDrift();
+            state.driftCountdown = kDriftTickFrames;
+        }
+        --state.driftCountdown;
+        // Wow keeps its nominal 0.55 Hz but its speed and depth wander, and a
+        // slow random offset rides on top, so the cycle never repeats exactly.
+        state.wowPhase += kWowIncrement + static_cast<std::uint32_t>(
+            static_cast<std::int32_t>(static_cast<float>(kWowIncrement) * 0.3f *
+                                      state.drift[kDriftWowSpeed].value));
         state.flutterPhase += kFlutterIncrement;
-        state.pitchDrift = phaseSine(state.wowPhase) * kWowDepth +
-                           phaseSine(state.flutterPhase) * kFlutterDepth;
+        state.pitchDrift =
+            phaseSine(state.wowPhase) * kWowDepth *
+                (0.75f + 0.25f * state.drift[kDriftWowDepth].value) +
+            phaseSine(state.flutterPhase) * kFlutterDepth *
+                (0.6f + 0.4f * state.drift[kDriftFlutter].value) +
+            kPitchWanderDepth * state.drift[kDriftPitch].value;
 
         state.dispatchEvents();
         float instrumentMix[kMusicInstrumentCount]{};
@@ -2121,6 +2215,18 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         }
         mix += delayed * 0.105f;
 
+        // Plate reverb on the pitched parts and a little of the light
+        // percussion. Bass, kick and texture stay dry. The return joins
+        // before the tape stage, which darkens it with everything else.
+        const float reverbSend =
+            instrumentMix[static_cast<std::size_t>(Instrument::Keys)] * 0.9f +
+            instrumentMix[static_cast<std::size_t>(Instrument::Lead)] +
+            instrumentMix[static_cast<std::size_t>(Instrument::Snare)] * 0.35f +
+            instrumentMix[static_cast<std::size_t>(Instrument::Rim)] * 0.4f +
+            instrumentMix[static_cast<std::size_t>(Instrument::Hat)] * 0.15f;
+        mix += state.reverb.process(reverbSend) * state.reverbWet *
+               (1.0f + 0.2f * state.drift[kDriftSpace].value);
+
         // Tape-style stage: a slightly biased soft saturation adds even
         // harmonics, then two gentle poles round the top off at 12 dB/octave.
         // The DC blocker below removes the offset the bias introduces.
@@ -2128,8 +2234,10 @@ void Engine::render(std::int16_t* output, std::size_t frames) noexcept {
         constexpr float kTapeBiasOutput = kTapeBias / (1.0f + 0.55f * kTapeBias);
         const float driven = mix * 1.18f + kTapeBias;
         mix = driven / (1.0f + 0.55f * std::fabs(driven)) - kTapeBiasOutput;
-        const float toneCoefficient = state.current.mood == Mood::Night ? 0.24f :
-                                      state.current.mood == Mood::Rainy ? 0.27f : 0.31f;
+        const float toneCoefficient =
+            (state.current.mood == Mood::Night ? 0.24f :
+             state.current.mood == Mood::Rainy ? 0.27f : 0.31f) *
+            (1.0f + 0.08f * state.drift[kDriftTone].value);
         state.toneState += toneCoefficient * (mix - state.toneState);
         state.toneState2 += toneCoefficient * (state.toneState - state.toneState2);
         const float dcBlocked = state.toneState2 - state.dcInput + 0.995f * state.dcOutput;

@@ -110,6 +110,40 @@ The lead plays at velocity 52 in the intro and 58 afterwards, up from 40–45, w
 
 **Voice pool.** The delay line is 84.5 ms instead of 85 ms so the engine object stays within 8,192 bytes on the host. Percussion with no percussion slot to recycle may now take the quietest harmonic voice that is already in release. It still never takes a held note. Without this, fast 6/8 with pad tones dropped hi-hats.
 
+## Room and slow drift · 0.1.12-dev
+
+Generation schema stays 6. The composer is untouched, so a `lofi6-` favorite replays the same notes. The audio is different: this version changes the PCM stream for every seed.
+
+**Plate reverb.** `PlateReverb` (`firmware/include/lofi/plate_reverb.h`) follows the figure-eight tank in Jon Dattorro's 1997 paper: a predelay, four input diffusers, then two halves that feed each other, each with a modulated allpass, a delay, a damping low-pass and a second allpass. It was written from the paper for this project. Three choices fit it to a board without PSRAM:
+
+- The network runs at 16 kHz. Input pairs are averaged and the output is linearly interpolated back to 32 kHz. The tape stage's low-pass sits after the return, so the lost top octave was not going to be heard.
+- Every delay line stores int16 with 4× headroom. All thirteen lines take 25,040 bytes.
+- Quantization makes the tail end in exact silence about 1.4 to 2.4 s after the input stops.
+
+Keys and lead feed it at nearly full level, snare and rim at about a third, hats lightly. Bass, kick and texture stay dry. The return joins the mix after the short delay and before the tape saturation.
+
+| Mood | Decay | Damping | Return level |
+| --- | --- | --- | --- |
+| Sunny | 0.48 | 0.35 | 0.24 |
+| Cozy | 0.55 | 0.45 | 0.30 |
+| Rainy | 0.66 | 0.40 | 0.36 |
+| Night | 0.72 | 0.50 | 0.40 |
+
+**Slow drift.** Six modulators each ease toward a new random target every 7 to 40 seconds, stepped once a millisecond. They replace the fixed cycle of the schema-6 wow:
+
+| Modulator | Effect |
+| --- | --- |
+| Wow depth | 50–100% of the earlier ±0.26% |
+| Wow speed | ±30% around 0.55 Hz, so the cycle length keeps changing |
+| Pitch offset | A slow ±1.7 cents on top |
+| Flutter depth | 20–100% of the earlier ±0.05% |
+| Tone | ±8% on the tape low-pass coefficient |
+| Space | ±20% on the reverb return |
+
+Total pitch movement stays under about ±7 cents. The modulators draw from their own generator, seeded from the session seed, so a favorite replays the same movement and no composer or texture draw moves. They freeze while paused.
+
+The approach of slow random-target modulators, and the idea that a generative piece needs a room around it, came from reading [fm1-amb](https://github.com/charlesvestal/fm1-amb). No code from that project is used.
+
 ## Selectable sound sources
 
 The `I` menu selects chord and melody tones independently: electric piano, felt piano, nylon guitar, vibraphone, warm pad and soft flute. Bass choices are round, upright and sub. These are lightweight synthesized interpretations with distinct partials and envelopes, not high-fidelity acoustic sample libraries. They use the same fixed voice pool and compose entirely on the device. No network or additional SD resources are required.
@@ -136,14 +170,15 @@ The compact bottom strip receives seven instrument activity levels with roughly 
 
 Start at 32,000 Hz, mono, signed 16-bit output. This is a proposed quality/performance point; test codec configuration and output on the pinned library. Compare 22,050 Hz only if measured constraints justify it, and record any backend resampling separately.
 
-The development candidate uses twelve bounded simultaneous voices, increased from eight after the original mixer showed repeated voice stealing. A four-note chord, bass and lead leave six slots for drums and release tails. Allocation protects held musical notes and favors replacing released or quiet disposable voices. The engine still uses fixed inline storage; it performs no audio-path allocation. The short delay is 84.5 ms (88 ms originally, 85 ms through schema 5); compact per-session voice ordering keeps the twelve voices and new diagnostics within the existing 8,192-byte engine object. Host measurements and firmware size checks are in [verification](VERIFICATION.md); the twelve-voice render deadline and heap margin still need confirmation on the ADV.
+The development candidate uses twelve bounded simultaneous voices, increased from eight after the original mixer showed repeated voice stealing. A four-note chord, bass and lead leave six slots for drums and release tails. Allocation protects held musical notes and favors replacing released or quiet disposable voices. The engine still uses fixed inline storage; it performs no audio-path allocation. The short delay is 84.5 ms (88 ms originally, 85 ms through schema 5); compact per-session voice ordering kept the twelve voices and diagnostics within an 8,192-byte engine object through 0.1.11-dev. Version 0.1.12-dev raises it to 34,816 bytes for the reverb lines. Host measurements and firmware size checks are in [verification](VERIFICATION.md); the twelve-voice render deadline and heap margin still need confirmation on the ADV.
 
 The application mixes instruments into one stream rather than treating M5Unified's virtual playback channels as the composition model.
 
 ```text
 note events → instruments/envelopes → wide accumulator
-            → gentle tone filter → short delay (optional)
-            → subtle saturation / gain control → fade → int16 PCM
+            → short delay → plate reverb return
+            → tape saturation → gentle tone filter
+            → gain control → fade → int16 PCM
 ```
 
 Keep wide intermediates and explicit saturation before int16 conversion. Avoid signed overflow. Use band-limited oscillator/table choices where required; “lofi” does not excuse harsh aliasing. Remove DC bias and smooth volume/filter changes. Start with a short delay; a larger reverb is optional after profiling.

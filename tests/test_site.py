@@ -94,4 +94,23 @@ class SiteBoundaries(unittest.TestCase):
                     (audio/'night-hybrid.json').write_text(json.dumps(invalid))
                     with self.assertRaises(ValueError):build_site.copy_audio(root,root/'build/site')
 
+    def test_live_player_is_published_only_when_complete(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);web=root/'build/web';web.mkdir(parents=True);output=root/'build/site'
+            output_patch=patch.object(build_site,'OUTPUT_ROOT',output)
+            output_patch.start();self.addCleanup(output_patch.stop)
+            self.assertEqual(build_site.copy_player(root,output),[])
+            self.assertEqual(build_site.render_player([]),'')
+            (web/'catputer.wasm').write_bytes(b'\0asm');(web/'worklet.js').write_text('//')
+            self.assertEqual(build_site.copy_player(root,output),[])
+            self.assertFalse((output/'player').exists())
+            (web/'player.js').write_text('//')
+            copied=build_site.copy_player(root,output)
+            self.assertEqual(copied,['player/catputer.wasm','player/worklet.js','player/player.js'])
+            self.assertTrue((output/'player/catputer.wasm').is_file())
+            section=build_site.render_player(copied)
+            self.assertIn('id="live-player"',section)
+            self.assertEqual(section.count('data-mood='),4)
+            self.assertEqual(section.count('data-live="level"'),7)
+
 if __name__=='__main__':unittest.main()

@@ -7,12 +7,12 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.11-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.12-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
 
-The package contains no launcher, bootloader, partition table or erase/flash script. Do not feed an app BIN to a whole-device recovery workflow. A stock device without M5Apps needs a separately selected launcher installation; this package does not perform it. Home/reset behavior depends on the installed launcher and remains a physical acceptance test. The Go key currently opens help.
+The package contains no launcher, bootloader, partition table or erase/flash script. A separate [standalone full image](INSTALL_FULL.md) exists for devices without M5Apps; it replaces the launcher. Do not feed an app BIN to a whole-device recovery workflow. A stock device without M5Apps needs a separately selected launcher installation; this package does not perform it. Home/reset behavior depends on the installed launcher and remains a physical acceptance test. The Go key currently opens help.
 
 ## Optional SD state
 

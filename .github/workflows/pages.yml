@@ -56,6 +56,15 @@ jobs:
           python tools/export_media.py --day-animation build/animation-day
           python tools/render_audio.py --seconds 180
 
+      - name: Build the browser player
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          git -C "$RUNNER_TEMP/emsdk" checkout 1693ce7359fc9694f198694f902a2cc061239b86 # 7.0.0
+          "$RUNNER_TEMP/emsdk/emsdk" install 7.0.0
+          "$RUNNER_TEMP/emsdk/emsdk" activate 7.0.0
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          python tools/build_web.py
+
       - name: Package firmware and build public site
         run: |
           python tools/build_release.py

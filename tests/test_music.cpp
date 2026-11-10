@@ -467,7 +467,7 @@ void testReplayAndBlockDeterminism() {
     }
     // The core disables FP contraction so this exact PCM stream stays portable
     // between ARM and x86 hosts and matches the firmware arithmetic policy.
-    constexpr std::uint64_t expectedPcmHash = UINT64_C(0x62c5f460106d0c46);
+    constexpr std::uint64_t expectedPcmHash = UINT64_C(0x78ce28a6919c0fb4);
     const std::uint64_t referencePcmHash = pcmHash(reference);
     if (referencePcmHash != expectedPcmHash) {
         std::cerr << "reference PCM hash: 0x" << std::hex << referencePcmHash
@@ -512,40 +512,40 @@ void testSchemaSixBaselines() {
     static constexpr Baseline baselines[] = {
         {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe),
          MusicMeter::ThreeFour, 81, 3, 4, 71, UINT64_C(0x7b396ea075dc4259),
-         UINT64_C(0x66db27814c02d64f)},
+         UINT64_C(0x73792ba03bf9105b)},
         {Mood::Cozy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef),
          MusicMeter::Auto, 78, 4, 4, 63, UINT64_C(0xdec3aa5cd7206a76),
-         UINT64_C(0xd737ef6b21c30940)},
+         UINT64_C(0xd5f96207d8af3c68)},
         {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe),
          MusicMeter::ThreeFour, 81, 3, 4, 71, UINT64_C(0x7b396ea075dc4259),
-         UINT64_C(0xd7fdcaf59b71557a)},
+         UINT64_C(0x7c94a4b80cbebf3c)},
         {Mood::Cozy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef),
          MusicMeter::Auto, 78, 4, 4, 63, UINT64_C(0xdec3aa5cd7206a76),
-         UINT64_C(0x98b89d2f6c20a15a)},
+         UINT64_C(0xa292b3120fa25d3d)},
         {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe),
          MusicMeter::Auto, 73, 4, 4, 58, UINT64_C(0x11f398c834581e61),
-         UINT64_C(0x3c92431ee5b01102)},
+         UINT64_C(0xf55c46dd5e69bdb6)},
         {Mood::Rainy, SoundEngine::Synth, UINT64_C(0x0123456789abcdef),
          MusicMeter::Auto, 74, 4, 4, 59, UINT64_C(0xb2b2559b9b9c2e6d),
-         UINT64_C(0x11c32664f1b9520f)},
+         UINT64_C(0xfb651eff912699e5)},
         {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe),
          MusicMeter::Auto, 73, 4, 4, 58, UINT64_C(0x11f398c834581e61),
-         UINT64_C(0x1a10bd696fb7b3a8)},
+         UINT64_C(0x5d7b3d8f9fe12bee)},
         {Mood::Rainy, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef),
          MusicMeter::Auto, 74, 4, 4, 59, UINT64_C(0xb2b2559b9b9c2e6d),
-         UINT64_C(0x7c7a72b98806cd59)},
+         UINT64_C(0x95b9fefb47a669d6)},
         {Mood::Night, SoundEngine::Synth, UINT64_C(0x000000000ca7cafe),
          MusicMeter::Auto, 76, 4, 4, 62, UINT64_C(0xbdb2028f89e627c6),
-         UINT64_C(0x3d3c500fa94652dd)},
+         UINT64_C(0x146bf131fd838fb1)},
         {Mood::Night, SoundEngine::Synth, UINT64_C(0x0123456789abcdef),
          MusicMeter::SixEight, 78, 6, 8, 95, UINT64_C(0x1744139479b5887a),
-         UINT64_C(0x07890a9e548dd32b)},
+         UINT64_C(0xb79ff4e5a77b0ff4)},
         {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x000000000ca7cafe),
          MusicMeter::Auto, 76, 4, 4, 62, UINT64_C(0xbdb2028f89e627c6),
-         UINT64_C(0xc95095d54405a3f6)},
+         UINT64_C(0x18c7bca6e720fd48)},
         {Mood::Night, SoundEngine::Hybrid, UINT64_C(0x0123456789abcdef),
          MusicMeter::SixEight, 78, 6, 8, 95, UINT64_C(0x1744139479b5887a),
-         UINT64_C(0x9a0d2b9cb99d786d)},
+         UINT64_C(0x35dbc5342ea6a329)},
     };
 
     constexpr std::size_t frames = lofi::kMusicSampleRate * 8u;
@@ -1090,6 +1090,53 @@ void testTapePitchDriftIsSmallAndFreezesWhenPaused() {
         engine.render(block, std::size(block));
     }
     CHECK(engine.snapshot().pitchDriftQ8 == frozen);
+}
+
+// Whole wow cycles in one minute: gaps between upward zero crossings of the
+// shared pitch offset. Flutter and the slow offset add short extra crossings,
+// so only gaps of at least 1.25 s count as a cycle.
+std::vector<std::size_t> wowCycles(std::uint64_t seed) {
+    Config config{};
+    config.seed = seed;
+    config.texture = 0;
+    Engine engine(config);
+    std::int16_t block[64]{};
+    std::vector<std::size_t> cycles;
+    std::size_t lastCrossing = 0;
+    int previous = 0;
+    for (std::size_t rendered = 0; rendered < lofi::kMusicSampleRate * 60u;
+         rendered += std::size(block)) {
+        engine.render(block, std::size(block));
+        const int drift = engine.snapshot().pitchDriftQ8;
+        if (previous <= 0 && drift > 0) {
+            if (rendered - lastCrossing >= lofi::kMusicSampleRate * 5u / 4u) {
+                cycles.push_back(rendered - lastCrossing);
+            }
+            lastCrossing = rendered;
+        }
+        previous = drift;
+    }
+    return cycles;
+}
+
+void testWowCycleWandersWithoutTouchingTheScore() {
+    const std::vector<std::size_t> first = wowCycles(UINT64_C(0x000000000ca7cafe));
+    CHECK(first.size() >= 15);
+    std::size_t shortest = SIZE_MAX;
+    std::size_t longest = 0;
+    for (const std::size_t cycle : first) {
+        shortest = std::min(shortest, cycle);
+        longest = std::max(longest, cycle);
+    }
+    // A fixed 0.55 Hz sine would repeat every 58,182 samples. The cycle now
+    // stretches and shrinks, yet stays near that rate.
+    CHECK(longest - shortest > lofi::kMusicSampleRate / 20u);
+    CHECK(longest < lofi::kMusicSampleRate * 4u);
+
+    // The movement belongs to the seed: the same favorite replays it, and
+    // another seed moves differently.
+    CHECK(first == wowCycles(UINT64_C(0x000000000ca7cafe)));
+    CHECK(first != wowCycles(UINT64_C(0x0123456789abcdef)));
 }
 
 void testOpeningHasEveryLayerAndHeadroom() {
@@ -1876,6 +1923,7 @@ int main() {
     testSingablePhraseFormAcrossMeters();
     testRootlessNinthVoicings();
     testTapePitchDriftIsSmallAndFreezesWhenPaused();
+    testWowCycleWandersWithoutTouchingTheScore();
     testOpeningHasEveryLayerAndHeadroom();
     testFastTempoVoicePressure();
     testScheduledHarmonyMovementAndPhraseVariety();

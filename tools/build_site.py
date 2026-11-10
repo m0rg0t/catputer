@@ -37,6 +37,7 @@ REPOSITORY_URL = "https://github.com/m0rg0t/catputer"
 PUBLIC_DOCS = (
     "README.md",
     "docs/INSTALL.md",
+    "docs/INSTALL_FULL.md",
     "docs/VERIFICATION.md",
     "docs/THIRD_PARTY.md",
     "docs/EXPERIENCE.md",
@@ -54,6 +55,10 @@ ENGINES = (
     ("synth", "Synth"),
     ("hybrid", "Hybrid"),
 )
+# The live player is published only when tools/build_web.py produced all of it.
+PLAYER_FILES = ("catputer.wasm", "worklet.js", "player.js")
+PLAYER_MOODS = ("Cozy", "Rainy", "Night", "Sunny")
+PLAYER_PARTS = ("Keys", "Bass", "Lead", "Kick", "Snare", "Hat", "Rim")
 # A release is copied only when it uses one of these explicitly reviewed names.
 # No arbitrary file under dist can enter the public output.
 def sha256_file(path: Path) -> str:
@@ -434,6 +439,39 @@ def copy_release(root: Path, output_root: Path) -> list[dict[str, Any]]:
     return result
 
 
+def copy_player(root: Path, output_root: Path) -> list[str]:
+    """Publish the WebAssembly player if a complete build exists, else nothing."""
+    source_root = root / "build/web"
+    sources = [source_root / name for name in PLAYER_FILES]
+    if not all(source.is_file() for source in sources):
+        return []
+    return [copy_allowed(source, output_root / "player" / source.name, root) for source in sources]
+
+
+def render_player(player_files: list[str]) -> str:
+    if not player_files:
+        return ""
+    moods = "".join(
+        f'<button class="button" type="button" data-mood="{index}" aria-pressed="false">{name}</button>'
+        for index, name in enumerate(PLAYER_MOODS)
+    )
+    levels = "".join(
+        f'<div class="live-level"><i data-live="level"></i>{name}</div>' for name in PLAYER_PARTS
+    )
+    return (
+        '<section id="live"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Live in your browser</div>'
+        '<h2>Let it compose right now.</h2></div><p>This runs the same composer and mixer as the device, compiled to WebAssembly. '
+        'Every session is new and nothing is prerecorded. It is browser audio, not a recording of the Cardputer speaker.</p></div>'
+        '<div class="live" id="live-player" data-base="player/">'
+        '<div class="live-row"><button class="button primary" type="button" data-live="play">Play</button>'
+        '<button class="button" type="button" data-live="next" disabled>Next session</button></div>'
+        f'<div class="live-row" role="group" aria-label="Mood">{moods}</div>'
+        f'<div class="live-row live-levels" aria-hidden="true">{levels}</div>'
+        '<p class="live-status" data-live="status" aria-live="polite">Press Play to start. Mood and next-session changes arrive at the next bar.</p>'
+        '</div></div></section>'
+    )
+
+
 def evidence_badge() -> str:
     return '<span class="badge">DESKTOP RENDER · HARDWARE UNVERIFIED</span>'
 
@@ -546,6 +584,16 @@ section { padding:72px 0; border-top:1px solid rgba(112,192,193,.15); }
 audio.audio-hidden { display:none; }
 .audio-time {font-variant-numeric:tabular-nums;color:var(--muted);font-size:.8rem;}
 .audio-card p {margin:8px 0 0;font-size:.8rem;}
+.live { border:1px solid var(--line); background:rgba(16,29,44,.74); padding:18px; }
+.live-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.live-row + .live-row { margin-top:14px; }
+.live button[aria-pressed="true"] { background:var(--gold); border-color:var(--gold); color:#1a1010; }
+.live button:disabled { opacity:.5; }
+.live-status { color:var(--muted); font-size:.85rem; font-variant-numeric:tabular-nums; min-height:1.4em; overflow-wrap:anywhere; }
+.live-levels { display:flex; gap:8px; align-items:flex-end; height:56px; }
+.live-level { flex:1; max-width:44px; text-align:center; font-size:.62rem; color:var(--muted); }
+.live-level i { display:block; height:40px; background:var(--cyan); transform:scaleY(.04); transform-origin:bottom; transition:transform .1s linear; }
+@media (prefers-reduced-motion:reduce) { .live-level i { transition:none; } }
 .missing { display:block; color:var(--muted); font-size:.78rem; padding:8px 0; }
 .controls { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
 .control { display:grid; grid-template-columns:58px 1fr; gap:14px; align-items:center; background:var(--panel); border:1px solid var(--line); padding:13px; }
@@ -578,6 +626,7 @@ def render_index(
     audio_pairs: list[dict[str, Any]],
     releases: list[dict[str, Any]],
     copied_docs: list[str],
+    player_files: list[str] | None = None,
 ) -> str:
     hero = screens[0]
     hero_image = html.escape(hero["native"])
@@ -604,6 +653,9 @@ def render_index(
     )
     gallery = render_gallery(screens)
     audio_html = render_audio(audio_pairs)
+    player_html = render_player(player_files or [])
+    player_nav = '<li><a href="#live">Live</a></li>' if player_html else ''
+    player_script = '<script src="player/player.js" defer></script>' if player_html else ''
     release_html = render_releases(releases)
     docs_html = " · ".join(
         f'<a href="{REPOSITORY_URL}/blob/{git_revision()}/{html.escape(path.removeprefix("source/"))}">{html.escape(Path(path).name)}</a>' for path in copied_docs
@@ -618,7 +670,7 @@ def render_index(
   <style>{STYLE}</style>
 </head>
 <body>
-  <header><div class="wrap"><nav><a class="wordmark" href="#top">Catputer</a><ul><li><a href="#scene">Scene</a></li><li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Build</a></li><li><a href="https://github.com/m0rg0t/catputer">GitHub</a></li></ul></nav></div></header>
+  <header><div class="wrap"><nav><a class="wordmark" href="#top">Catputer</a><ul><li><a href="#scene">Scene</a></li>{player_nav}<li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Build</a></li><li><a href="https://github.com/m0rg0t/catputer">GitHub</a></li></ul></nav></div></header>
   <main id="top">
     <div class="wrap"><section class="hero" style="border-top:0">
       <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for slow days and long nights.</h1><p class="lead">Catputer composes a quiet stream on the device while an original pixel-art cat reads beside the window. Four moods bring warm daylight or a rainy night to the built-in 240 × 135 room. No network or SD card is needed to play.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a></div></div>
@@ -629,6 +681,7 @@ def render_index(
       <div class="media-strip"><article class="media-card"><img src="{contact}" alt="Labeled contact sheet of public native renderer scenarios"><p class="caption">Public scenario contact sheet · scripted states from the native renderer · hardware unverified.</p></article><div class="scene-loops"><article class="media-card"><img src="{animation}" alt="Animated night room GIF from the shared renderer"><p class="caption">Night room · 12 FPS native renderer capture.</p></article>{day_card}</div></div>
       <details style="margin-top:18px"><summary>Explore all {len(screens)} screen states</summary><div class="gallery">{gallery}</div></details>
     </div></section>
+    {player_html}
     <section id="audio"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Matched listening tests</div><h2>Two engines, one mood.</h2></div><p>Hear the same composition through two instrument engines. Choose a mood, play a sample, then compare its warmth and rhythm with the other version.</p></div>{audio_html}</div></section>
     <section id="controls"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Keyboard map</div><h2>Quiet controls stay close.</h2></div><p>Essential actions are one key away, with menus using Enter/Esc and comma, period, slash navigation.</p></div><div class="controls">
       <div class="control"><kbd>SPACE</kbd><span>Play or pause with a short fade.</span></div><div class="control"><kbd>- / =</kbd><span>Volume 0–300%; stronger upper range with controlled peaks.</span></div><div class="control"><kbd>N</kbd><span>Request the next session at the next musical boundary.</span></div><div class="control"><kbd>M</kbd><span>Choose a mood.</span></div><div class="control"><kbd>F</kbd><span>Toggle the current session favorite.</span></div><div class="control"><kbd>L</kbd><span>Open favorite sessions.</span></div><div class="control"><kbd>V</kbd><span>Toggle the clean scene view.</span></div><div class="control"><kbd>S</kbd><span>Set BPM, volume, sleep timer, automatic dimming and motion.</span></div><div class="control"><kbd>I</kbd><span>Choose chord, melody and bass sounds; AUTO, 4/4, 3/4 or 6/8 meter.</span></div><div class="control"><kbd>E</kbd><span>Compare synth and hybrid engines.</span></div><div class="control"><kbd>H</kbd><span>Open the on-device key guide.</span></div><div class="control"><kbd>ENTER / ESC</kbd><span>Confirm a menu choice or go back.</span></div>
@@ -660,6 +713,7 @@ def render_index(
     box.querySelector('button').addEventListener('click', () => box.close());
     box.addEventListener('click', event => {{ if (event.target === box) box.close(); }});
   </script>
+  {player_script}
 </body>
 </html>
 """
@@ -682,7 +736,8 @@ def build_site(media_root: Path, output_root: Path) -> dict[str, Any]:
     audio_pairs = copy_audio(ROOT, output_root)
     copied_docs = copy_docs(ROOT, output_root)
     releases = copy_release(ROOT, output_root)
-    index = render_index(output_root, manifest, screens, copied_media, audio_pairs, releases, copied_docs)
+    player_files = copy_player(ROOT, output_root)
+    index = render_index(output_root, manifest, screens, copied_media, audio_pairs, releases, copied_docs, player_files)
     (output_root / "index.html").write_text(index, encoding="utf-8")
     site_manifest = {
         "schema_version": 1,
@@ -696,6 +751,7 @@ def build_site(media_root: Path, output_root: Path) -> dict[str, Any]:
             + [item["native"] for item in screens]
             + [item["scaled"] for item in screens],
             "audio": [entry["path"] for pair in audio_pairs for entry in pair["engines"] if entry.get("available")],
+            "player": player_files,
             "source_docs": copied_docs,
             "release_files": [entry["path"] for entry in releases],
         },

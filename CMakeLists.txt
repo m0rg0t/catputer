@@ -28,7 +28,7 @@ else()
   message(STATUS "SDL2 unavailable: audio and screenshot export remain available")
 endif()
 enable_testing()
-foreach(NAME music state controller storage ui output_gain timbre)
+foreach(NAME music state controller storage ui output_gain timbre plate_reverb)
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_${NAME}.cpp")
     add_executable(test_${NAME} tests/test_${NAME}.cpp)
     target_link_libraries(test_${NAME} PRIVATE lofi_core)
@@ -36,6 +36,12 @@ foreach(NAME music state controller storage ui output_gain timbre)
     add_test(NAME ${NAME} COMMAND test_${NAME})
   endif()
 endforeach()
+
+# The browser build's C interface, run natively against the same engine.
+add_executable(test_web_api tests/test_web_api.cpp web/catputer_web.cpp)
+target_link_libraries(test_web_api PRIVATE lofi_core)
+target_compile_options(test_web_api PRIVATE -UNDEBUG)
+add_test(NAME web_api COMMAND test_web_api)
 
 # Exercise the real pinned graphics conversion when its source is available.
 # Keep ordinary offline/native builds independent of Arduino dependencies.

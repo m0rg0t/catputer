@@ -1,6 +1,57 @@
 # Implementation and verification
 
-This is the development candidate for the accepted plan, version **0.1.11-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.12-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+
+## Plate reverb and slow drift · 0.1.12-dev
+
+This version changes the sound and leaves the score alone. [The engine notes](MUSIC_ENGINE.md#room-and-slow-drift--0112-dev) describe the reverb and the drift modulators. **Nothing here has run on the device.** Render time on the ADV was never measured before this change either, and the reverb adds per-sample work, so a device timing run is the first open item.
+
+| Check | Result |
+| --- | --- |
+| Score unchanged | All 13 pinned score hashes and event counts in `tests/test_music.cpp` are the 0.1.11-dev values; only the PCM hashes were re-pinned. The 216 score hashes in the [new matrix](evidence/v0112-music-matrix.json) equal those in the [0.1.11-dev matrix](evidence/v0111-music-matrix.json) |
+| 216-case matrix at 300% | 207,360,000 frames, zero clipped samples, zero dropped notes, zero score-rule violations; 12 voices and at most 32 steals per case, as before |
+| Native suites | 9 pass, including the new `plate_reverb` suite and a wow-cycle test; 54 Python tests pass |
+| Firmware build | 756,144 bytes, 554,576 under the compact profile (0.1.11-dev: 750,736) |
+| Linker static RAM | 94,008 bytes of 327,680 (0.1.11-dev: 67,384). The Engine object grew from 8,192 to 34,816 bytes for the reverb lines |
+| Host render cost | 600 s of Night/Synth took 1.44 s of CPU, against 1.21 s for 0.1.11-dev, about 19% more. This is a Mac figure, not an ESP32 one |
+
+Four 60-second 4/4 Synth renders of seed `0xCA7CAFE` at the default volume, against the 0.1.11-dev binary:
+
+| Mood | RMS before → after | Peak before → after (full scale = 1) |
+| --- | --- | --- |
+| Cozy | −27.8 → −27.1 dBFS | 0.262 → 0.264 |
+| Rainy | −28.0 → −27.3 dBFS | 0.263 → 0.266 |
+| Night | −28.3 → −26.8 dBFS | 0.253 → 0.249 |
+| Sunny | −27.6 → −27.2 dBFS | 0.247 → 0.246 |
+
+The reverb adds 0.4 to 1.5 dB of level and no peak. Its tail measures about 1.3 s (Sunny) to 2.1 s (Night) to −60 dB on a noise burst, and ends in exact digital silence. Whether the amount sounds right is a listening judgment nobody has made yet; the per-mood amounts are first guesses.
+
+### Browser player
+
+`web/catputer_web.cpp` is a C interface to the engine for a WebAssembly build, with an AudioWorklet (`web/worklet.js`) and page script (`web/player.js`). `tools/build_web.py` compiles it with Emscripten 7.0.0 into a 95,198-byte module with no imports.
+
+| Check | Result |
+| --- | --- |
+| Native `web_api` suite | The interface plays the same PCM as `Engine` in 128-frame blocks; mood, next-session and pause requests work |
+| Module in Node | 30 s of each mood for seed `0123456789abcdef` hashes identically to the native ARM build |
+| Worklet in a browser | An offline 32 kHz render of 8 s of Night through `worklet.js` hashes identically to the native build (`76205a07fde94435`), at −27.8 dBFS RMS |
+| Page in the desktop app's built-in browser | Play starts a session; mood, next session, pause and resume all take effect; no console errors; no horizontal overflow at 375 px |
+
+Not checked: how it sounds through speakers, Safari and Firefox, phones, and the Pages workflow step that installs Emscripten and builds the module. The site builder publishes the player only when `tools/build_web.py` has produced it.
+
+### Standalone full image
+
+`tools/build_full_image.py` packages `cardputer-lofi-<version>-full.bin` for a device without M5Apps: bootloader at `0x0`, the `default_8MB` partition table at `0x8000`, erased NVS and OTA data, and the application at `0x10000`. [The guide](INSTALL_FULL.md) says plainly that writing it replaces the installed launcher.
+
+| Check | Result |
+| --- | --- |
+| Layout | The 821,680-byte image is byte-identical to `esptool merge_bin` (esptool 4.11.0) of the same three PlatformIO outputs |
+| Bootloader | ESP32-S3 image, 8 MB flash setting; esptool reports a valid checksum and hash |
+| Partition table | MD5 verified; exactly one `ota_0` slot, an `otadata` partition, no overlaps, all inside 8 MB |
+| Application | The same validated bytes as the app-only BIN (identity marker, checksum, appended SHA-256) |
+| Tests | `tests/test_full_image.py`: layout, real build outputs, and rejection of wrong bootloaders and malformed tables |
+
+**The image has never been written to a device.** Boot from erased OTA data, audio, display and keys from this image are untested. The site does not offer it for download yet.
 
 ## Singable melody and tape character · 0.1.11-dev
 
