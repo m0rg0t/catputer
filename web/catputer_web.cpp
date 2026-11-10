@@ -15,6 +15,8 @@ constexpr std::uint32_t kBufferFrames = 1024;
 
 alignas(lofi::Engine) unsigned char engineStorage[sizeof(lofi::Engine)];
 lofi::Engine* engine = nullptr;
+std::uint64_t queuedSeed = 0;
+bool seedPending = false;
 std::int16_t buffer[kBufferFrames];
 std::uint8_t levels[lofi::kMusicInstrumentCount];
 
@@ -40,6 +42,7 @@ void catputer_init(std::uint32_t seedHigh, std::uint32_t seedLow, std::uint32_t 
     } else {
         engine->reset(config);
     }
+    seedPending = false;
 }
 
 std::uint32_t catputer_sample_rate() { return lofi::kMusicSampleRate; }
@@ -55,6 +58,12 @@ std::uint32_t catputer_render(std::uint32_t frames) {
         frames = kBufferFrames;
     }
     engine->render(buffer, frames);
+    // Commands and rendering share the worklet thread. Retain a Next seed
+    // until its queued transition completes, then follow the active session
+    // again (including the engine's automatic session advances).
+    if (frames != 0 && seedPending && !engine->snapshot().changePending) {
+        seedPending = false;
+    }
     return frames;
 }
 
@@ -64,13 +73,18 @@ void catputer_set_mood(std::uint32_t mood) {
         return;
     }
     lofi::Config config = engine->config();
+    if (seedPending) {
+        config.seed = queuedSeed;
+    }
     config.mood = moodFrom(mood);
     engine->requestConfig(config);
 }
 
 void catputer_next(std::uint32_t seedHigh, std::uint32_t seedLow) {
     if (engine != nullptr) {
-        engine->requestNext(joined(seedHigh, seedLow));
+        queuedSeed = joined(seedHigh, seedLow);
+        seedPending = true;
+        engine->requestNext(queuedSeed);
     }
 }
 

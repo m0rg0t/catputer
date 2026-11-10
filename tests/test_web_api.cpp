@@ -118,12 +118,88 @@ void testControlsAndLimits() {
     CHECK(first == renderWeb(32000, 128));
 }
 
+void waitForSession(std::uint32_t high, std::uint32_t low, std::uint32_t mood) {
+    for (int index = 0; index < 400; ++index) {
+        if (catputer_seed_high() == high && catputer_seed_low() == low &&
+            catputer_mood() == mood) {
+            return;
+        }
+        catputer_render(1024);
+    }
+    CHECK(catputer_seed_high() == high);
+    CHECK(catputer_seed_low() == low);
+    CHECK(catputer_mood() == mood);
+}
+
+void testMoodAndNextPreserveBothRequests() {
+    for (bool moodFirst : {false, true}) {
+        for (bool renderBetween : {false, true}) {
+            catputer_init(0, 123, 0);
+            catputer_render(128);
+            if (moodFirst) catputer_set_mood(1);
+            else catputer_next(0x11111111u, 456);
+            CHECK(catputer_render(0) == 0); // Does not consume pending commands.
+
+            // Cover both commands in one quantum and Next already consumed
+            // by the engine but still waiting for the bar boundary.
+            if (renderBetween) catputer_render(128);
+            if (moodFirst) catputer_next(0x11111111u, 456);
+            else catputer_set_mood(1);
+
+            catputer_render(128);
+            CHECK(catputer_seed_high() == 0);
+            CHECK(catputer_seed_low() == 123);
+            CHECK(catputer_mood() == 0);
+            waitForSession(0x11111111u, 456, 1);
+        }
+    }
+}
+
+void testLatestNextAndReset() {
+    catputer_init(0, 123, 0);
+    catputer_render(128);
+    catputer_next(1, 456);
+    catputer_render(128);
+    catputer_next(2, 789);
+    catputer_set_mood(2);
+    waitForSession(2, 789, 2);
+
+    // Reinitialization must discard the queued seed along with engine commands.
+    catputer_next(3, 999);
+    catputer_init(4, 321, 0);
+    catputer_render(128);
+    catputer_set_mood(1);
+    waitForSession(4, 321, 1);
+}
+
+void testMoodAfterAutomaticAdvanceKeepsCurrentSeed() {
+    catputer_init(0, 123, 0);
+    catputer_render(128);
+    catputer_next(1, 456);
+    waitForSession(1, 456, 0);
+
+    // Let the session finish naturally: a completed manual Next must not
+    // override a later automatically generated seed when the mood changes.
+    for (int index = 0; index < 20000 && catputer_seed_high() == 1 &&
+         catputer_seed_low() == 456; ++index) {
+        catputer_render(1024);
+    }
+    const std::uint32_t high = catputer_seed_high();
+    const std::uint32_t low = catputer_seed_low();
+    CHECK(high != 1 || low != 456);
+    catputer_set_mood(1);
+    waitForSession(high, low, 1);
+}
+
 } // namespace
 
 int main() {
     testBeforeInitIsHarmless();
     testMatchesTheEngine();
     testControlsAndLimits();
+    testMoodAndNextPreserveBothRequests();
+    testLatestNextAndReset();
+    testMoodAfterAutomaticAdvanceKeepsCurrentSeed();
     std::cout << "web api tests passed\n";
     return 0;
 }
