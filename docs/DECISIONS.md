@@ -32,6 +32,7 @@ Planning session: 2026-09-12.
 | Melodic lofi generation · schema 6 | User asked for more melodic and more recognisably lofi generation and approved schema 6 as designed: phrase-form melody, rootless ninth voicings, lazier groove, tape pitch drift, saturation and darker top, deeper kick response, vinyl texture. Schema-5 favorites become `OLD`; no bit-crushing |
 | Reverb and drift · 0.1.12-dev | After reviewing fm1-amb, the user chose a plate reverb and irregular drift modulators first. They keep the schema-6 score; favorites replay the same notes with a changed sound |
 | Borrowed techniques | Implement published methods (Dattorro's plate, later Toussaint's Euclidean rhythms) from the papers and cite them in THIRD_PARTY.md; copy no MPL-licensed code |
+| Licenses | MIT for code and documentation, CC BY 4.0 for artwork and sounds, chosen by the user on 2026-11-10 |
 | Public identity and delivery | Catputer, `m0rg0t/catputer`; publish the project site on GitHub Pages and provide application-only builds |
 
 ## Under discussion

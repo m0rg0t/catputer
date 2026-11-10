@@ -27,4 +27,4 @@ Firmware dependencies retain their own licenses; consult the pinned source distr
 
 Development-time ElevenLabs sound effects remain private, unapproved auditions. The built-in bank contains only the reproducible local sounds. Public distribution of a future generated pack requires a source/provenance and rights review for that pack.
 
-A project-wide public license has not been selected yet. Dependency notices and the project license should be finalized before a public release.
+Project code and documentation are under the MIT License (`LICENSE`); artwork and sounds are under CC BY 4.0 (`LICENSE-ASSETS.md`). Dependency notices should be reviewed again before a public release.

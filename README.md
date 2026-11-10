@@ -139,4 +139,4 @@ The room and cat masters were created with the built-in imagegen tool, then adap
 
 The [accepted plan](docs/PROJECT_PLAN.md), [architecture](docs/ARCHITECTURE.md), [delivery milestones](docs/DELIVERY.md) and [decisions](docs/DECISIONS.md) describe the direction. [Verification](docs/VERIFICATION.md) distinguishes implemented behavior from remaining acceptance work.
 
-This project uses original cat/room graphics and original procedural music. See [sources and dependency licenses](docs/THIRD_PARTY.md). A project license has not yet been selected.
+This project uses original cat/room graphics and original procedural music. Code and documentation are under the [MIT License](LICENSE); artwork and sounds are under [CC BY 4.0](LICENSE-ASSETS.md). See [sources and dependency licenses](docs/THIRD_PARTY.md).
