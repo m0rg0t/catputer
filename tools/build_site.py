@@ -37,6 +37,7 @@ REPOSITORY_URL = "https://github.com/m0rg0t/catputer"
 PUBLIC_DOCS = (
     "README.md",
     "docs/INSTALL.md",
+    "docs/INSTALL_FULL.md",
     "docs/VERIFICATION.md",
     "docs/THIRD_PARTY.md",
     "docs/EXPERIENCE.md",

@@ -107,6 +107,8 @@ python3 tools/build_release.py
 
 Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardputer `1.1.1`. No PSRAM is assumed. Output is mono PCM16 at 32 kHz, with twelve bounded voices, a half-rate plate reverb and fixed audio/scene storage. A post-build check enforces the conservative `0x140000` byte app profile.
 
+For a device without M5Apps, `python3 tools/build_full_image.py` also packages a standalone whole-flash image (bootloader, partition table and application). Writing it replaces the installed launcher; see [the full-image guide](docs/INSTALL_FULL.md). It has not been written to a device yet.
+
 Use **M5Apps → Installer → SD** with the application BIN. Follow the [installation guide](docs/INSTALL.md), including compatibility and SD details. The project does not include a whole-device flash or erase script. Build/package commands never flash the device.
 
 ## Samples, screenshots and site

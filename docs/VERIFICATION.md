@@ -39,6 +39,20 @@ The reverb adds 0.4 to 1.5 dB of level and no peak. Its tail measures about 1.3 
 
 Not checked: how it sounds through speakers, Safari and Firefox, phones, and the Pages workflow step that installs Emscripten and builds the module. The site builder publishes the player only when `tools/build_web.py` has produced it.
 
+### Standalone full image
+
+`tools/build_full_image.py` packages `cardputer-lofi-<version>-full.bin` for a device without M5Apps: bootloader at `0x0`, the `default_8MB` partition table at `0x8000`, erased NVS and OTA data, and the application at `0x10000`. [The guide](INSTALL_FULL.md) says plainly that writing it replaces the installed launcher.
+
+| Check | Result |
+| --- | --- |
+| Layout | The 821,680-byte image is byte-identical to `esptool merge_bin` (esptool 4.11.0) of the same three PlatformIO outputs |
+| Bootloader | ESP32-S3 image, 8 MB flash setting; esptool reports a valid checksum and hash |
+| Partition table | MD5 verified; exactly one `ota_0` slot, an `otadata` partition, no overlaps, all inside 8 MB |
+| Application | The same validated bytes as the app-only BIN (identity marker, checksum, appended SHA-256) |
+| Tests | `tests/test_full_image.py`: layout, real build outputs, and rejection of wrong bootloaders and malformed tables |
+
+**The image has never been written to a device.** Boot from erased OTA data, audio, display and keys from this image are untested. The site does not offer it for download yet.
+
 ## Singable melody and tape character · 0.1.11-dev
 
 Generation schema 6 changes the score and PCM for every seed; [the engine notes](MUSIC_ENGINE.md#singable-melody-and-tape-character--schema-6) describe the rules. Everything below is a host measurement or a rule check, except one physical observation: on 2026-10-02 the user ran this build on their Cardputer ADV, started from M5Apps, and reported that it works and sounds better than the previous version. That is a single informal listen. It did not measure render deadlines, heap, long-run stability or battery life.

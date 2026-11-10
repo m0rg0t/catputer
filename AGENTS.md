@@ -22,6 +22,7 @@ The user accepted the plan and authorized implementation and local Git initializ
 ## M5Apps and releases
 
 - Ordinary releases contain an ESP32-S3 application BIN, checked against the declared compatibility profile, plus explicitly selected optional resources.
+- A standalone whole-flash image (`tools/build_full_image.py`) is a separate, explicitly labeled package for devices without M5Apps. It replaces the launcher, so never present it as an update for an M5Apps installation.
 - Prefer M5Apps Installer → SD for installation. Do not reuse another project's serial flash offset or assume an upstream launcher partition is the user's application slot.
 - Before any direct USB application update, inspect the actual partition layout and verify the intended installed application identity, target bounds and neighboring regions. Do not automate a write when identity is ambiguous.
 - Do not erase or rewrite the launcher, partition table, apps_nvs or other applications as part of an ordinary update. Full recovery is a separately scoped operation.
