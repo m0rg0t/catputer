@@ -163,7 +163,8 @@ bool validConfig(const Config& config) noexcept;
 class Engine {
 public:
     // Keep long-lived Engine instances in static/application storage on the
-    // device; the object contains its delay line and all render state.
+    // device; the object contains its delay and reverb lines (about 34 KB) and all
+    // render state.
     explicit Engine(const Config& config = Config{}) noexcept;
     ~Engine();
 
@@ -204,7 +205,7 @@ public:
 
 private:
     struct Impl;
-    static constexpr std::size_t kStorageBytes = 8192;
+    static constexpr std::size_t kStorageBytes = 34816;
     alignas(std::max_align_t) std::uint8_t storage_[kStorageBytes];
 
     Impl& impl() noexcept;

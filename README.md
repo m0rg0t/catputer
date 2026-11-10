@@ -7,7 +7,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 ![Sunny room, rendered on desktop](docs/media/scene-day.gif)
 ![Night room, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.11-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update rewrites the melody into repeating eight-bar phrases, adds ninth chords and a lazier groove, and gives the mix tape-style pitch drift, saturation and vinyl texture. It changes the generated music, so earlier favorites are listed as `OLD`. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Development candidate · 0.1.12-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a small plate reverb and slow, irregular tape drift. The notes are unchanged: schema-6 favorites replay the same tune, in a roomier sound. Version 0.1.11-dev rewrote the melody into repeating eight-bar phrases with ninth chords, a lazier groove and tape-style saturation. The new reverb has not been heard or timed on the device. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -68,7 +68,7 @@ Open **S → SLEEP** to cycle Off / 30 / 60 / 90 minutes. The final 30 seconds f
 
 Open **S → AUTO DIM** for Off / 30 / 60 / 120 seconds. The default is 60 seconds, then the backlight dims to at most 10%. The first keypress only wakes the screen; press again to perform its action. The auto-dim preference is saved with SD settings.
 
-Version 0.1.11-dev uses generation schema 6 (`lofi6-` favorite codes). The same seed now composes a different tune, so favorites saved by 0.1.8-dev to 0.1.10-dev no longer replay. Save format 5 keeps its 192-byte layout; valid formats 1–4 migrate. Schema-1 to schema-5 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
+Version 0.1.12-dev keeps generation schema 6 (`lofi6-` favorite codes): a favorite saved by 0.1.11-dev replays the same notes, now with the reverb and drift of this version. Schema 6 arrived in 0.1.11-dev and composes a different tune from the same seed, so favorites saved by 0.1.8-dev to 0.1.10-dev no longer replay. Save format 5 keeps its 192-byte layout; valid formats 1–4 migrate. Schema-1 to schema-5 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
 
 ## Compare the sound engines
 
@@ -105,7 +105,7 @@ pio run -d firmware -e lofi-adv
 python3 tools/build_release.py
 ```
 
-Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardputer `1.1.1`. No PSRAM is assumed. Output is mono PCM16 at 32 kHz, with twelve bounded voices and fixed audio/scene storage. A post-build check enforces the conservative `0x140000` byte app profile.
+Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardputer `1.1.1`. No PSRAM is assumed. Output is mono PCM16 at 32 kHz, with twelve bounded voices, a half-rate plate reverb and fixed audio/scene storage. A post-build check enforces the conservative `0x140000` byte app profile.
 
 Use **M5Apps → Installer → SD** with the application BIN. Follow the [installation guide](docs/INSTALL.md), including compatibility and SD details. The project does not include a whole-device flash or erase script. Build/package commands never flash the device.
 
@@ -124,6 +124,8 @@ python3 tools/verify_music.py --seconds 30
 python3 tools/build_site.py
 python3 -m http.server 8080 --directory build/site
 ```
+
+`python3 tools/build_web.py` compiles the same music engine to WebAssembly for a live player on the site; it needs Emscripten's `em++` (built here with 7.0.0). When `build/web` is complete, `build_site.py` adds a "Live" section with Play, mood and next-session controls. The 95 KB module plays the same PCM as the native build. The Pages workflow installs Emscripten and builds it; that workflow step has not run yet.
 
 The [GitHub Pages workflow](.github/workflows/pages.yml) rebuilds the firmware, native screenshots, both scene animations and eight audio demos on each push to `main`, then publishes only the generated `build/site` directory. It can also be run manually from GitHub Actions. No audio-generation API keys are needed. See [site deployment](docs/DELIVERY.md#github-pages-deployment) for details.
 
