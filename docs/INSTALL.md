@@ -7,7 +7,7 @@ This is an **application-only development image**, built against a conservative 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.12-dev.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.12.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
