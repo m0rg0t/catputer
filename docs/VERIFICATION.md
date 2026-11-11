@@ -1,10 +1,10 @@
 # Implementation and verification
 
-This is the development candidate for the accepted plan, version **0.1.12-dev**. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.12**. The `-dev` suffix is gone because this build is the first one prepared for a public catalog; the status is unchanged. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
 
 ## Plate reverb and slow drift · 0.1.12-dev
 
-This version changes the sound and leaves the score alone. [The engine notes](MUSIC_ENGINE.md#room-and-slow-drift--0112-dev) describe the reverb and the drift modulators. **Nothing here has run on the device.** Render time on the ADV was never measured before this change either, and the reverb adds per-sample work, so a device timing run is the first open item.
+This version changes the sound and leaves the score alone. [The engine notes](MUSIC_ENGINE.md#room-and-slow-drift--0112-dev) describe the reverb and the drift modulators. **One listening report from the device.** On 2026-11-11 the user ran the 0.1.12-dev full image on a Cardputer ADV and said the sound is fine and pleasant overall, with artifacts that were there before the reverb. No recording was made and the artifacts were not identified. Render time on the ADV has never been measured, and the reverb adds per-sample work, so a device timing run is still the first open item.
 
 | Check | Result |
 | --- | --- |
@@ -24,7 +24,7 @@ Four 60-second 4/4 Synth renders of seed `0xCA7CAFE` at the default volume, agai
 | Night | −28.3 → −26.8 dBFS | 0.253 → 0.249 |
 | Sunny | −27.6 → −27.2 dBFS | 0.247 → 0.246 |
 
-The reverb adds 0.4 to 1.5 dB of level and no peak. Its tail measures about 1.3 s (Sunny) to 2.1 s (Night) to −60 dB on a noise burst, and ends in exact digital silence. Whether the amount sounds right is a listening judgment nobody has made yet; the per-mood amounts are first guesses.
+The reverb adds 0.4 to 1.5 dB of level and no peak. Its tail measures about 1.3 s (Sunny) to 2.1 s (Night) to −60 dB on a noise burst, and ends in exact digital silence. The user's first listen on the ADV (2026-11-11) found the result pleasant overall; the per-mood amounts were not compared one by one and remain first guesses.
 
 ### Browser player
 
@@ -51,7 +51,7 @@ Not checked: how it sounds through speakers, Safari and Firefox, phones, and the
 | Application | The same validated bytes as the app-only BIN (identity marker, checksum, appended SHA-256) |
 | Tests | `tests/test_full_image.py`: layout, real build outputs, and rejection of wrong bootloaders and malformed tables |
 
-**The image has never been written to a device.** Boot from erased OTA data, audio, display and keys from this image are untested. The site does not offer it for download yet.
+**One physical test, 2026-11-11.** The 0.1.12-dev image (SHA-256 `98528bfe…3424aee`, 821,680 bytes) was written at `0x0` to one Cardputer ADV (ESP32-S3, 8 MB embedded flash) that previously held M5Apps; esptool reported the written data's hash as verified. The owner then checked it by hand and reported that it passed: Catputer starts directly with no launcher, music plays, the keys work (mood, next track, pause, volume), the animation runs, settings persist with the SD card, and it starts again after a power cycle. This shows boot from erased OTA data on that unit. It is a user report on one device, not a measurement: there is no recording, no timing or underrun data, and no long-session evidence from this image. The site does not offer the image for download yet.
 
 ## Singable melody and tape character · 0.1.11-dev
 

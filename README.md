@@ -7,7 +7,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 ![Sunny room, rendered on desktop](docs/media/scene-day.gif)
 ![Night room, rendered on desktop](docs/media/scene.gif)
 
-**Development candidate · 0.1.12-dev.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a small plate reverb and slow, irregular tape drift. The notes are unchanged: schema-6 favorites replay the same tune, in a roomier sound. Version 0.1.11-dev rewrote the melody into repeating eight-bar phrases with ninth chords, a lazier groove and tape-style saturation. The new reverb has not been heard or timed on the device. Physical audio quality, display, timing, SD behavior and launcher return still need device verification. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Version 0.1.12 · development candidate.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a small plate reverb and slow, irregular tape drift. The notes are unchanged: schema-6 favorites replay the same tune, in a roomier sound. Version 0.1.11-dev rewrote the melody into repeating eight-bar phrases with ninth chords, a lazier groove and tape-style saturation. On 2026-11-11 the user ran this build on a Cardputer ADV from the standalone full image and reported that the sound is pleasant overall, with artifacts that were already there before the reverb. That is one listening report: render timing, display and long sessions are not measured, and the M5Apps package of this version was not installed. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -68,7 +68,7 @@ Open **S → SLEEP** to cycle Off / 30 / 60 / 90 minutes. The final 30 seconds f
 
 Open **S → AUTO DIM** for Off / 30 / 60 / 120 seconds. The default is 60 seconds, then the backlight dims to at most 10%. The first keypress only wakes the screen; press again to perform its action. The auto-dim preference is saved with SD settings.
 
-Version 0.1.12-dev keeps generation schema 6 (`lofi6-` favorite codes): a favorite saved by 0.1.11-dev replays the same notes, now with the reverb and drift of this version. Schema 6 arrived in 0.1.11-dev and composes a different tune from the same seed, so favorites saved by 0.1.8-dev to 0.1.10-dev no longer replay. Save format 5 keeps its 192-byte layout; valid formats 1–4 migrate. Schema-1 to schema-5 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
+Version 0.1.12 keeps generation schema 6 (`lofi6-` favorite codes): a favorite saved by 0.1.11-dev replays the same notes, now with the reverb and drift of this version. Schema 6 arrived in 0.1.11-dev and composes a different tune from the same seed, so favorites saved by 0.1.8-dev to 0.1.10-dev no longer replay. Save format 5 keeps its 192-byte layout; valid formats 1–4 migrate. Schema-1 to schema-5 favorites stay visible as `OLD` and removable, with replay requiring their earlier firmware. Keep an earlier state backup before downgrading: older firmware cannot read format 5.
 
 ## Compare the sound engines
 
@@ -107,7 +107,7 @@ python3 tools/build_release.py
 
 Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardputer `1.1.1`. No PSRAM is assumed. Output is mono PCM16 at 32 kHz, with twelve bounded voices, a half-rate plate reverb and fixed audio/scene storage. A post-build check enforces the conservative `0x140000` byte app profile.
 
-For a device without M5Apps, `python3 tools/build_full_image.py` also packages a standalone whole-flash image (bootloader, partition table and application). Writing it replaces the installed launcher; see [the full-image guide](docs/INSTALL_FULL.md). It has not been written to a device yet.
+For a device without M5Apps, `python3 tools/build_full_image.py` also packages a standalone whole-flash image (bootloader, partition table and application). Writing it replaces the installed launcher; see [the full-image guide](docs/INSTALL_FULL.md). It was written to one Cardputer ADV on 2026-11-11 and its owner reported that startup, music, keys and SD settings work from it; nothing was measured.
 
 Use **M5Apps → Installer → SD** with the application BIN. Follow the [installation guide](docs/INSTALL.md), including compatibility and SD details. The project does not include a whole-device flash or erase script. Build/package commands never flash the device.
 
