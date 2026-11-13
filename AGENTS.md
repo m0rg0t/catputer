@@ -4,7 +4,7 @@ The user accepted the plan and authorized implementation and local Git initializ
 
 ## Product
 
-- Target the stock M5Stack Cardputer ADV with ESP32-S3FN8. Do not assume PSRAM or original-Cardputer codec/keyboard compatibility.
+- Target the stock M5Stack Cardputer ADV with ESP32-S3FN8. Do not assume PSRAM. The original Cardputer is allowed to start the app but has never been tested: keep it labeled untested everywhere until someone reports a physical run, and do not tune ADV behavior for it on guesses.
 - Music must be composed and rendered on the device, offline. Bundled instrument samples, if selected, are sound sources; they must not replace generation with prerecorded songs or backing loops.
 - Keep the pure-synthesis versus sample-assisted choice open until the documented comparison and user decision.
 - Prioritize uninterrupted music over animation frame rate or background work.

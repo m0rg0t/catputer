@@ -182,6 +182,7 @@ def build_release(root=ROOT, bin_path=None):
         "version": version,
         "status": "development_candidate",
         "target": "ESP32-S3 / Cardputer ADV",
+        "untested_targets": ["Original Cardputer (never run on hardware)"],
         "hardware_verified": False,
         "installation_tested": False,
         "app_only": True,

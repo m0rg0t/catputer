@@ -165,7 +165,11 @@ void setup() {
     // Frame::rowRgb565 emits host-order words. M5GFX 0.2.22 otherwise treats
     // uint16_t image data as already swapped for the LCD, scrambling colors.
     M5Cardputer.Display.setSwapBytes(true);
-    if(M5.getBoard()!=m5::board_t::board_M5CardputerADV) {fail("Cardputer ADV required");return;}
+    // The ADV is the tested target. The original Cardputer shares the I2S,
+    // SD and battery pins in the pinned libraries and gets its matrix keyboard
+    // reader from M5Cardputer; that path has never run on real hardware.
+    const auto board=M5.getBoard();
+    if(board!=m5::board_t::board_M5CardputerADV && board!=m5::board_t::board_M5Cardputer) {fail("Cardputer or Cardputer ADV required");return;}
     // No Wi-Fi/BLE or generic NVS initialization: built-in playback is offline.
     SPI.begin(40,39,14,12);sdMounted=SD.begin(12,SPI,10000000) && SD.cardType()!=CARD_NONE;
     if(sdMounted) {
@@ -183,7 +187,7 @@ void setup() {
     // Mono mixing in pinned M5Unified doubles the sample. With magnification
     // 8 the remaining driver gain is <1; OutputGain applies the old 2x boost
     // before its limiter instead of allowing the driver's final clamp to clip.
-    speaker.magnification=OutputGain::kAdvSpeakerMagnification;
+    speaker.magnification=OutputGain::kSpeakerMagnification;
     speaker.dma_buf_len=256;speaker.dma_buf_count=4;speaker.task_priority=4;speaker.task_pinned_core=1;
     M5Cardputer.Speaker.config(speaker);
     if(!M5Cardputer.Speaker.begin()) {fail("Audio initialization failed");return;}
@@ -199,6 +203,7 @@ void setup() {
     published=engine.snapshot();
     if(xTaskCreatePinnedToCore(audioTask,"lofi-audio",6144,nullptr,3,nullptr,1)!=pdPASS) {fail("Audio worker allocation failed");return;}
     ready=true;drawFrame();
+    Serial.printf("board=%s\n",board==m5::board_t::board_M5CardputerADV?"cardputer-adv":"cardputer-original-untested");
     Serial.printf("%s ready. SD=%d heap=%u largest=%u scene=%u engine=%u\n",kBuildIdentity,sdMounted,ESP.getFreeHeap(),heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),unsigned(Frame::packedBytes),unsigned(sizeof(Engine)));
 }
 

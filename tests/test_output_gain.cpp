@@ -90,7 +90,7 @@ void testDriverAndPcmBounds() {
     // Pinned M5Unified 0.2.17 duplicates mono L/R, squares master/channel
     // volume, and shifts its mixer by 8. Magnification8 keeps its final PCM
     // conversion below unity; magnification16 would be about 1.97x.
-    constexpr double driverGain = 2.0 * OutputGain::kAdvSpeakerMagnification *
+    constexpr double driverGain = 2.0 * OutputGain::kSpeakerMagnification *
         255.0 * 255.0 * 255.0 * 255.0 / 68719476736.0;
     static_assert(driverGain < 1.0);
     static_assert(driverGain * OutputGain::kLimiterCeiling < INT16_MAX);

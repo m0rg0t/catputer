@@ -1,13 +1,15 @@
 # Installing the development candidate
 
-Target: **M5Stack Cardputer ADV**, ESP32-S3 with ES8311 audio. The original Cardputer is not supported by this build.
+Target: **M5Stack Cardputer ADV**, ESP32-S3 with ES8311 audio.
+
+> **Original Cardputer: untested.** From 0.1.13-dev the app no longer refuses to start on the original Cardputer, but it has never been run on one. Whether a launcher on that device accepts this BIN, how loud the speaker is, and whether the keys, battery reading and SD card behave are all unknown. The original has no headphone jack. Start at the lowest volume.
 
 This is an **application-only development image**, built against a conservative `0x140000` byte application capacity. Physical installation, audio output, two-hour device stability and return to the launcher have not yet been tested. That capacity is a build limit, not a universal M5Apps partition size.
 
 ## Existing M5Apps installation
 
 1. Verify `SHA256SUMS` for the package. On macOS/Linux use `shasum -a 256 -c SHA256SUMS` from the extracted folder.
-2. Copy `cardputer-lofi-0.1.12.bin` to an SD card.
+2. Copy `cardputer-lofi-0.1.13-dev.bin` to an SD card.
 3. On the device, open **M5Apps → Installer → SD**, select the BIN and use the installer's compatible application slot.
 4. Launch the installed app. Start at low volume and test the speaker and headphone output separately.
 5. The built-in scene, music engines and instrument bank work without SD. To test that baseline, power down, remove SD, and restart the app.
