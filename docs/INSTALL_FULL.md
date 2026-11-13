@@ -1,6 +1,8 @@
 # Standalone full image
 
-Target: **M5Stack Cardputer ADV** (ESP32-S3FN8, 8 MB flash). The original Cardputer is not supported.
+Target: **M5Stack Cardputer ADV** (ESP32-S3FN8, 8 MB flash).
+
+> **Original Cardputer: untested.** From 0.1.13-dev the application inside this image also starts on the original Cardputer, which uses the same ESP32-S3FN8 with 8 MB flash. Nobody has written this image to an original Cardputer or run the app on one. The physical test below was on an ADV only. If you try it, keep a way to restore your device and start at the lowest volume.
 
 `cardputer-lofi-<version>-full.bin` is a whole-flash image for a device that should start Catputer directly, with no launcher. It holds the bootloader, the partition table and the application.
 

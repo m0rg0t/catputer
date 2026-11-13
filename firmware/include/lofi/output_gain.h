@@ -15,7 +15,9 @@ namespace lofi {
 class OutputGain {
 public:
     static constexpr unsigned kMaxPercent = 300;
-    static constexpr unsigned kAdvSpeakerMagnification = 8; // Pinned M5Unified 0.2.17, mono.
+    // Digital gain only, so the bound holds for the original Cardputer's NS4168
+    // too. Its analog loudness is unmeasured.
+    static constexpr unsigned kSpeakerMagnification = 8; // Pinned M5Unified 0.2.17, mono.
     static constexpr unsigned kRampFrames = 320; // 10 ms at 32 kHz.
     static constexpr int kLimiterKnee = 24576;
     static constexpr int kLimiterCeiling = 32700;

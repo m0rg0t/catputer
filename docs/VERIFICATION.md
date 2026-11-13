@@ -1,6 +1,21 @@
 # Implementation and verification
 
-This is the development candidate for the accepted plan, version **0.1.12**. The `-dev` suffix is gone because this build is the first one prepared for a public catalog; the status is unchanged. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+This is the development candidate for the accepted plan, version **0.1.13-dev**. Version 0.1.12 was the first build prepared for a public catalog; the status is unchanged. It keeps both sound candidates available for listening and physical testing. The production engine has not been selected.
+
+## Original Cardputer · built blind, untested
+
+Version 0.1.13-dev stops rejecting the original M5Stack Cardputer at startup. **No original Cardputer was available: nothing in this section was run on hardware.** The music, the score and the ADV code path are unchanged.
+
+What the change rests on is a reading of the pinned libraries, not a measurement:
+
+- M5GFX 0.2.22 tells the two boards apart by the pull-ups on G8/G9 and reports `board_M5Cardputer` or `board_M5CardputerADV`.
+- M5Unified 0.2.17 uses the same speaker pins for both (BCK G41, WS G43, data G42, I2S port 1), the same SD pins (G40/G14/G39/G12) and the same battery ADC channel (G10). Only the ADV gets the ES8311 setup callback; the app's own codec shutdown writes are already skipped on other boards.
+- M5Cardputer 1.1.1 selects its GPIO matrix keyboard reader for the original and the TCA8418 reader for the ADV, behind the same key-list interface the app uses.
+- The driver gain is digital and identical on both boards, so the bound checked in `test_output_gain` (magnification 8 gives about 0.98× at I2S) holds for the original as well.
+
+Unknown on the original Cardputer, and to be treated as such: whether the board is detected as expected, speaker loudness and distortion through the NS4168 amplifier, key scanning and held-key volume repeat, the battery percentage, SD behavior, render timing, and installation through any launcher or the full image. The original has no headphone jack, so there is no second output to fall back on.
+
+Serial output at startup now names the detected board (`board=cardputer-adv` or `board=cardputer-original-untested`), and both package manifests list the original Cardputer under `untested_targets`.
 
 ## Plate reverb and slow drift · 0.1.12-dev
 

@@ -126,6 +126,7 @@ def build_full_image(root=ROOT):
         "version": version,
         "status": "development_candidate",
         "target": "ESP32-S3FN8 / Cardputer ADV, 8 MB flash",
+        "untested_targets": ["Original Cardputer (never run on hardware)"],
         "hardware_verified": False,
         "installation_tested": False,
         "app_only": False,

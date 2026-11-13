@@ -7,7 +7,7 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 ![Sunny room, rendered on desktop](docs/media/scene-day.gif)
 ![Night room, rendered on desktop](docs/media/scene.gif)
 
-**Version 0.1.12 · development candidate.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a small plate reverb and slow, irregular tape drift. The notes are unchanged: schema-6 favorites replay the same tune, in a roomier sound. Version 0.1.11-dev rewrote the melody into repeating eight-bar phrases with ninth chords, a lazier groove and tape-style saturation. On 2026-11-11 the user ran this build on a Cardputer ADV from the standalone full image and reported that the sound is pleasant overall, with artifacts that were already there before the reverb. That is one listening report: render timing, display and long sessions are not measured, and the M5Apps package of this version was not installed. This is an independent project, inspired by the atmosphere of cozy study radio.
+**Version 0.1.13-dev · development candidate.** The native preview and firmware share the music engine and 240 × 135 drawing code. This update adds a small plate reverb and slow, irregular tape drift. The notes are unchanged: schema-6 favorites replay the same tune, in a roomier sound. Version 0.1.11-dev rewrote the melody into repeating eight-bar phrases with ninth chords, a lazier groove and tape-style saturation. On 2026-11-11 the user ran this build on a Cardputer ADV from the standalone full image and reported that the sound is pleasant overall, with artifacts that were already there before the reverb. That is one listening report: render timing, display and long sessions are not measured, and the M5Apps package of this version was not installed. This is an independent project, inspired by the atmosphere of cozy study radio.
 
 ## What works in this implementation
 
@@ -24,6 +24,8 @@ An offline, endless lofi radio for **M5Stack Cardputer ADV**. The ESP32-S3 compo
 - A native SDL preview, deterministic WAV exports, real-code screenshot exports, sample tools and a local site generator.
 
 External SD sample/scene packs and a final production engine choice remain later milestones. The hybrid bank is generated locally during development; it contains sound sources, not prerecorded songs. ElevenLabs effects are optional development auditions and are not bundled.
+
+**Original Cardputer: untested.** From 0.1.13-dev the same BIN also starts on the original M5Stack Cardputer instead of stopping with an error. This was done from the pinned libraries' pin tables and board detection, without a device: nobody has run it on an original Cardputer. Sound level, the matrix keyboard, the battery reading and installation are all unknown there. Start at low volume, and please [report what you find](https://github.com/m0rg0t/catputer/issues). Details are in [the verification notes](docs/VERIFICATION.md#original-cardputer--built-blind-untested).
 
 **Bluetooth audio:** the stock ADV's ESP32-S3 supports Bluetooth LE data, but neither Classic Bluetooth/A2DP nor LE Audio. Direct pairing with Bluetooth headphones/speakers is therefore unavailable. A standalone Bluetooth **transmitter** with a 3.5 mm analog input can use the ADV's headphone output; pairing belongs to that transmitter. An on-device wireless-output selector would require a supported external audio module or a separate network bridge. See [audio-output constraints](docs/ARCHITECTURE.md#bluetooth-audio-feasibility).
 
