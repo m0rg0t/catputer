@@ -8,7 +8,7 @@ Target: **M5Stack Cardputer ADV** (ESP32-S3FN8, 8 MB flash).
 
 > **This replaces what is on the device.** Writing it at offset `0x0` overwrites the bootloader, the partition table and the first application slot. An M5Apps or M5Launcher installation and the apps inside it stop being reachable. To get them back, flash that launcher again with its own tool (for example M5Burner). If you use M5Apps and want to keep it, use the ordinary app package and [INSTALL.md](INSTALL.md) instead.
 
-**Status: one physical test.** On 2026-11-11 the 0.1.12-dev image, and then the 0.1.12 image, was written to one Cardputer ADV with esptool at `0x0`, esptool verified the written data, and the owner reported that startup, music, keys, animation, SD settings and a power cycle all worked. That is a hands-on report from one device; timing and long sessions from this image were not measured. It is built from the same application as the M5Apps package, and its layout is checked on the build machine.
+**Status: one physical test.** On 2026-11-11 the 0.1.12-dev image, then the 0.1.12 image, and on 2026-11-13 the 0.1.13-dev image, was written to one Cardputer ADV with esptool at `0x0`, esptool verified the written data, and the owner reported that startup, music, keys, animation, SD settings and a power cycle all worked. That is a hands-on report from one device; timing and long sessions from this image were not measured. It is built from the same application as the M5Apps package, and its layout is checked on the build machine.
 
 ## What is inside
 

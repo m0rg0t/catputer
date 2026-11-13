@@ -15,6 +15,8 @@ What the change rests on is a reading of the pinned libraries, not a measurement
 
 Unknown on the original Cardputer, and to be treated as such: whether the board is detected as expected, speaker loudness and distortion through the NS4168 amplifier, key scanning and held-key volume repeat, the battery percentage, SD behavior, render timing, and installation through any launcher or the full image. The original has no headphone jack, so there is no second output to fall back on.
 
+**ADV regression check, 2026-11-13.** The 0.1.13-dev full image (SHA-256 `ff7a0cbf…16eb14f`, 821,792 bytes) was written at `0x0` to the same Cardputer ADV, over the 0.1.12 image; esptool verified the written data. The owner reported that it starts, plays and responds to keys as before. That is a hands-on report from one ADV, with nothing measured, and it says nothing about the original Cardputer.
+
 Serial output at startup now names the detected board (`board=cardputer-adv` or `board=cardputer-original-untested`), and both package manifests list the original Cardputer under `untested_targets`.
 
 ## Plate reverb and slow drift · 0.1.12-dev
