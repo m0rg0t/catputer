@@ -113,4 +113,36 @@ class SiteBoundaries(unittest.TestCase):
             self.assertEqual(section.count('data-mood='),4)
             self.assertEqual(section.count('data-live="level"'),7)
 
+    def test_usb_manifest_targets_only_the_checked_standalone_bin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / 'build/site'
+            package = root / 'dist/cardputer-lofi-0.1.13-dev-full'
+            package.mkdir(parents=True)
+            binary = package / f'{package.name}.bin'
+            payload = b'standalone firmware'
+            binary.write_bytes(payload)
+            (package / 'device-backup.bin').write_bytes(b'private')
+            expected_sha = hashlib.sha256(payload).hexdigest()
+            metadata = {'version': '0.1.13-dev', 'files': {binary.name: {'sha256': expected_sha}}}
+
+            with patch.object(build_site, 'OUTPUT_ROOT', output), patch.object(
+                build_site, 'build_full_image', return_value=(package.with_name(package.name + '.zip'), metadata)
+            ):
+                installer = build_site.publish_web_installer(root, output)
+                manifest_path = output / installer['manifest']
+                manifest = json.loads(manifest_path.read_text())
+                self.assertEqual(manifest['version'], metadata['version'])
+                self.assertTrue(manifest['new_install_prompt_erase'])
+                self.assertEqual(manifest['builds'], [{
+                    'chipFamily': 'ESP32-S3', 'parts': [{'path': binary.name, 'offset': 0}],
+                }])
+                self.assertEqual(manifest_path.parent / binary.name, output / installer['image'])
+                self.assertEqual((output / installer['image']).read_bytes(), payload)
+                self.assertEqual(sorted(p.name for p in manifest_path.parent.iterdir()), [binary.name, 'manifest.json'])
+
+                binary.write_bytes(b'changed')
+                with self.assertRaisesRegex(ValueError, 'Standalone firmware SHA-256 mismatch'):
+                    build_site.publish_web_installer(root, output)
+
 if __name__=='__main__':unittest.main()

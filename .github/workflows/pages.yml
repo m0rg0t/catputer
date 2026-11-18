@@ -68,7 +68,7 @@ jobs:
       - name: Package firmware and build public site
         run: |
           python tools/build_release.py
-          python tools/build_site.py
+          python tools/build_site.py --web-installer
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5

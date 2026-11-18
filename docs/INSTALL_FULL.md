@@ -21,7 +21,16 @@ Target: **M5Stack Cardputer ADV** (ESP32-S3FN8, 8 MB flash).
 
 The image ends with the application. Flash beyond it is not written.
 
-## Writing it
+## Install from the browser
+
+1. Open [Install Catputer](https://m0rg0t.github.io/catputer/#install) in desktop Chrome or Edge.
+2. Switch the Cardputer ADV off. Hold **G0** while connecting it to your computer with a USB-C data cable, then release **G0**.
+3. Under **Install over USB**, confirm that you want to replace the current firmware, select **Connect and install**, and choose the Cardputer ADV's serial port.
+4. Choose **Install Catputer Standalone**, leave **Erase device** unchecked, and confirm the installation. Restart the device if it stays in download mode. Start at low volume.
+
+The browser uses the standalone image at `0x0`, so it replaces the launcher even with **Erase device** unchecked. The browser flow has yet to be tested on physical hardware. See the [Cardputer ADV download mode guide from M5Stack](https://docs.m5stack.com/en/guide/cardputer_adv/restore_factory) for button and switch locations.
+
+## Install from a downloaded image
 
 1. Verify the download: `shasum -a 256 -c SHA256SUMS` in the extracted folder.
 2. Put the Cardputer ADV in download mode: hold **G0** while switching it on or pressing reset, with USB connected.
@@ -34,7 +43,7 @@ The image ends with the application. Flash beyond it is not written.
    Check the port first; writing to the wrong serial device can damage another board. Browser flashers based on ESP Web Tools and M5Burner's custom-firmware option also write a single image at `0x0`.
 4. Reset the device. Start at low volume.
 
-This project ships no flashing script and its build tools never write to a device.
+Build tools never write to a device.
 
 ## Differences from the M5Apps install
 

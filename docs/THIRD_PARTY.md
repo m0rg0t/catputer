@@ -25,6 +25,8 @@ Firmware dependencies retain their own licenses; consult the pinned source distr
 | Emscripten (browser player build only) | 7.0.0 | MIT / University of Illinois-NCSA; https://github.com/emscripten-core/emscripten |
 | SDL2 (desktop only) | Host dependency | zlib; https://github.com/libsdl-org/SDL |
 
+The website's standalone USB installer loads [ESP Web Tools 10.4.0](https://github.com/esphome/esp-web-tools/tree/10.4.0) (Apache-2.0) from jsDelivr.
+
 Development-time ElevenLabs sound effects remain private, unapproved auditions. The built-in bank contains only the reproducible local sounds. Public distribution of a future generated pack requires a source/provenance and rights review for that pack.
 
 Project code and documentation are under the MIT License (`LICENSE`); artwork and sounds are under CC BY 4.0 (`LICENSE-ASSETS.md`). Dependency notices should be reviewed again before a public release.

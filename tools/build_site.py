@@ -2,8 +2,8 @@
 """Build the static Catputer project showcase.
 
 The builder copies a small, explicit public allowlist into ``build/site`` and
-writes one self-contained HTML page.  It never crawls the workspace, embeds
-remote resources, or turns missing renders/audio into placeholder downloads.
+writes a static HTML page. The optional USB installer loads pinned ESP Web
+Tools on request. Missing renders/audio never become placeholder downloads.
 Screenshots and the scene animation come from ``tools/export_media.py`` and
 remain labeled as desktop evidence until the physical ADV has been tested.
 """
@@ -24,8 +24,10 @@ from typing import Any, Iterable
 from urllib.parse import quote, urlsplit
 import zipfile
 try:
+    from .build_full_image import BOOTLOADER_OFFSET, build_full_image
     from .build_release import music_profile, read_version
 except ImportError:
+    from build_full_image import BOOTLOADER_OFFSET, build_full_image
     from build_release import music_profile, read_version
 
 
@@ -33,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MEDIA_ROOT = ROOT / "docs/media"
 OUTPUT_ROOT = ROOT / "build/site"
 REPOSITORY_URL = "https://github.com/m0rg0t/catputer"
+ESP_WEB_TOOLS_URL = "https://cdn.jsdelivr.net/npm/esp-web-tools@10.4.0/dist/web/install-button.js"
 
 PUBLIC_DOCS = (
     "README.md",
@@ -448,6 +451,92 @@ def copy_player(root: Path, output_root: Path) -> list[str]:
     return [copy_allowed(source, output_root / "player" / source.name, root) for source in sources]
 
 
+def publish_web_installer(root: Path, output_root: Path) -> dict[str, str]:
+    archive, full_image = build_full_image(root)
+    filename = f"{archive.stem}.bin"
+    source = ensure_inside(archive.with_suffix("") / filename, root / "dist")
+    sha256 = sha256_file(source)
+    if sha256 != full_image["files"][filename]["sha256"]:
+        raise ValueError("Standalone firmware SHA-256 mismatch")
+
+    directory = output_root / "firmware" / sha256[:16]
+    image_path = directory / filename
+    copy_allowed(source, image_path, root / "dist")
+    manifest_path = directory / "manifest.json"
+    manifest_path.write_text(json.dumps({
+        "name": "Catputer Standalone",
+        "version": full_image["version"],
+        "new_install_prompt_erase": True,
+        "new_install_improv_wait_time": 0,
+        "builds": [{"chipFamily": "ESP32-S3", "parts": [{"path": filename, "offset": BOOTLOADER_OFFSET}]}],
+    }, indent=2) + "\n", encoding="utf-8")
+    return {
+        "manifest": manifest_path.relative_to(output_root).as_posix(),
+        "image": image_path.relative_to(output_root).as_posix(),
+        "sha256": sha256,
+        "version": full_image["version"],
+    }
+
+
+def render_web_installer(installer: dict[str, str], revision: str) -> str:
+    return f"""<article class="panel" id="web-install">
+      <h3>Install over USB</h3>
+      <p>Standalone firmware {html.escape(installer['version'])} for M5Stack Cardputer ADV. The browser installation still needs a hardware test.</p>
+      <p class="install-warning"><strong>This replaces the current firmware and launcher.</strong>
+        Installed apps and data in internal flash may be lost. To keep M5Apps, use the SD installation.</p>
+      <ol>
+        <li>Open this page in desktop Chrome or Edge.</li>
+        <li>Switch the Cardputer ADV off. Hold <strong>G0</strong>, connect a USB-C data cable to your computer, then release G0.</li>
+        <li>Select <strong>Connect and install</strong>, choose the device port and follow the prompts.
+          Leave <strong>Erase device</strong> unchecked. Restart the device if Catputer does not start automatically.</li>
+      </ol>
+      <div id="usb-controls" hidden>
+        <label class="usb-consent"><input type="checkbox" id="allow-standalone" autocomplete="off"> I want to replace the firmware on my Cardputer ADV.</label>
+        <esp-web-install-button manifest="{html.escape(installer['manifest'])}">
+          <button class="button primary" type="button" slot="activate" disabled>Connect and install</button>
+        </esp-web-install-button>
+      </div>
+      <p id="usb-status" role="status" hidden></p>
+      <noscript><p>Enable JavaScript for USB installation, or use the full image below.</p></noscript>
+      <p><a href="{html.escape(installer['image'])}" download>Download full image</a> ·
+        <a href="{REPOSITORY_URL}/blob/{revision}/docs/INSTALL_FULL.md">Manual install and recovery</a></p>
+      <details class="firmware-hash"><summary>Full image SHA-256</summary><code>{installer['sha256']}</code></details>
+      <script type="module">
+        const controls = document.querySelector('#usb-controls');
+        const consent = document.querySelector('#allow-standalone');
+        const connect = controls.querySelector('button');
+        const status = document.querySelector('#usb-status');
+
+        function showStatus(text) {{
+          status.textContent = text;
+          status.hidden = !text;
+        }}
+
+        if (!window.isSecureContext || !('serial' in navigator) || /Android|iPhone|iPad/.test(navigator.userAgent)) {{
+          showStatus('USB installation requires desktop Chrome or Edge on HTTPS or localhost.');
+        }} else {{
+          controls.hidden = false;
+          consent.checked = false;
+          consent.addEventListener('change', async () => {{
+            connect.disabled = true;
+            if (!consent.checked) return;
+            if (!customElements.get('esp-web-install-button')) {{
+              showStatus('Loading USB installer…');
+              try {{
+                await import('{ESP_WEB_TOOLS_URL}');
+              }} catch {{
+                showStatus('The USB installer could not load. Reload the page or use the full image below.');
+                return;
+              }}
+            }}
+            showStatus('');
+            connect.disabled = !consent.checked;
+          }});
+        }}
+      </script>
+    </article>"""
+
+
 def render_player(player_files: list[str]) -> str:
     if not player_files:
         return ""
@@ -604,6 +693,13 @@ kbd { display:inline-flex; justify-content:center; min-width:42px; padding:7px 5
 .panel p { color:var(--muted); }
 .panel ol { margin:14px 0 0; padding-left:20px; color:#c9d2d5; }
 .panel li + li { margin-top:8px; }
+#install { scroll-margin-top:85px; }
+.panel .install-warning { border-left:3px solid var(--orange); padding-left:12px; color:var(--cream); }
+.usb-consent { display:flex; align-items:baseline; gap:8px; margin:16px 0 10px; color:#c9d2d5; }
+.usb-consent input { accent-color:var(--orange); }
+#web-install button:disabled { opacity:.5; }
+.firmware-hash { font-size:.85rem; overflow-wrap:anywhere; }
+.build-details { margin-top:18px; }
 .downloads { display:grid; gap:8px; margin-top:12px; }
 .download { display:flex; justify-content:space-between; gap:18px; border:1px solid var(--line); background:var(--panel2); padding:11px 13px; color:var(--cream); }
 .download span { color:var(--muted); font-size:.72rem; }
@@ -627,6 +723,7 @@ def render_index(
     releases: list[dict[str, Any]],
     copied_docs: list[str],
     player_files: list[str] | None = None,
+    web_installer: dict[str, str] | None = None,
 ) -> str:
     hero = screens[0]
     hero_image = html.escape(hero["native"])
@@ -657,8 +754,12 @@ def render_index(
     player_nav = '<li><a href="#live">Live</a></li>' if player_html else ''
     player_script = '<script src="player/player.js" defer></script>' if player_html else ''
     release_html = render_releases(releases)
+    source_revision = git_revision()
+    installer_html = render_web_installer(web_installer, source_revision) if web_installer else ''
+    installer_link = '<a class="button" href="#install">Install on Cardputer ADV</a>' if web_installer else ''
+    install_layout = ' class="columns"' if web_installer else ''
     docs_html = " · ".join(
-        f'<a href="{REPOSITORY_URL}/blob/{git_revision()}/{html.escape(path.removeprefix("source/"))}">{html.escape(Path(path).name)}</a>' for path in copied_docs
+        f'<a href="{REPOSITORY_URL}/blob/{source_revision}/{html.escape(path.removeprefix("source/"))}">{html.escape(Path(path).name)}</a>' for path in copied_docs
     )
     return f"""<!doctype html>
 <html lang="en">
@@ -670,10 +771,10 @@ def render_index(
   <style>{STYLE}</style>
 </head>
 <body>
-  <header><div class="wrap"><nav><a class="wordmark" href="#top">Catputer</a><ul><li><a href="#scene">Scene</a></li>{player_nav}<li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Build</a></li><li><a href="https://github.com/m0rg0t/catputer">GitHub</a></li></ul></nav></div></header>
+  <header><div class="wrap"><nav><a class="wordmark" href="#top">Catputer</a><ul><li><a href="#scene">Scene</a></li>{player_nav}<li><a href="#audio">Audio</a></li><li><a href="#controls">Controls</a></li><li><a href="#install">Install</a></li><li><a href="https://github.com/m0rg0t/catputer">GitHub</a></li></ul></nav></div></header>
   <main id="top">
     <div class="wrap"><section class="hero" style="border-top:0">
-      <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for slow days and long nights.</h1><p class="lead">Catputer composes a quiet stream on the device while an original pixel-art cat reads beside the window. Four moods bring warm daylight or a rainy night to the built-in 240 × 135 room. No network or SD card is needed to play.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a></div></div>
+      <div><div class="eyebrow">Cardputer ADV · offline radio</div><h1>A small room for slow days and long nights.</h1><p class="lead">Catputer composes a quiet stream on the device while an original pixel-art cat reads beside the window. Four moods bring warm daylight or a rainy night to the built-in 240 × 135 room. No network or SD card is needed to play.</p>{evidence_badge()}<div class="hero-actions"><a class="button primary" href="#scene">See the room</a><a class="button" href="#controls">Learn the keys</a>{installer_link}</div></div>
       <div class="hero-frame"><img src="{hero_image}" alt="{html.escape(hero['label'])} desktop render at 240 by 135 pixels"><div class="caption">{html.escape(hero['label'])} · native renderer capture · 240×135 · physical display unverified</div></div>
     </section></div>
     <section id="scene"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Shared renderer evidence</div><h2>Rain, light, and a cat with a pulse.</h2></div><p>The screenshots use the same drawing code compiled for the native preview. They are desktop renders, shown at the device’s native size and an integer nearest-neighbour scale.</p></div>
@@ -686,7 +787,11 @@ def render_index(
     <section id="controls"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Keyboard map</div><h2>Quiet controls stay close.</h2></div><p>Essential actions are one key away, with menus using Enter/Esc and comma, period, slash navigation.</p></div><div class="controls">
       <div class="control"><kbd>SPACE</kbd><span>Play or pause with a short fade.</span></div><div class="control"><kbd>- / =</kbd><span>Volume 0–300%; stronger upper range with controlled peaks.</span></div><div class="control"><kbd>N</kbd><span>Request the next session at the next musical boundary.</span></div><div class="control"><kbd>M</kbd><span>Choose a mood.</span></div><div class="control"><kbd>F</kbd><span>Toggle the current session favorite.</span></div><div class="control"><kbd>L</kbd><span>Open favorite sessions.</span></div><div class="control"><kbd>V</kbd><span>Toggle the clean scene view.</span></div><div class="control"><kbd>S</kbd><span>Set BPM, volume, sleep timer, automatic dimming and motion.</span></div><div class="control"><kbd>I</kbd><span>Choose chord, melody and bass sounds; AUTO, 4/4, 3/4 or 6/8 meter.</span></div><div class="control"><kbd>E</kbd><span>Compare synth and hybrid engines.</span></div><div class="control"><kbd>H</kbd><span>Open the on-device key guide.</span></div><div class="control"><kbd>ENTER / ESC</kbd><span>Confirm a menu choice or go back.</span></div>
     </div><p class="muted">S → SLEEP: Off / 30 / 60 / 90 minutes, with a final 30-second fade to pause. S → AUTO DIM: Off / 30 / 60 / 120 seconds. The first keypress wakes the screen without changing playback.</p></div></section>
-    <section id="install"><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Build and install</div><h2>Build a little radio.</h2></div><p>The preview can be inspected on a desktop today. Physical audio, LCD, battery, key and install behavior still need an ADV run. The original Cardputer can start the app but has never been tested.</p></div><div class="columns"><article class="panel"><h3>Build the preview</h3><ol><li>Build the C++17 native target using the README commands.</li><li>Run the native renderer to create <code>build/screens/*.ppm</code> and <code>build/animation/*.ppm</code>.</li><li>Run <code>python tools/export_media.py</code> with Pillow to create the public PNG/GIF evidence.</li><li>Run <code>python tools/build_site.py</code> to regenerate this offline page.</li></ol><p>Source revision: <code>{revision}</code><br>Media evidence generated: <code>{generated}</code></p></article><article class="panel"><h3>Install path</h3><p>The planned device route is M5Apps → Installer → SD. The baseline application is intended to keep playing after the installation card is removed; this behavior is a physical verification item.</p><p>Optional audio MP3s are host listening evidence only. The development download below includes installation instructions and checksums. Physical verification is still pending.</p><div class="downloads">{release_html}</div></article></div></div></section>
+    <section id="install"><div class="wrap">
+      <div class="section-intro"><h2>Install Catputer</h2><p>Development firmware for M5Stack Cardputer ADV. The original Cardputer remains untested.</p></div>
+      <div{install_layout}>{installer_html}<article class="panel"><h3>Install with M5Apps</h3><p>To keep your launcher and installed apps, copy the app BIN onto your SD card and open <strong>M5Apps → Installer → SD</strong>.</p><p><a href="{REPOSITORY_URL}/blob/{source_revision}/docs/INSTALL.md">M5Apps installation guide</a></p><div class="downloads">{release_html}</div></article></div>
+      <details class="panel build-details"><summary>Build the desktop preview</summary><ol><li>Build the C++17 native target using the README commands.</li><li>Run the native renderer to create <code>build/screens/*.ppm</code> and <code>build/animation/*.ppm</code>.</li><li>Run <code>python tools/export_media.py</code> with Pillow to create the public PNG/GIF evidence.</li><li>Run <code>python tools/build_site.py</code> to regenerate this page.</li></ol><p>Source revision <code>{revision}</code><br>Media evidence generated <code>{generated}</code></p></details>
+    </div></section>
     <section><div class="wrap"><div class="section-intro"><div><div class="eyebrow">Source notes</div><h2>Made to be explored.</h2></div><p>Original room and cat artwork was created with imagegen, then adapted to the LCD palette. Every scene shown here is captured from the shared renderer. This showcase uses local assets without external fonts or tracking scripts.</p></div><div class="panel"><p>Selected project documents: {docs_html or '<span class="muted">none copied</span>'}</p><p class="muted">The native captures are not a hardware certification. Current results and remaining device checks are in VERIFICATION.md.</p></div></div></section>
   </main>
   <footer><div class="wrap">Catputer · an offline lofi radio for Cardputer ADV · <a href="https://github.com/m0rg0t/catputer">Explore the source on GitHub</a></div></footer>
@@ -719,7 +824,7 @@ def render_index(
 """
 
 
-def build_site(media_root: Path, output_root: Path) -> dict[str, Any]:
+def build_site(media_root: Path, output_root: Path, *, with_web_installer: bool = False) -> dict[str, Any]:
     media_root = media_root.resolve()
     output_root = output_root.resolve()
     build_root = (ROOT / "build").resolve()
@@ -737,7 +842,8 @@ def build_site(media_root: Path, output_root: Path) -> dict[str, Any]:
     copied_docs = copy_docs(ROOT, output_root)
     releases = copy_release(ROOT, output_root)
     player_files = copy_player(ROOT, output_root)
-    index = render_index(output_root, manifest, screens, copied_media, audio_pairs, releases, copied_docs, player_files)
+    web_installer = publish_web_installer(ROOT, output_root) if with_web_installer else None
+    index = render_index(output_root, manifest, screens, copied_media, audio_pairs, releases, copied_docs, player_files, web_installer)
     (output_root / "index.html").write_text(index, encoding="utf-8")
     site_manifest = {
         "schema_version": 1,
@@ -752,6 +858,7 @@ def build_site(media_root: Path, output_root: Path) -> dict[str, Any]:
             + [item["scaled"] for item in screens],
             "audio": [entry["path"] for pair in audio_pairs for entry in pair["engines"] if entry.get("available")],
             "player": player_files,
+            "web_installer": [web_installer["manifest"], web_installer["image"]] if web_installer else [],
             "source_docs": copied_docs,
             "release_files": [entry["path"] for entry in releases],
         },
@@ -766,13 +873,14 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--media-dir", type=Path, default=MEDIA_ROOT, help="export_media.py output directory")
     parser.add_argument("--output", type=Path, default=OUTPUT_ROOT, help="ignored static output directory")
+    parser.add_argument("--web-installer", action="store_true", help="build and publish a standalone USB installer from the ADV firmware build")
     return parser.parse_args(list(argv) if argv is not None else None)
 
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        manifest = build_site(args.media_dir, args.output)
+        manifest = build_site(args.media_dir, args.output, with_web_installer=args.web_installer)
     except (OSError, ValueError) as error:
         print(f"build_site.py: {error}", file=sys.stderr)
         return 1

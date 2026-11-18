@@ -103,7 +103,7 @@ Public packaging must exclude private favorites/settings, serial logs, device du
 
 The project site is published at <https://m0rg0t.github.io/catputer/>. The repository's Pages source is **GitHub Actions**. The workflow in [pages.yml](../.github/workflows/pages.yml) runs on pushes to `main` and supports manual dispatch.
 
-Each run builds the pinned PlatformIO firmware and the native renderer, runs the native and Python checks, exports fresh PNG captures, day/night GIFs and eight matched 180-second MP3 demos, and creates the validated application-only package. The site builder checks media, audio and package hashes before the workflow uploads only `build/site`. The build needs no OpenRouter, ElevenLabs or other private API keys.
+Each run builds the pinned PlatformIO firmware and the native renderer, runs the native and Python checks, exports fresh PNG captures, day/night GIFs and eight matched 180-second MP3 demos, and creates the validated application-only package. The site builder checks media, audio and package hashes before the workflow uploads only `build/site`. With `--web-installer`, it also builds the standalone image and publishes that BIN with a relative ESP Web Tools manifest for ESP32-S3 at `0x0`. The installer loads ESP Web Tools 10.4.0 from jsDelivr after the visitor confirms the firmware replacement. The build needs no OpenRouter, ElevenLabs or other private API keys.
 
 The deployment job runs only after a successful build, with Pages write and OpenID Connect permissions scoped to that job and the `github-pages` environment. A failed build leaves the previous site online. The website serves a development candidate; deployment does not establish hardware verification or create a tagged firmware release.
 

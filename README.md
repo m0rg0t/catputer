@@ -111,7 +111,9 @@ Pinned stack: espressif32 `7.0.1`, M5Unified `0.2.17`, M5GFX `0.2.22`, M5Cardput
 
 For a device without M5Apps, `python3 tools/build_full_image.py` also packages a standalone whole-flash image (bootloader, partition table and application). Writing it replaces the installed launcher; see [the full-image guide](docs/INSTALL_FULL.md). It was written to one Cardputer ADV on 2026-11-11 and its owner reported that startup, music, keys and SD settings work from it; nothing was measured.
 
-Use **M5Apps → Installer → SD** with the application BIN. Follow the [installation guide](docs/INSTALL.md), including compatibility and SD details. The project does not include a whole-device flash or erase script. Build/package commands never flash the device.
+To install standalone Catputer from desktop Chrome or Edge, use the [USB installer on the project site](https://m0rg0t.github.io/catputer/#install). The browser installation still needs a physical Cardputer ADV test.
+
+To keep your launcher and existing apps, use **M5Apps → Installer → SD** with the application BIN. Follow the [installation guide](docs/INSTALL.md), including compatibility and SD details. Build/package commands never flash the device.
 
 ## Samples, screenshots and site
 
@@ -131,7 +133,7 @@ python3 -m http.server 8080 --directory build/site
 
 `python3 tools/build_web.py` compiles the same music engine to WebAssembly for a live player on the site; it needs Emscripten's `em++` (built here with 7.0.0). When `build/web` is complete, `build_site.py` adds a "Live" section with Play, mood and next-session controls. The 95 KB module plays the same PCM as the native build. The Pages workflow installs Emscripten and builds it; that workflow step has not run yet.
 
-The [GitHub Pages workflow](.github/workflows/pages.yml) rebuilds the firmware, native screenshots, both scene animations and eight audio demos on each push to `main`, then publishes only the generated `build/site` directory. It can also be run manually from GitHub Actions. No audio-generation API keys are needed. See [site deployment](docs/DELIVERY.md#github-pages-deployment) for details.
+The [GitHub Pages workflow](.github/workflows/pages.yml) rebuilds the firmware, native screenshots, both scene animations and eight audio demos on each push to `main`, then publishes only the generated `build/site` directory. To include the USB installer in a local site build, build the ADV firmware and run `python3 tools/build_site.py --web-installer`. No audio-generation API keys are needed. See [site deployment](docs/DELIVERY.md#github-pages-deployment) for details.
 
 The built-in bank is reproducible from [generate_samples.py](tools/generate_samples.py); [prepare_samples.py](tools/prepare_samples.py) validates and emits the flash bank. Optional ElevenLabs generation happens on the development computer using an environment key, with bounded requests and private raw outputs. It is never part of firmware playback. See the tools' `--help` and [audio asset notes](assets/audio/README.md).
 
