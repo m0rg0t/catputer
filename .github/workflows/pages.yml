@@ -35,9 +35,11 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y ffmpeg
-          python -m pip install -r tools/requirements-media.txt platformio==6.1.19
+          python -m pip install -r tools/requirements-media.txt platformio==6.1.19 imageio-ffmpeg==0.8.1
+          ffmpeg_bin="$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')"
+          mkdir -p "$RUNNER_TEMP/ffmpeg-bin"
+          ln -s "$ffmpeg_bin" "$RUNNER_TEMP/ffmpeg-bin/ffmpeg"
+          printf '%s\n' "$RUNNER_TEMP/ffmpeg-bin" >> "$GITHUB_PATH"
 
       - name: Build Cardputer ADV application
         run: pio run -d firmware -e lofi-adv -j 2
